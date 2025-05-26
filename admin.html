@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>Pizza Hut - Admin</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+</head>
+<body class="p-4 max-w-xl mx-auto text-gray-900">
+
+  <div class="flex justify-between items-center mb-4">
+    <h1 class="text-3xl font-bold flex items-center">
+      📋 Incoming Orders 
+      <span id="new-order-badge" class="ml-2 bg-red-600 text-white text-sm font-semibold px-2 py-1 rounded-full hidden">New</span>
+    </h1>
+    <div>
+      <button id="mark-as-read" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 hidden mr-2">Mark as Read</button>
+      <button id="logout" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">Logout</button>
+    </div>
+  </div>
+
+  <div id="statistics" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+    <div class="bg-blue-100 p-4 rounded shadow">
+      <h2 class="text-lg font-semibold">Total Orders</h2>
+      <p id="total-orders" class="text-2xl font-bold">0</p>
+    </div>
+    <div class="bg-green-100 p-4 rounded shadow">
+      <h2 class="text-lg font-semibold">Total Revenue</h2>
+      <p id="total-revenue" class="text-2xl font-bold">0 MAD</p>
+    </div>
+    <div class="bg-yellow-100 p-4 rounded shadow">
+      <h2 class="text-lg font-semibold">Pending Orders</h2>
+      <p id="pending-orders" class="text-2xl font-bold">0</p>
+    </div>
+    <div class="bg-purple-100 p-4 rounded shadow">
+      <h2 class="text-lg font-semibold">Preparing Orders</h2>
+      <p id="preparing-orders" class="text-2xl font-bold">0</p>
+    </div>
+    <div class="bg-red-100 p-4 rounded shadow">
+      <h2 class="text-lg font-semibold">Completed Orders</h2>
+      <p id="completed-orders" class="text-2xl font-bold">0</p>
+    </div>
+  </div>
+
+  <div class="flex flex-col sm:flex-row justify-between items-center mb-4">
+    <input id="search-bar" type="text" placeholder="Search by table #" class="border p-2 rounded w-full sm:w-auto mb-2 sm:mb-0 sm:mr-2" />
+    <select id="status-filter" class="border p-2 rounded w-full sm:w-auto">
+      <option value="">All Statuses</option>
+      <option value="pending">Pending</option>
+      <option value="preparing">Preparing</option>
+      <option value="completed">Completed</option>
+    </select>
+  </div>
+
+  <button onclick="window.print()" style="background:#3182ce;color:white;padding:10px;border:none;border-radius:5px;margin-bottom:20px;cursor:pointer;">
+    Print Orders
+  </button>
+
+  <div id="orders" class="space-y-4"></div>
+  <div id="pagination" class="flex justify-center items-center mt-4 space-x-2"></div>
+
+  <div id="order-modal" class="fixed inset-0 bg-gray-800 bg-opacity-50 hidden flex items-center justify-center z-50" aria-hidden="true">
+    <div class="bg-white w-full max-w-md rounded-lg shadow-lg p-6 overflow-y-auto max-h-[90vh]">
+      <h2 id="modal-title" class="text-xl font-bold mb-3">Order Details</h2>
+      <div id="modal-body" class="space-y-2"></div>
+      <button id="close-modal" class="bg-red-600 text-white px-4 py-2 rounded mt-4 hover:bg-red-700">Close</button>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="firebase.js"></script>
+  <script>
+    const auth = firebase.auth();
+    const container = document.getElementById("orders");
+    const paginationDiv = document.getElementById("pagination");
+    const searchBar = document.getElementById("search-bar");
+    const statusFilter = document.getElementById("status-filter");
+
+    const modal = document.getElementById("order-modal");
+    const modalBody = document.getElementById("modal-body");
+    const closeModal = document.getElementById("close-modal");
+
+    const totalOrdersEl = document.getElementById("total-orders");
+    const totalRevenueEl = document.getElementById("total-revenue");
+    const pendingOrdersEl = document.getElementById("pending-orders");
+    const preparingOrdersEl = document.getElementById("preparing-orders");
+    const completedOrdersEl = document.getElementById("completed-orders");
+
+    const newOrderBadge = document.getElementById("new-order-badge");
+    const markAsReadBtn = document.getElementById("mark-as-read");
+    const logoutBtn = document.getElementById("logout");
+
+    let allOrders = [];
+    let filteredOrders = [];
+    let currentPage = 1;
+    const ORDERS_PER_PAGE = 20;
+
+    let pendingOrdersSeen = sessionStorage.getItem("pendingOrdersSeen") === "true";
+
+    function escapeHTML(str) {
+      return String(str).replace(/[<>&"']/g, s => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;" }[s]));
+    }
+
+    function updateStatistics() {
+      const totalOrders = allOrders.length;
+      const totalRevenue = allOrders.reduce((sum, { order }) => sum + order.total, 0);
+      const pendingOrders = allOrders.filter(({ order }) => order.status === "pending").length;
+      const preparingOrders = allOrders.filter(({ order }) => order.status === "preparing").length;
+      const completedOrders = allOrders.filter(({ order }) => order.status === "completed").length;
+
+      totalOrdersEl.textContent = totalOrders;
+      totalRevenueEl.textContent = `${totalRevenue} MAD`;
+      pendingOrdersEl.textContent = pendingOrders;
+      preparingOrdersEl.textContent = preparingOrders;
+      completedOrdersEl.textContent = completedOrders;
+
+      if (pendingOrders > 0 && !pendingOrdersSeen) {
+        newOrderBadge.classList.remove("hidden");
+        markAsReadBtn.classList.remove("hidden");
+      } else {
+        newOrderBadge.classList.add("hidden");
+        markAsReadBtn.classList.add("hidden");
+      }
+    }
+
+    function applyFilters() {
+      const searchTerm = searchBar.value.toLowerCase();
+      const status = statusFilter.value;
+
+      filteredOrders = allOrders.filter(({ order }) => {
+        const matchesSearch = order.table.toString().includes(searchTerm);
+        const matchesStatus = status ? order.status === status : true;
+        return matchesSearch && matchesStatus;
+      });
+
+      renderOrdersPage(currentPage = 1);
+    }
+
+    function renderOrdersPage(page) {
+      container.innerHTML = "";
+      if (!filteredOrders.length) {
+        container.innerHTML = "<p class='text-center text-gray-500'>No orders found. Please check again later.</p>";
+        paginationDiv.innerHTML = "";
+        return;
+      }
+      const start = (page - 1) * ORDERS_PER_PAGE;
+      const end = start + ORDERS_PER_PAGE;
+      const pageOrders = filteredOrders.slice(start, end);
+
+      pageOrders.forEach(({ id, order }) => {
+        const div = document.createElement("div");
+        div.className = "bg-white rounded shadow p-4";
+        div.innerHTML = `
+          <h2 class="font-bold text-lg mb-2">Table #${escapeHTML(order.table)}</h2>
+          <p class="font-semibold mb-1">Status: <span class="capitalize">${escapeHTML(order.status)}</span></p>
+          <ul class="mb-2">
+            ${order.items.map(i => `<li>${i.qty} x ${escapeHTML(i.name)} (${i.price} MAD)</li>`).join("")}
+          </ul>
+          <p class="font-semibold">Total: ${order.total} MAD</p>
+          <button onclick="viewOrderDetails('${id}')" class="text-blue-500 underline mt-2">View Details</button>
+        `;
+        container.appendChild(div);
+      });
+
+      const totalPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE);
+      let pagHtml = "";
+
+      if (page > 1) {
+        pagHtml += `<button onclick="goToPage(1)" class="px-2 py-1 bg-gray-200 rounded">First</button>`;
+        pagHtml += `<button onclick="goToPage(${page - 1})" class="px-2 py-1 bg-gray-200 rounded">Previous</button>`;
+      }
+      for (let i = 1; i <= totalPages; i++) {
+        pagHtml += `<button onclick="goToPage(${i})" class="px-2 py-1 ${i === page ? 'bg-blue-500 text-white' : 'bg-gray-200'} rounded">${i}</button>`;
+      }
+      if (page < totalPages) {
+        pagHtml += `<button onclick="goToPage(${page + 1})" class="px-2 py-1 bg-gray-200 rounded">Next</button>`;
+        pagHtml += `<button onclick="goToPage(${totalPages})" class="px-2 py-1 bg-gray-200 rounded">Last</button>`;
+      }
+
+      paginationDiv.innerHTML = pagHtml;
+    }
+
+    function goToPage(page) {
+      currentPage = page;
+      renderOrdersPage(page);
+    }
+
+    function viewOrderDetails(orderId) {
+      const order = allOrders.find(({ id }) => id === orderId)?.order;
+      if (!order) return;
+
+      modalBody.innerHTML = `
+        <p><strong>Table Number:</strong> ${order.table}</p>
+        <p><strong>Status:</strong> <span class="capitalize">${escapeHTML(order.status)}</span></p>
+        <p><strong>Total:</strong> ${order.total} MAD</p>
+        <ul>
+          ${order.items.map(i => `<li>${i.qty} x ${escapeHTML(i.name)} (${i.price} MAD)</li>`).join("")}
+        </ul>
+      `;
+      modal.classList.remove("hidden");
+      modal.setAttribute("aria-hidden", "false");
+    }
+
+    closeModal.addEventListener("click", () => {
+      modal.classList.add("hidden");
+      modal.setAttribute("aria-hidden", "true");
+    });
+
+    markAsReadBtn.addEventListener("click", () => {
+      const updates = {};
+      allOrders.forEach(({ id, order }) => {
+        if (order.status === "pending") {
+          updates[`${id}/status`] = "preparing";
+        }
+      });
+      if (Object.keys(updates).length) {
+        db.ref("orders").update(updates)
+          .then(() => {
+            pendingOrdersSeen = true;
+            sessionStorage.setItem("pendingOrdersSeen", "true");
+            newOrderBadge.classList.add("hidden");
+            markAsReadBtn.classList.add("hidden");
+          })
+          .catch(console.error);
+      }
+    });
+
+    logoutBtn.addEventListener("click", () => {
+      auth.signOut().then(() => {
+        window.location.href = "admin-login.html";
+      });
+    });
+
+    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        window.location.href = "admin-login.html";
+      } else {
+        db.ref("orders").on("value", snapshot => {
+          const data = snapshot.val();
+          console.log("Orders data from Firebase:", data);
+          if (!data) {
+            allOrders = [];
+            filteredOrders = [];
+          } else {
+            allOrders = Object.entries(data).reverse().map(([id, order]) => ({ id, order }));
+            filteredOrders = allOrders;
+          }
+          updateStatistics();
+          renderOrdersPage(currentPage = 1);
+        });
+      }
+    });
+
+    searchBar.addEventListener("input", applyFilters);
+    statusFilter.addEventListener("change", applyFilters);
+  </script>
+</body>
+</html>

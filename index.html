@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pizza hut - Welcome</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="bg-red-50 min-h-screen flex flex-col items-center justify-center">
+  <div class="flex flex-col items-center justify-center flex-1 w-full px-4">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="w-40 mb-8 mt-12 rounded shadow" />
+    <h1 id="welcome-title" class="text-4xl font-extrabold text-red-700 mb-6 text-center">Welcome to Pizza Hut</h1>
+    <a id="order-now-btn" href="menu.html" class="bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg px-8 py-4 shadow-lg transition mb-10">Order Now</a>
+    <select id="language-switcher" class="mt-2 mb-8 p-2 rounded border w-40 text-center">
+      <option value="en">English</option>
+      <option value="fr">Français</option>
+      <option value="ar">العربية</option>
+    </select>
+  </div>
+  <script src="lang.js"></script>
+  <script>
+    // Add translations for the welcome page
+    const welcomeTranslations = {
+      en: {
+        title: "Welcome to Pizza Hut",
+        orderNow: "Order Now"
+      },
+      fr: {
+        title: "Bienvenue chez Pizza Hut",
+        orderNow: "Commander"
+      },
+      ar: {
+        title: "مرحبًا بكم في بيتزا هت",
+        orderNow: "اطلب الآن"
+      }
+    };
+
+    function applyWelcomeLanguage(lang) {
+      const t = welcomeTranslations[lang] || welcomeTranslations["en"];
+      document.getElementById("welcome-title").textContent = t.title;
+      document.getElementById("order-now-btn").textContent = t.orderNow;
+      document.documentElement.lang = lang;
+    }
+
+    // Sync language switcher across pages via localStorage
+    const switcher = document.getElementById("language-switcher");
+    let currentLang = localStorage.getItem("lang") || "en";
+    switcher.value = currentLang;
+    applyWelcomeLanguage(currentLang);
+
+    switcher.addEventListener("change", (e) => {
+      localStorage.setItem("lang", e.target.value);
+      applyWelcomeLanguage(e.target.value);
+    });
+  </script>
+</body>
+</html>
