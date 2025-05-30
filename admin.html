@@ -102,6 +102,31 @@
     </button>
   </div>
 
+  <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+  <h2 class="text-2xl font-bold mb-4 text-gray-800">Menu Management</h2>
+
+  <div class="mb-6">
+    <h3 class="text-xl font-semibold mb-3 text-gray-700">Categories</h3>
+    <div id="categories-list" class="space-y-2 mb-3">
+      </div>
+    <input type="text" id="new-category-name" placeholder="New category name" class="border p-2 rounded-lg w-full md:w-auto mb-2">
+    <button id="add-category-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Add Category</button>
+  </div>
+
+  <div id="item-management-section" class="mb-6">
+    <h3 class="text-xl font-semibold mb-3 text-gray-700">Manage Items for: <span id="current-editing-category" class="text-red-600"></span></h3>
+    <div id="items-list" class="space-y-2 mb-3">
+      </div>
+    <h4 class="text-lg font-medium mb-2">Add New Item</h4>
+    <input type="text" id="new-item-name" placeholder="Item Name" class="border p-2 rounded-lg w-full mb-2">
+    <textarea id="new-item-desc" placeholder="Item Description (optional)" class="border p-2 rounded-lg w-full mb-2"></textarea>
+    <input type="number" id="new-item-price" placeholder="Price (DH)" class="border p-2 rounded-lg w-full mb-2">
+    <button id="add-item-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Add Item</button>
+  </div>
+</div>
+
+<script src="admin-menu.js"></script>
+
   <div class="mb-8">
     <h2 class="text-2xl font-bold mb-4 text-gray-800">Active Orders</h2>
     <div id="active-orders" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
