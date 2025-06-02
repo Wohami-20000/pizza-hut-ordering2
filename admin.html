@@ -8,398 +8,569 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet" />
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-    body {
-      font-family: 'Poppins', sans-serif;
-      background-color: #f3f4f6;
-    }
-    .order-card {
-      transition: all 0.3s ease;
-    }
-    .order-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    }
+    body { font-family: 'Poppins', sans-serif; }
+    .order-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.1); }
+    .active-nav-link { background-color: #4A5568; color: white !important; }
+    aside .nav-link { display: flex; align-items: center; color: #D1D5DB; }
+    aside .nav-link:hover { background-color: #374151; color: white; }
+    aside .nav-link .fa-fw { width: 1.25em; text-align: center; }
+    .content-section.hidden { display: none !important; }
+    #sidebar { transition: transform 0.3s ease-in-out; }
   </style>
-</head>
-<body class="p-4 md:p-8 max-w-6xl mx-auto text-gray-900">
-  <header class="bg-white shadow-md rounded-lg p-6 mb-8">
-    <div class="flex justify-between items-center">
-      <h1 class="text-3xl font-bold flex items-center text-red-600">
-        <i class="fas fa-pizza-slice mr-3"></i> Pizza Hut Admin
-        <span id="new-order-badge" class="ml-2 bg-red-600 text-white text-sm font-semibold px-2 py-1 rounded-full hidden">New</span>
-      </h1>
-      <div>
-        <button id="mark-as-read" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300 hidden mr-2">
-          <i class="fas fa-check mr-2"></i>Mark as Read
-        </button>
-        <button id="logout" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition duration-300">
-          <i class="fas fa-sign-out-alt mr-2"></i>Logout
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <div id="statistics" class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
-    <div class="bg-white rounded-lg shadow-md p-6 flex items-center">
-      <div class="bg-blue-100 p-3 rounded-full mr-4">
-        <i class="fas fa-clipboard-list text-blue-600 text-2xl"></i>
-      </div>
-      <div>
-        <h2 class="text-lg font-semibold text-gray-600">Total Orders</h2>
-        <p id="total-orders" class="text-3xl font-bold text-blue-600">0</p>
-      </div>
-    </div>
-    <div class="bg-white rounded-lg shadow-md p-6 flex items-center">
-      <div class="bg-yellow-100 p-3 rounded-full mr-4">
-        <i class="fas fa-clock text-yellow-600 text-2xl"></i>
-      </div>
-      <div>
-        <h2 class="text-lg font-semibold text-gray-600">Pending Orders</h2>
-        <p id="pending-orders" class="text-3xl font-bold text-yellow-600">0</p>
-      </div>
-    </div>
-    <div class="bg-white rounded-lg shadow-md p-6 flex items-center">
-      <div class="bg-green-100 p-3 rounded-full mr-4">
-        <i class="fas fa-check-circle text-green-600 text-2xl"></i>
-      </div>
-      <div>
-        <h2 class="text-lg font-semibold text-gray-600">Completed Orders</h2>
-        <p id="completed-orders-count" class="text-3xl font-bold text-green-600">0</p>
-      </div>
-    </div>
-    <div class="bg-white rounded-lg shadow-md p-6 flex items-center">
-      <div class="bg-purple-100 p-3 rounded-full mr-4">
-        <i class="fas fa-utensils text-purple-600 text-2xl"></i>
-      </div>
-      <div>
-        <h2 class="text-lg font-semibold text-gray-600">Preparing Orders</h2>
-        <p id="preparing-orders" class="text-3xl font-bold text-purple-600">0</p>
-      </div>
-    </div>
-    <div class="bg-white rounded-lg shadow-md p-6 flex items-center">
-      <div class="bg-green-100 p-3 rounded-full mr-4">
-        <i class="fas fa-dollar-sign text-green-600 text-2xl"></i>
-      </div>
-      <div>
-        <h2 class="text-lg font-semibold text-gray-600">Total Revenue</h2>
-        <p id="total-revenue" class="text-3xl font-bold text-green-600">0 MAD</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-    <div class="flex flex-col md:flex-row justify-between items-center mb-4">
-      <input id="search-bar" type="text" placeholder="Search by table #" class="border p-2 rounded-lg w-full md:w-64 mb-2 md:mb-0" />
-      <select id="status-filter" class="border p-2 rounded-lg w-full md:w-auto">
-        <option value="">All Statuses</option>
-        <option value="pending">Pending</option>
-        <option value="preparing">Preparing</option>
-        <option value="completed">Completed</option>
-      </select>
-    </div>
-    <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">
-      <i class="fas fa-print mr-2"></i>Print Orders
-    </button>
-  </div>
-
-  <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-  <h2 class="text-2xl font-bold mb-4 text-gray-800">Menu Management</h2>
-
-  <div class="mb-6">
-    <h3 class="text-xl font-semibold mb-3 text-gray-700">Categories</h3>
-    <div id="categories-list" class="space-y-2 mb-3">
-      </div>
-    <input type="text" id="new-category-name" placeholder="New category name" class="border p-2 rounded-lg w-full md:w-auto mb-2">
-    <button id="add-category-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Add Category</button>
-  </div>
-
-  <div id="item-management-section" class="mb-6">
-    <h3 class="text-xl font-semibold mb-3 text-gray-700">Manage Items for: <span id="current-editing-category" class="text-red-600"></span></h3>
-    <div id="items-list" class="space-y-2 mb-3">
-      </div>
-    <h4 class="text-lg font-medium mb-2">Add New Item</h4>
-    <input type="text" id="new-item-name" placeholder="Item Name" class="border p-2 rounded-lg w-full mb-2">
-    <textarea id="new-item-desc" placeholder="Item Description (optional)" class="border p-2 rounded-lg w-full mb-2"></textarea>
-    <input type="number" id="new-item-price" placeholder="Price (DH)" class="border p-2 rounded-lg w-full mb-2">
-    <button id="add-item-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Add Item</button>
-  </div>
-</div>
-
-  <div class="mb-8">
-    <h2 class="text-2xl font-bold mb-4 text-gray-800">Active Orders</h2>
-    <div id="active-orders" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-  </div>
-
-  <div class="mb-8">
-    <h2 class="text-2xl font-bold mb-4 text-gray-800">Completed Orders</h2>
-    <div id="completed-orders" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-  </div>
-
-  <div id="pagination" class="flex justify-center items-center mt-8 space-x-2"></div>
-
-  <div id="order-modal" class="fixed inset-0 bg-gray-800 bg-opacity-50 hidden flex items-center justify-center z-50" aria-hidden="true">
-    <div class="bg-white w-full max-w-md rounded-lg shadow-lg p-6 overflow-y-auto max-h-[90vh]">
-      <h2 id="modal-title" class="text-2xl font-bold mb-4 text-gray-800">Order Details</h2>
-      <div id="modal-body" class="space-y-3"></div>
-      <button id="close-modal" class="bg-red-600 text-white px-4 py-2 rounded-lg mt-6 hover:bg-red-700 transition duration-300">Close</button>
-    </div>
-  </div>
-
-  <audio id="newOrderSound" src="message-ringtone-magic.mp3"></audio>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <script src="firebase.js"></script>
-  <script>
-    const auth = firebase.auth();
-    const activeOrdersContainer = document.getElementById("active-orders");
-    const completedOrdersContainer = document.getElementById("completed-orders");
-    const paginationDiv = document.getElementById("pagination");
-    const searchBar = document.getElementById("search-bar");
-    const statusFilter = document.getElementById("status-filter");
+  <script src="firebase.js"></script> 
+</head>
+<body class="bg-gray-100">
 
-    const modal = document.getElementById("order-modal");
-    const modalBody = document.getElementById("modal-body");
-    const closeModal = document.getElementById("close-modal");
+  <div class="flex h-screen">
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-30 w-64 bg-gray-800 text-gray-100 p-5 space-y-4 transform -translate-x-full md:relative md:translate-x-0 md:flex md:flex-col flex-shrink-0 transition-transform duration-300 ease-in-out">
+      <div class="text-center mb-6">
+          <h2 class="text-2xl font-bold flex items-center justify-center text-white">
+              <i class="fas fa-pizza-slice fa-fw mr-2"></i>Pizza Admin
+          </h2>
+      </div>
+      <nav class="flex-grow">
+        <a href="#" data-section="dashboard" data-title="Dashboard" class="nav-link py-2.5 px-4 rounded transition duration-200 mb-1">
+          <i class="fas fa-tachometer-alt fa-fw mr-3"></i> Dashboard
+        </a>
+        <a href="#" data-section="menu-management-content" data-title="Menu Management" class="nav-link py-2.5 px-4 rounded transition duration-200 mb-1">
+          <i class="fas fa-utensils fa-fw mr-3"></i> Menu
+        </a>
+        <a href="#" data-section="parameters" data-title="Parameters" class="nav-link py-2.5 px-4 rounded transition duration-200 mb-1">
+          <i class="fas fa-cog fa-fw mr-3"></i> Parameters
+        </a>
+      </nav>
+      <div class="mt-auto pt-4 border-t border-gray-700">
+           <button id="logout-btn-sidebar" class="w-full nav-link py-2.5 px-4 rounded transition duration-200 bg-red-600 hover:bg-red-700 text-white">
+             <i class="fas fa-sign-out-alt fa-fw mr-3"></i>Logout
+           </button>
+      </div>
+    </aside>
 
-    const totalOrdersEl = document.getElementById("total-orders");
-    const totalRevenueEl = document.getElementById("total-revenue");
-    const pendingOrdersEl = document.getElementById("pending-orders");
-    const preparingOrdersEl = document.getElementById("preparing-orders");
-    const completedOrdersEl = document.getElementById("completed-orders-count");
-
-    const newOrderBadge = document.getElementById("new-order-badge");
-    const markAsReadBtn = document.getElementById("mark-as-read");
-    const logoutBtn = document.getElementById("logout");
-
-    let allOrders = [];
-    let activeOrders = [];
-    let completedOrders = [];
-    let currentPage = 1;
-    const ORDERS_PER_PAGE = 20;
-
-    let pendingOrdersSeen = sessionStorage.getItem("pendingOrdersSeen") === "true";
-
-    function escapeHTML(str) {
-      return String(str).replace(/[<>&"']/g, s => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;" }[s]));
-    }
-
-    function updateStatistics() {
-      const totalOrders = allOrders.length;
-      const totalRevenue = allOrders.reduce((sum, { order }) => sum + order.total, 0);
-      const pendingOrders = allOrders.filter(({ order }) => order.status === "pending").length;
-      const preparingOrders = allOrders.filter(({ order }) => order.status === "preparing").length;
-      const completedOrders = allOrders.filter(({ order }) => order.status === "completed").length;
-
-      totalOrdersEl.textContent = totalOrders;
-      totalRevenueEl.textContent = `${totalRevenue} MAD`;
-      pendingOrdersEl.textContent = pendingOrders;
-      preparingOrdersEl.textContent = preparingOrders;
-      completedOrdersEl.textContent = completedOrders;
-
-      if (pendingOrders > 0 && !pendingOrdersSeen) {
-        newOrderBadge.classList.remove("hidden");
-        markAsReadBtn.classList.remove("hidden");
-        document.getElementById("newOrderSound").play();
-      } else {
-        newOrderBadge.classList.add("hidden");
-        markAsReadBtn.classList.add("hidden");
-      }
-    }
-
-    function deleteOrder(orderId) {
-      if (confirm("Are you sure you want to delete this order?")) {
-        db.ref(`orders/${orderId}`).remove()
-          .then(() => console.log(`Order ${orderId} deleted successfully`))
-          .catch(error => console.error("Error deleting order:", error));
-      }
-    }
-
-    function updateOrderStatus(orderId, newStatus) {
-      db.ref(`orders/${orderId}/status`).set(newStatus)
-        .then(() => console.log(`Order ${orderId} status updated to ${newStatus}`))
-        .catch(error => console.error("Error updating order status:", error));
-    }
-
-    function renderOrder(order, id) {
-      const div = document.createElement("div");
-      div.className = "order-card bg-white rounded-lg shadow-md p-4 relative";
-      div.innerHTML = `
-        <h2 class="font-bold text-lg mb-2 text-gray-800">Table #${escapeHTML(order.table)}</h2>
-        <p class="text-sm text-gray-600 mb-2">Placed: ${new Date(order.timestamp).toLocaleString()}</p>
-        <p class="font-semibold mb-2 text-gray-700">Status: 
-          <select class="status-dropdown border rounded p-1" data-order-id="${id}">
-            <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
-            <option value="preparing" ${order.status === 'preparing' ? 'selected' : ''}>Preparing</option>
-            <option value="ready" ${order.status === 'ready' ? 'selected' : ''}>Ready</option>
-            <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completed</option>
-            <option value="canceled" ${order.status === 'canceled' ? 'selected' : ''}>Canceled</option>
-          </select>
-        </p>
-        <ul class="mb-3 text-gray-600">
-          ${order.items.map(i => `<li>${i.qty} x ${escapeHTML(i.name)} (${i.price} MAD)</li>`).join("")}
-        </ul>
-        <p class="font-semibold text-gray-800">Total: ${order.total} MAD</p>
-        <button onclick="viewOrderDetails('${id}')" class="text-blue-600 hover:text-blue-800 underline mt-2 transition duration-300">View Details</button>
-        <button onclick="deleteOrder('${id}')" class="absolute top-2 right-2 text-red-500 hover:text-red-700 transition duration-300">
-          <i class="fas fa-trash"></i>
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <header class="bg-white shadow p-4 flex justify-between items-center flex-shrink-0">
+        <button id="sidebar-toggle" class="text-gray-600 hover:text-gray-800 focus:outline-none md:hidden">
+            <i class="fas fa-bars text-xl"></i>
         </button>
-      `;
-      return div;
-    }
+        <h1 id="main-content-title" class="text-xl sm:text-2xl font-semibold text-gray-800 ml-2 md:ml-0">Dashboard</h1>
+        <div>
+          <span id="new-order-badge" class="ml-2 bg-red-600 text-white text-sm font-semibold px-2 py-1 rounded-full hidden">New</span>
+          <button id="mark-as-read" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300 hidden mr-2">
+            <i class="fas fa-check mr-2"></i>Mark as Read
+          </button>
+        </div>
+      </header>
+      
+      <main class="flex-1 p-4 md:p-6 overflow-x-hidden overflow-y-auto">
+        <section id="dashboard-section" class="content-section">
+          <div id="statistics" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
+              <div class="bg-white rounded-lg shadow-md p-6 flex items-center"><div class="bg-blue-100 p-3 rounded-full mr-4"><i class="fas fa-clipboard-list text-blue-600 text-2xl"></i></div><div><h2 class="text-lg font-semibold text-gray-600">Total Orders</h2><p id="total-orders" class="text-3xl font-bold text-blue-600">0</p></div></div>
+              <div class="bg-white rounded-lg shadow-md p-6 flex items-center"><div class="bg-yellow-100 p-3 rounded-full mr-4"><i class="fas fa-clock text-yellow-600 text-2xl"></i></div><div><h2 class="text-lg font-semibold text-gray-600">Pending Orders</h2><p id="pending-orders" class="text-3xl font-bold text-yellow-600">0</p></div></div>
+              <div class="bg-white rounded-lg shadow-md p-6 flex items-center"><div class="bg-green-100 p-3 rounded-full mr-4"><i class="fas fa-check-circle text-green-600 text-2xl"></i></div><div><h2 class="text-lg font-semibold text-gray-600">Completed Orders</h2><p id="completed-orders-count" class="text-3xl font-bold text-green-600">0</p></div></div>
+              <div class="bg-white rounded-lg shadow-md p-6 flex items-center"><div class="bg-purple-100 p-3 rounded-full mr-4"><i class="fas fa-utensils text-purple-600 text-2xl"></i></div><div><h2 class="text-lg font-semibold text-gray-600">Preparing Orders</h2><p id="preparing-orders" class="text-3xl font-bold text-purple-600">0</p></div></div>
+              <div class="bg-white rounded-lg shadow-md p-6 flex items-center"><div class="bg-green-100 p-3 rounded-full mr-4"><i class="fas fa-dollar-sign text-green-600 text-2xl"></i></div><div><h2 class="text-lg font-semibold text-gray-600">Total Revenue</h2><p id="total-revenue" class="text-3xl font-bold text-green-600">0 MAD</p></div></div>
+          </div>
+          <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+              <div class="flex flex-col md:flex-row justify-between items-center mb-4">
+                  <input id="search-bar" type="text" placeholder="Search by table #" class="border p-2 rounded-lg w-full md:w-64 mb-2 md:mb-0" />
+                  <select id="status-filter" class="border p-2 rounded-lg w-full md:w-auto">
+                      <option value="">All Statuses</option><option value="pending">Pending</option><option value="preparing">Preparing</option><option value="ready">Ready</option><option value="completed">Completed</option><option value="canceled">Canceled</option>
+                  </select>
+              </div>
+              <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300"><i class="fas fa-print mr-2"></i>Print Orders</button>
+          </div>
+          <div class="mb-8"><h2 class="text-2xl font-bold mb-4 text-gray-800">Active Orders</h2><div id="active-orders" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div></div>
+          <div class="mb-8"><h2 class="text-2xl font-bold mb-4 text-gray-800">Completed Orders</h2><div id="completed-orders" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div></div>
+          <div id="pagination" class="flex justify-center items-center mt-8 space-x-2"></div>
+          <div id="order-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden flex items-center justify-center z-50 p-4" aria-hidden="true">
+              <div class="bg-white w-full max-w-md rounded-lg shadow-lg p-6 overflow-y-auto max-h-[90vh]">
+                  <h2 id="modal-title" class="text-2xl font-bold mb-4 text-gray-800">Order Details</h2><div id="modal-body" class="space-y-3"></div>
+                  <button id="close-modal" class="bg-red-600 text-white px-4 py-2 rounded-lg mt-6 hover:bg-red-700 transition duration-300">Close</button>
+              </div>
+          </div>
+        </section>
 
-    function renderOrders() {
-      activeOrdersContainer.innerHTML = "";
-      completedOrdersContainer.innerHTML = "";
+        <section id="menu-management-content-section" class="content-section hidden">
+          <div class="bg-white rounded-lg shadow-md p-6 mb-8"> 
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Menu Management</h2>
+            <div class="mb-6">
+              <h3 class="text-xl font-semibold mb-3 text-gray-700">Categories</h3>
+              <div id="categories-list" class="space-y-2 mb-3"></div>
+              <input type="text" id="new-category-name" placeholder="New category name" class="border p-2 rounded-lg w-full md:w-auto mb-2">
+              <button id="add-category-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Add Category</button>
+            </div>
+            <div id="item-management-section" class="mb-6 hidden">
+              <h3 class="text-xl font-semibold mb-3 text-gray-700">Manage Items for: <span id="current-editing-category" class="text-red-600"></span></h3>
+              <div id="generic-item-management">
+                  <div id="items-list" class="space-y-2 mb-3"></div>
+                  <h4 class="text-lg font-medium mb-2">Add New Item</h4>
+                  <input type="text" id="new-item-name" placeholder="Item Name" class="border p-2 rounded-lg w-full mb-2">
+                  <textarea id="new-item-desc" placeholder="Item Description (optional)" class="border p-2 rounded-lg w-full mb-2"></textarea>
+                  <input type="number" id="new-item-price" placeholder="Price (DH)" class="border p-2 rounded-lg w-full mb-2">
+                  <button id="add-item-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Add Item</button>
+              </div>
+              <div id="pizza-specific-management" class="hidden">
+                   <div class="mb-6 border-t pt-4 mt-4">
+                      <h4 class="text-lg font-semibold mb-3 text-gray-700">Pizza Subcategories</h4>
+                      <div id="pizza-subcategories-list" class="space-y-2 mb-3"></div>
+                      <h5 class="text-md font-medium mb-2">Add New Pizza Subcategory</h5>
+                      <input type="text" id="new-pizza-subcategory-name" placeholder="Subcategory Name (e.g., Margherita)" class="border p-2 rounded-lg w-full md:w-auto mb-2">
+                      <textarea id="new-pizza-subcategory-desc" placeholder="Subcategory Description (optional)" class="border p-2 rounded-lg w-full mb-2"></textarea>
+                      <button id="add-pizza-subcategory-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Add Subcategory</button>
+                  </div>
+                  <div class="mb-6 border-t pt-4 mt-4">
+                      <h4 class="text-lg font-semibold mb-3 text-gray-700">Pizza Category Options</h4>
+                      <div id="pizza-options-list" class="space-y-2 mb-3"></div>
+                      <h5 class="text-md font-medium mb-2">Add New Pizza Option</h5>
+                      <input type="text" id="new-pizza-option-name" placeholder="Option Name (e.g., Cheezy Crust)" class="border p-2 rounded-lg w-full md:w-auto mb-2">
+                      <textarea id="new-pizza-option-desc" placeholder="Option Description" class="border p-2 rounded-lg w-full mb-2"></textarea>
+                      <p class="text-sm text-gray-600 mb-1">Option Prices (DH):</p>
+                      <div class="grid grid-cols-3 gap-2 mb-2">
+                          <input type="number" id="new-pizza-option-price-individual" placeholder="Individual" class="border p-2 rounded-lg">
+                          <input type="number" id="new-pizza-option-price-double" placeholder="Double" class="border p-2 rounded-lg">
+                          <input type="number" id="new-pizza-option-price-triple" placeholder="Triple" class="border p-2 rounded-lg">
+                      </div>
+                      <button id="add-pizza-option-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Add Option</button>
+                  </div>
+              </div>
+            </div>
+          </div>
+          <div id="edit-pizza-subcategory-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden flex items-center justify-center z-50 p-4">
+               <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                  <h3 class="text-xl font-semibold mb-4">Edit Pizza Subcategory: <span id="modal-subcategory-name" class="text-red-600"></span></h3>
+                  <div class="mb-4"><label for="modal-edit-subcategory-name" class="block text-sm font-medium text-gray-700">Subcategory Name:</label><input type="text" id="modal-edit-subcategory-name" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"></div>
+                  <div class="mb-4"><label for="modal-edit-subcategory-desc" class="block text-sm font-medium text-gray-700">Description:</label><textarea id="modal-edit-subcategory-desc" rows="2" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"></textarea></div>
+                  <div class="mb-4 border-t pt-3 mt-3"><h4 class="text-md font-semibold mb-2">Recipes</h4><div id="modal-recipes-list" class="space-y-1 mb-2"></div><div class="flex space-x-2"><input type="text" id="modal-new-recipe" placeholder="New recipe item" class="flex-grow border p-2 rounded-md"><button id="modal-add-recipe-btn" class="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600">Add Recipe</button></div></div>
+                  <div class="mb-4 border-t pt-3 mt-3"><h4 class="text-md font-semibold mb-2">Sizes & Prices</h4><div id="modal-sizes-list" class="space-y-1 mb-2"></div><div class="grid grid-cols-1 sm:grid-cols-3 gap-2"><select id="modal-new-size-name" class="border p-2 rounded-md"><option value="Individual">Individual</option><option value="Double">Double</option><option value="Triple">Triple</option></select><input type="number" id="modal-new-size-price" placeholder="Price (DH)" class="border p-2 rounded-md"><button id="modal-add-size-btn" class="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 sm:col-span-1">Add Size</button></div></div>
+                  <div class="mt-6 flex justify-end space-x-3"><button id="modal-save-subcategory-changes-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Save Changes</button><button id="modal-close-subcategory-btn" type="button" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400">Cancel</button></div>
+                </div>
+          </div>
+        </section>
 
-      activeOrders.forEach(({ id, order }) => {
-        activeOrdersContainer.appendChild(renderOrder(order, id));
-      });
+        <section id="parameters-section" class="content-section hidden">
+          <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Site Parameters</h2>
+            <p>This is where you can set various site-wide parameters in the future.</p>
+          </div>
+        </section>
+      </main>
+    </div> 
+  </div> 
 
-      completedOrders.forEach(({ id, order }) => {
-        completedOrdersContainer.appendChild(renderOrder(order, id));
-      });
+  <audio id="newOrderSound" src="message-ringtone-magic.mp3"></audio> 
 
-      // Add event listeners to status dropdowns
-      document.querySelectorAll('.status-dropdown').forEach(dropdown => {
-        dropdown.addEventListener('change', (e) => {
-          const orderId = e.target.getAttribute('data-order-id');
-          const newStatus = e.target.value;
-          updateOrderStatus(orderId, newStatus);
-        });
-      });
-    }
+  <script>
+    // Initialize Firebase auth and db ONCE. 
+    // These constants are scoped to this script block but will be accessible by admin-menu.js if it expects them globally,
+    // or admin-menu.js can re-initialize them from the `firebase` global object.
+    // The key is that `firebase.initializeApp` from firebase.js has run.
+    const auth = firebase.auth(); 
+    const db = firebase.database(); 
+    console.log("admin.html: Main script - auth and db objects initialized from global firebase.");
 
-    function applyFilters() {
-      const searchTerm = searchBar.value.toLowerCase();
-      const status = statusFilter.value;
+    // Wrap all other initializations and event listeners in DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log("admin.html: DOMContentLoaded event fired. Setting up dashboard and navigation.");
 
-      activeOrders = allOrders.filter(({ order }) => {
-        const matchesSearch = order.table.toString().includes(searchTerm);
-        const matchesStatus = status ? order.status === status : true;
-        return matchesSearch && matchesStatus && order.status !== 'completed';
-      });
+        // ----- DASHBOARD & ORDER MANAGEMENT SCRIPT ELEMENTS -----
+        const activeOrdersContainer = document.getElementById("active-orders");
+        const completedOrdersContainer = document.getElementById("completed-orders");
+        const paginationDiv = document.getElementById("pagination");
+        const searchBar = document.getElementById("search-bar");
+        const statusFilter = document.getElementById("status-filter");
+        const modal = document.getElementById("order-modal"); 
+        const modalBody = document.getElementById("modal-body");
+        const closeModalBtn = document.getElementById("close-modal"); 
+        const totalOrdersEl = document.getElementById("total-orders");
+        const totalRevenueEl = document.getElementById("total-revenue");
+        const pendingOrdersEl = document.getElementById("pending-orders");
+        const preparingOrdersEl = document.getElementById("preparing-orders");
+        const completedOrdersEl = document.getElementById("completed-orders-count");
+        const newOrderBadgeHeader = document.getElementById("new-order-badge"); 
+        const markAsReadBtnHeader = document.getElementById("mark-as-read");   
+        const logoutBtnSidebar = document.getElementById("logout-btn-sidebar"); 
 
-      completedOrders = allOrders.filter(({ order }) => {
-        const matchesSearch = order.table.toString().includes(searchTerm);
-        return matchesSearch && order.status === 'completed';
-      });
+        let allOrders = [];
+        let activeOrders = [];
+        let completedOrders = [];
+        let currentPage = 1;
+        const ORDERS_PER_PAGE = 20; 
+        let pendingOrdersSeen = sessionStorage.getItem("pendingOrdersSeen") === "true";
+        let initialDataLoaded = false;
 
-      renderOrders();
-    }
-
-    function viewOrderDetails(orderId) {
-      const order = allOrders.find(({ id }) => id === orderId)?.order;
-      if (!order) return;
-
-      modalBody.innerHTML = `
-        <p><strong>Table Number:</strong> ${order.table}</p>
-        <p><strong>Status:</strong> <span class="capitalize">${escapeHTML(order.status)}</span></p>
-        <p><strong>Total:</strong> ${order.total} MAD</p>
-        <ul>
-          ${order.items.map(i => `<li>${i.qty} x ${escapeHTML(i.name)} (${i.price} MAD)</li>`).join("")}
-        </ul>
-      `;
-      modal.classList.remove("hidden");
-      modal.setAttribute("aria-hidden", "false");
-    }
-
-    closeModal.addEventListener("click", () => {
-      modal.classList.add("hidden");
-      modal.setAttribute("aria-hidden", "true");
-    });
-
-    markAsReadBtn.addEventListener("click", () => {
-      const updates = {};
-      allOrders.forEach(({ id, order }) => {
-        if (order.status === "pending") {
-          updates[`${id}/status`] = "preparing";
+        function escapeHTML(str) {
+          if (typeof str !== 'string') return str !== null && str !== undefined ? String(str) : '';
+          return String(str).replace(/[&<>"']/g, s => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;" }[s]));
         }
-      });
-      if (Object.keys(updates).length) {
-        db.ref("orders").update(updates)
-          .then(() => {
-            pendingOrdersSeen = true;
-            sessionStorage.setItem("pendingOrdersSeen", "true");
-            newOrderBadge.classList.add("hidden");
-            markAsReadBtn.classList.add("hidden");
-          })
-          .catch(console.error);
-      }
-    });
 
-    logoutBtn.addEventListener("click", () => {
-      auth.signOut().then(() => {
-        window.location.href = "admin-login.html";
-      });
-    });
-
-    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
-
-    auth.onAuthStateChanged(user => {
-      if (!user) {
-        window.location.href = "admin-login.html";
-      } else {
-        // Listen for all changes in the orders
-        db.ref("orders").on("value", snapshot => {
-          const data = snapshot.val();
-          console.log("Orders data from Firebase:", data);
-          if (!data) {
-            allOrders = [];
+        function playNewOrderSound() { 
+          const sound = document.getElementById('newOrderSound');
+          if (sound && typeof sound.play === 'function') { 
+            sound.play().catch(error => console.warn("Audio play failed:", error.name, error.message));
           } else {
-            allOrders = Object.entries(data).reverse().map(([id, order]) => ({ id, order }));
+            console.warn("newOrderSound element or play method not found.");
           }
-          applyFilters();
-          updateStatistics();
-        });
+        }
 
-        // Listen for specific changes to individual orders
-        db.ref("orders").on("child_changed", snapshot => {
-          const changedOrder = snapshot.val();
-          const changedOrderId = snapshot.key;
-          console.log(`Order ${changedOrderId} changed:`, changedOrder);
+        function updateStatistics() {
+          const dashboardSection = document.getElementById('dashboard-section');
+          if (!dashboardSection || dashboardSection.classList.contains('hidden') || !totalOrdersEl) return; 
           
-          // Update the order in allOrders
-          const index = allOrders.findIndex(({ id }) => id === changedOrderId);
-          if (index !== -1) {
-            allOrders[index] = { id: changedOrderId, order: changedOrder };
-            applyFilters();
-            updateStatistics();
-          }
-        });
+          const totalOrdersCount = allOrders.length;
+          const totalRevenueVal = allOrders.reduce((sum, item) => sum + (parseFloat(item.order.total) || 0), 0);
+          const pendingOrdersCount = allOrders.filter(item => item.order.status === "pending").length;
+          const preparingOrdersCount = allOrders.filter(item => item.order.status === "preparing").length;
+          const completedCount = allOrders.filter(item => item.order.status === "completed").length;
 
-        // Listen for order deletions
-        db.ref("orders").on("child_removed", snapshot => {
-          const removedOrderId = snapshot.key;
-          console.log(`Order ${removedOrderId} removed`);
+          totalOrdersEl.textContent = totalOrdersCount;
+          totalRevenueEl.textContent = `${totalRevenueVal.toFixed(2)} MAD`;
+          pendingOrdersEl.textContent = pendingOrdersCount;
+          preparingOrdersEl.textContent = preparingOrdersCount;
+          completedOrdersEl.textContent = completedCount;
+
+          if (pendingOrdersCount > 0 && !pendingOrdersSeen) {
+            if(newOrderBadgeHeader) newOrderBadgeHeader.classList.remove("hidden");
+            if(markAsReadBtnHeader) markAsReadBtnHeader.classList.remove("hidden");
+          } else {
+            if(newOrderBadgeHeader) newOrderBadgeHeader.classList.add("hidden");
+            if(markAsReadBtnHeader) markAsReadBtnHeader.classList.add("hidden");
+          }
+        }
+        
+        window.deleteOrder = function(orderId) { 
+          if (confirm(`Are you sure you want to delete order ${orderId}?`)) {
+            db.ref(`orders/${orderId}`).remove()
+              .then(() => console.log(`Order ${orderId} deleted successfully`))
+              .catch(error => console.error("Error deleting order:", error));
+          }
+        }
+
+        window.updateOrderStatus = function(orderId, newStatus) { 
+          db.ref(`orders/${orderId}/status`).set(newStatus)
+            .then(() => console.log(`Order ${orderId} status updated to ${newStatus}`))
+            .catch(error => console.error("Error updating order status:", error));
+        }
+
+        function renderOrder(order, id) {
+          const div = document.createElement("div");
+          div.className = "order-card bg-gray-50 rounded-lg shadow-lg p-4 relative hover:shadow-xl";
+          div.innerHTML = `
+            <h3 class="font-bold text-lg mb-2 text-gray-800">Table #${escapeHTML(order.table)}</h3>
+            <p class="text-xs text-gray-500 mb-2">ID: ${escapeHTML(id)}</p>
+            <p class="text-sm text-gray-600 mb-2">Placed: ${new Date(order.timestamp).toLocaleString()}</p>
+            <div class="mb-2">
+              <label for="status-${id}" class="text-sm font-medium text-gray-700">Status: </label>
+              <select id="status-${id}" class="status-dropdown border border-gray-300 rounded p-1 text-sm focus:ring-blue-500 focus:border-blue-500" data-order-id="${id}">
+                <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
+                <option value="preparing" ${order.status === 'preparing' ? 'selected' : ''}>Preparing</option>
+                <option value="ready" ${order.status === 'ready' ? 'selected' : ''}>Ready</option>
+                <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completed</option>
+                <option value="canceled" ${order.status === 'canceled' ? 'selected' : ''}>Canceled</option>
+              </select>
+            </div>
+            <p class="font-medium text-gray-700 mb-1">Items:</p>
+            <ul class="list-disc list-inside mb-3 text-gray-600 text-sm pl-4">
+              ${(order.items || []).map(i => `<li>${i.qty} x ${escapeHTML(i.name)} (${(i.price || 0).toFixed(2)} MAD)</li>`).join("")}
+            </ul>
+            <p class="font-semibold text-lg text-gray-800">Total: ${ (parseFloat(order.total) || 0).toFixed(2)} MAD</p>
+            <button onclick="viewOrderDetails('${id}')" class="text-blue-600 hover:text-blue-800 underline mt-3 text-sm transition duration-300">View Details</button>
+            <button onclick="deleteOrder('${id}')" class="absolute top-3 right-3 text-red-400 hover:text-red-600 transition duration-300 p-1 rounded-full hover:bg-red-100">
+              <i class="fas fa-trash fa-sm"></i>
+            </button>
+          `;
+          return div;
+        }
+
+        function renderOrders() {
+          const dashboardSection = document.getElementById('dashboard-section');
+          if (!dashboardSection || dashboardSection.classList.contains('hidden') || !activeOrdersContainer || !completedOrdersContainer) return;
           
-          // Remove the order from allOrders
-          allOrders = allOrders.filter(({ id }) => id !== removedOrderId);
-          applyFilters();
-          updateStatistics();
+          activeOrdersContainer.innerHTML = "";
+          completedOrdersContainer.innerHTML = "";
+
+          activeOrders.forEach(({ id, order }) => activeOrdersContainer.appendChild(renderOrder(order, id)));
+          completedOrders.forEach(({ id, order }) => completedOrdersContainer.appendChild(renderOrder(order, id)));
+
+          document.querySelectorAll('#dashboard-section .status-dropdown').forEach(dropdown => {
+            if (!dropdown.hasAttribute('data-listener-attached')) {
+                dropdown.addEventListener('change', (e) => {
+                  updateOrderStatus(e.target.getAttribute('data-order-id'), e.target.value); 
+                });
+                dropdown.setAttribute('data-listener-attached', 'true');
+            }
+          });
+        }
+
+        function applyFilters() {
+            const dashboardSection = document.getElementById('dashboard-section');
+            if (!dashboardSection || dashboardSection.classList.contains('hidden') || !allOrders) return;
+
+            const searchTerm = searchBar ? searchBar.value.toLowerCase() : "";
+            const statusVal = statusFilter ? statusFilter.value : ""; 
+
+            activeOrders = allOrders.filter(({ order }) => {
+                const tableMatches = order.table ? order.table.toString().toLowerCase().includes(searchTerm) : (searchTerm === "");
+                const statusMatches = statusVal ? order.status === statusVal : true;
+                return tableMatches && statusMatches && order.status !== 'completed' && order.status !== 'canceled';
+            });
+            completedOrders = allOrders.filter(({ order }) => {
+                const tableMatches = order.table ? order.table.toString().toLowerCase().includes(searchTerm) : (searchTerm === "");
+                const statusMatches = statusVal ? order.status === statusVal : true;
+                return tableMatches && statusMatches && (order.status === 'completed' || order.status === 'canceled');
+            });
+            renderOrders();
+        }
+
+        window.viewOrderDetails = function(orderId) { 
+          const orderDataObj = allOrders.find(({ id }) => id === orderId);
+          const modalTitleEl = document.getElementById('modal-title'); 
+          if (!orderDataObj || !orderDataObj.order || !modal || !modalBody || !modalTitleEl) return;
+          
+          const order = orderDataObj.order;
+          modalTitleEl.textContent = `Order Details (Table #${escapeHTML(order.table)})`;
+          modalBody.innerHTML = `
+            <p><strong>Order ID:</strong> ${escapeHTML(orderId)}</p>
+            <p><strong>Status:</strong> <span class="capitalize font-medium">${escapeHTML(order.status)}</span></p>
+            <p><strong>Total:</strong> ${(parseFloat(order.total) || 0).toFixed(2)} MAD</p>
+            <p class="mt-2"><strong>Items:</strong></p>
+            <ul class="list-disc list-inside ml-4">
+              ${(order.items || []).map(i => `<li>${i.qty} x ${escapeHTML(i.name)} (${(i.price || 0).toFixed(2)} MAD)</li>`).join("")}
+            </ul>
+          `;
+          modal.classList.remove("hidden");
+          modal.setAttribute("aria-hidden", "false");
+        }
+
+        if (closeModalBtn) {
+          closeModalBtn.addEventListener("click", () => {
+            if(modal) modal.classList.add("hidden");
+            if(modal) modal.setAttribute("aria-hidden", "true");
+          });
+        }
+        
+        if (markAsReadBtnHeader) { 
+          markAsReadBtnHeader.addEventListener("click", () => {
+            const updates = {};
+            let hasPending = false;
+            allOrders.forEach(({ id, order }) => {
+              if (order.status === "pending") {
+                updates[`orders/${id}/status`] = "preparing"; 
+                hasPending = true;
+              }
+            });
+            if (hasPending) {
+              db.ref().update(updates) 
+                .then(() => {
+                  pendingOrdersSeen = true;
+                  sessionStorage.setItem("pendingOrdersSeen", "true");
+                  if(newOrderBadgeHeader) newOrderBadgeHeader.classList.add("hidden");
+                  if(markAsReadBtnHeader) markAsReadBtnHeader.classList.add("hidden");
+                })
+                .catch(err => console.error("Error marking orders as read:", err));
+            } else { 
+                pendingOrdersSeen = true;
+                sessionStorage.setItem("pendingOrdersSeen", "true");
+                if(newOrderBadgeHeader) newOrderBadgeHeader.classList.add("hidden");
+                if(markAsReadBtnHeader) markAsReadBtnHeader.classList.add("hidden");
+            }
+          });
+        }
+        
+        if (logoutBtnSidebar) { 
+          logoutBtnSidebar.addEventListener("click", () => {
+            auth.signOut().then(() => {
+              sessionStorage.removeItem('activeAdminSectionId'); 
+              sessionStorage.removeItem('activeAdminTitle');
+              window.location.href = "admin-login.html";
+            });
+          });
+        }
+
+        // Moved auth listener inside DOMContentLoaded to ensure it's set up after elements are ready
+        auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+          .then(() => {
+            return auth.onAuthStateChanged(user => {
+              if (!user) {
+                console.log("admin.html: No user logged in. Redirecting to admin-login.html");
+                window.location.href = "admin-login.html";
+              } else {
+                console.log("admin.html: User " + user.uid + " is logged in. Initializing dashboard listeners.");
+                initialDataLoaded = false; 
+                const ordersRef = db.ref("orders");
+
+                ordersRef.once("value", () => { 
+                    initialDataLoaded = true; 
+                    const dashboardSection = document.getElementById('dashboard-section');
+                    // Only apply filters if dashboard is active (which it should be by default on first load after login)
+                    if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
+                        if(typeof applyFilters === 'function') applyFilters(); 
+                    }
+                }, error => {
+                    console.error("Dashboard: Error on initial .once('value') for /orders:", error);
+                    initialDataLoaded = true; // Set to true to allow child_added to proceed
+                }); 
+
+                ordersRef.on("value", snapshot => {
+                    const data = snapshot.val();
+                    if (!data) allOrders = [];
+                    else allOrders = Object.entries(data).map(([id, order]) => ({ id, order })).sort((a,b) => (b.order.timestamp || 0) - (a.order.timestamp || 0)); 
+                    
+                    const dashboardIsActive = document.getElementById('dashboard-section') && !document.getElementById('dashboard-section').classList.contains('hidden');
+                    if (dashboardIsActive) {
+                        applyFilters(); 
+                        updateStatistics();
+                    }
+                }, error => console.error("Dashboard: Error listening to /orders (value):", error));
+
+                ordersRef.on("child_added", (snapshot) => {
+                    if (!initialDataLoaded) return; 
+                    const newOrder = snapshot.val();
+                    if (newOrder && newOrder.status === "pending") {
+                        pendingOrdersSeen = false; 
+                        sessionStorage.setItem("pendingOrdersSeen", "false");
+                        playNewOrderSound(); 
+                        if (newOrderBadgeHeader) newOrderBadgeHeader.classList.remove("hidden");
+                        if (markAsReadBtnHeader) markAsReadBtnHeader.classList.remove("hidden");
+                    }
+                }, error => console.error("Dashboard: Error on child_added for /orders:", error));
+              }
+            });
+          })
+          .catch((error) => {
+            console.error("Error setting auth persistence: ", error);
+            if (!auth.currentUser) { 
+                window.location.href = "admin-login.html";
+            }
+          });
+
+        if (searchBar) searchBar.addEventListener("input", applyFilters);
+        if (statusFilter) statusFilter.addEventListener("change", applyFilters);
+        // ----- END OF ORDER MANAGEMENT & DASHBOARD SCRIPT -----
+
+
+        // ----- Sidebar Navigation Logic -----
+        const navLinks = document.querySelectorAll('aside .nav-link'); 
+        const contentSections = document.querySelectorAll('main .content-section');
+        const mainContentTitle = document.getElementById('main-content-title');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const activeNavLinkClass = 'active-nav-link'; 
+
+        function showSection(targetSectionId, linkText) {
+            let sectionToShow = document.getElementById(targetSectionId);
+            
+            let sectionShown = false;
+            contentSections.forEach(section => {
+                if (section.id === targetSectionId) {
+                    section.classList.remove('hidden');
+                    sectionShown = true;
+                } else {
+                    section.classList.add('hidden');
+                }
+            });
+            if(!sectionShown) console.warn("Nav: Section ID not found:", targetSectionId);
+
+            if (mainContentTitle && linkText) { 
+                mainContentTitle.textContent = linkText;
+            }
+           
+            if (targetSectionId === 'dashboard-section') {
+                if(typeof applyFilters === 'function') applyFilters();
+            }
+             if (targetSectionId === 'menu-management-content-section') {
+                // admin-menu.js has its own authStateChanged listener that triggers category rendering.
+                // If menuDataCacheAdmin exists and renderCategoriesAdmin is available (it is in admin-menu.js, not globally here)
+                // an explicit call might be: if (window.adminMenu && window.adminMenu.menuDataCacheAdmin) window.adminMenu.renderCategoriesAdmin(window.adminMenu.menuDataCacheAdmin);
+            }
+        }
+
+        function setActiveLink(clickedLink) {
+            navLinks.forEach(link => {
+                if (link.id !== 'logout-btn-sidebar') { 
+                    link.classList.remove(activeNavLinkClass, 'text-white'); 
+                    link.classList.add('text-gray-300'); 
+                }
+            });
+            if (clickedLink && clickedLink.id !== 'logout-btn-sidebar') {
+                clickedLink.classList.add(activeNavLinkClass, 'text-white');
+                clickedLink.classList.remove('text-gray-300');
+            }
+        }
+
+        navLinks.forEach(link => {
+            if(link.id === 'logout-btn-sidebar') return; 
+            
+            link.addEventListener('click', (event) => {
+                event.preventDefault();
+                const sectionTargetKey = link.getAttribute('data-section');
+                const sectionId = sectionTargetKey + '-section'; 
+                const linkTitle = link.getAttribute('data-title') || link.textContent.trim();
+                
+                showSection(sectionId, linkTitle); 
+                setActiveLink(link);
+                sessionStorage.setItem('activeAdminSectionId', sectionId);
+                sessionStorage.setItem('activeAdminTitle', linkTitle);
+
+                if (sidebar && sidebar.classList.contains('translate-x-0') && window.innerWidth < 768) { 
+                    sidebar.classList.remove('translate-x-0');
+                    sidebar.classList.add('-translate-x-full');
+                }
+            });
         });
 
-        // Listen for new orders
-        db.ref("orders").on("child_added", (snapshot) => {
-          const newOrder = snapshot.val();
-          if (newOrder.status === "pending") {
-            playNewOrderSound();
-            // Visual notification is already handled by the existing newOrderBadge
-          }
-        });
-      }
-    });
+        const activeSectionIdStorage = sessionStorage.getItem('activeAdminSectionId');
+        const activeTitleStorage = sessionStorage.getItem('activeAdminTitle');
+        let sectionRestoredOnLoad = false;
 
-    searchBar.addEventListener("input", applyFilters);
-    statusFilter.addEventListener("change", applyFilters);
+        if (activeSectionIdStorage && document.getElementById(activeSectionIdStorage)) {
+            const linkDataSectionKey = activeSectionIdStorage.replace('-section', '');
+            const linkToActivate = document.querySelector(`aside .nav-link[data-section="${linkDataSectionKey}"]`);
+            if (linkToActivate) {
+                showSection(activeSectionIdStorage, activeTitleStorage || linkToActivate.getAttribute('data-title') || linkToActivate.textContent.trim());
+                setActiveLink(linkToActivate);
+                sectionRestoredOnLoad = true;
+            }
+        }
+        
+        if (!sectionRestoredOnLoad) { 
+            const dashboardLink = document.querySelector('aside .nav-link[data-section="dashboard"]');
+            if (dashboardLink && document.getElementById('dashboard-section')) { 
+                 showSection('dashboard-section', dashboardLink.getAttribute('data-title') || 'Dashboard');
+                 setActiveLink(dashboardLink);
+            } else if (navLinks.length > 0) { 
+                 const firstNavigableLink = Array.from(navLinks).find(l => l.id !== 'logout-btn-sidebar' && l.hasAttribute('data-section'));
+                 if (firstNavigableLink) {
+                    const firstSectionTargetKey = firstNavigableLink.getAttribute('data-section');
+                    const firstSectionId = firstSectionTargetKey + '-section';
+                    const firstTitle = firstNavigableLink.getAttribute('data-title') || firstNavigableLink.textContent.trim();
+                    if (document.getElementById(firstSectionId)) { 
+                        showSection(firstSectionId, firstTitle);
+                        setActiveLink(firstNavigableLink);
+                    }
+                 }
+            }
+        }
 
-    function playNewOrderSound() {
-      document.getElementById('newOrderSound').play();
-    }
+        if (sidebar && sidebarToggle) {
+            sidebarToggle.addEventListener('click', (e) => {
+                e.stopPropagation(); 
+                sidebar.classList.toggle('-translate-x-full');
+                sidebar.classList.toggle('translate-x-0'); 
+            });
+            document.addEventListener('click', (e) => {
+                const isMobile = window.innerWidth < 768;
+                if (isMobile && sidebar && !sidebar.contains(e.target) && sidebarToggle && !sidebarToggle.contains(e.target) && sidebar.classList.contains('translate-x-0')) {
+                    sidebar.classList.remove('translate-x-0');
+                    sidebar.classList.add('-translate-x-full');
+                }
+            });
+        }
+        
+    }); // End of DOMContentLoaded wrapper
   </script>
-
-  <script src="admin-menu.js"></script>
-  
+  <script src="admin-menu.js"></script> 
 </body>
 </html>

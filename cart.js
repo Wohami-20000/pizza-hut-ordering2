@@ -1,7 +1,15 @@
+// cart.js
+
+// Initialize Firebase database object for this script
+// This line assumes firebase.js (with firebase.initializeApp) has already been loaded and executed.
+const db = firebase.database(); 
+console.log("cart.js: Firebase 'db' object initialized.");
+
 // Load cart from localStorage or empty array
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
 function escapeHTML(str) {
+  if (typeof str !== 'string') return str !== null && str !== undefined ? String(str) : '';
   return String(str).replace(/[<>&"']/g, s => ({
     "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;"
   }[s]));
@@ -9,104 +17,176 @@ function escapeHTML(str) {
 
 function renderCart() {
   const container = document.getElementById("cart-items");
-  container.innerHTML = "";
+  const cartTotalEl = document.getElementById("cart-total");
+
+  if (!container || !cartTotalEl) {
+    console.error("Cart HTML elements not found!");
+    return;
+  }
+
+  container.innerHTML = ""; // Clear previous items
 
   if (cart.length === 0) {
-    container.innerHTML = "<p>Your cart is empty.</p>";
-    document.getElementById("cart-total").textContent = "0";
+    container.innerHTML = "<p data-translate='cart_empty'>Your cart is empty.</p>";
+    cartTotalEl.textContent = "0.00";
+    // Try to re-apply language in case this message was just added
+    if (typeof applyLanguage === 'function' && typeof currentLang !== 'undefined') {
+        applyLanguage(currentLang);
+    }
     return;
   }
 
   let total = 0;
 
   cart.forEach((item, index) => {
-    total += item.price * item.qty;
+    const itemTotalPrice = (parseFloat(item.price) || 0) * (parseInt(item.qty) || 0);
+    total += itemTotalPrice;
 
     const itemDiv = document.createElement("div");
-    itemDiv.className = "bg-white rounded shadow p-4 flex justify-between items-center";
+    itemDiv.className = "bg-white rounded-lg shadow p-4 flex justify-between items-center mb-3";
 
     itemDiv.innerHTML = `
-      <div>
-        <div class="font-semibold">${escapeHTML(item.name)}</div>
-        <div>${item.price} MAD each</div>
+      <div class="flex-grow">
+        <div class="font-semibold text-lg text-gray-800">${escapeHTML(item.name)}</div>
+        <div class="text-sm text-gray-600">${(parseFloat(item.price) || 0).toFixed(2)} MAD each</div>
       </div>
-      <div class="flex items-center space-x-2">
-        <button onclick="changeQty(${index}, -1)" class="bg-gray-200 px-2 rounded">-</button>
-        <span>${item.qty}</span>
-        <button onclick="changeQty(${index}, 1)" class="bg-gray-200 px-2 rounded">+</button>
-        <button onclick="removeItem(${index})" class="text-red-500 ml-3">×</button>
+      <div class="flex items-center space-x-3">
+        <button 
+          onclick="window.cartFunctions.changeQty(${index}, -1)" 
+          class="bg-gray-200 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-300 transition text-sm font-medium"
+          aria-label="Decrease quantity of ${escapeHTML(item.name)}">
+          -
+        </button>
+        <span class="font-medium w-8 text-center">${item.qty}</span>
+        <button 
+          onclick="window.cartFunctions.changeQty(${index}, 1)" 
+          class="bg-gray-200 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-300 transition text-sm font-medium"
+          aria-label="Increase quantity of ${escapeHTML(item.name)}">
+          +
+        </button>
+        <button 
+          onclick="window.cartFunctions.removeItem(${index})" 
+          class="text-red-500 hover:text-red-700 transition ml-4"
+          aria-label="Remove ${escapeHTML(item.name)} from cart">
+          <i class="fas fa-trash"></i>
+        </button>
       </div>
     `;
-
     container.appendChild(itemDiv);
   });
 
-  document.getElementById("cart-total").textContent = total;
+  cartTotalEl.textContent = total.toFixed(2);
 }
 
-function changeQty(index, delta) {
-  cart[index].qty += delta;
-  if (cart[index].qty < 1) cart[index].qty = 1;
-  saveCart();
-  renderCart();
+// Expose functions to global scope for onclick handlers
+window.cartFunctions = {
+  changeQty: (index, delta) => {
+    if (cart[index]) {
+      cart[index].qty += delta;
+      if (cart[index].qty <= 0) {
+        cart.splice(index, 1);
+      }
+      localStorage.setItem("cart", JSON.stringify(cart));
+      renderCart();
+      updateCartCountNav(); 
+    }
+  },
+  removeItem: (index) => {
+    cart.splice(index, 1);
+    localStorage.setItem("cart", JSON.stringify(cart));
+    renderCart();
+    updateCartCountNav();
+  }
+};
+
+function updateCartCountNav() {
+    const cartForCount = JSON.parse(localStorage.getItem("cart")) || [];
+    const count = cartForCount.reduce((sum, i) => sum + i.qty, 0);
+    const cartCountSpanDetails = document.getElementById('cart-count-details'); // In cart.html header
+    if (cartCountSpanDetails) {
+        cartCountSpanDetails.textContent = count;
+    }
 }
 
-function removeItem(index) {
-  cart.splice(index, 1);
-  saveCart();
-  renderCart();
+// Initial render
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        renderCart();
+        updateCartCountNav();
+    });
+} else {
+    renderCart();
+    updateCartCountNav();
 }
 
-function saveCart() {
-  localStorage.setItem("cart", JSON.stringify(cart));
-}
 
+// Place Order
 let isPlacingOrder = false;
+const placeOrderBtn = document.getElementById("place-order");
+const tableNumberInput = document.getElementById("table-number");
 
-document.getElementById("place-order").addEventListener("click", async () => {
-  if (isPlacingOrder) return;
-  isPlacingOrder = true;
-  document.getElementById("place-order").disabled = true;
+if (placeOrderBtn && tableNumberInput) {
+    placeOrderBtn.addEventListener("click", async () => {
+      if (isPlacingOrder) return;
+      
+      const tableNumber = tableNumberInput.value.trim();
+      if (!tableNumber || isNaN(parseInt(tableNumber)) || parseInt(tableNumber) <= 0) {
+        alert("Please enter a valid table number.");
+        return;
+      }
 
-  const tableNumber = document.getElementById("table-number").value.trim();
-  if (!tableNumber || isNaN(tableNumber) || tableNumber <= 0) {
-    alert("Please enter a valid table number.");
-    document.getElementById("place-order").disabled = false;
-    isPlacingOrder = false;
-    return;
-  }
+      if (cart.length === 0) {
+        alert("Your cart is empty. Please add items before placing an order.");
+        return;
+      }
 
-  // Prepare order data
-  const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const orderData = {
-    table: tableNumber,
-    items: cart,
-    total,
-    timestamp: new Date().toISOString(),
-    status: "pending"
-  };
+      isPlacingOrder = true;
+      placeOrderBtn.disabled = true;
+      placeOrderBtn.textContent = "Placing Order..."; // Feedback
 
-  // Save order to localStorage temporarily (later: send to backend)
-  localStorage.setItem("lastOrder", JSON.stringify(orderData));
-  localStorage.setItem("tableNumber", tableNumber);
+      const totalAmount = cart.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * (parseInt(item.qty) || 0), 0);
+      const orderData = {
+        table: tableNumber,
+        items: cart, 
+        total: totalAmount,
+        timestamp: new Date().toISOString(), // Client-side timestamp
+        // timestamp: firebase.database.ServerValue.TIMESTAMP, // Alternative: Server-side timestamp
+        status: "pending"
+      };
 
-  // Send order to Firebase
-  try {
-    // DEBUG: log what we're sending
-    console.log("Writing to Firebase:", orderData);
-    let ref = db.ref("orders");
-    let result = await ref.push(orderData);
-    console.log("Order pushed with key:", result.key);
-    cart = [];
-    localStorage.removeItem("cart");
-    window.location.href = "confirm.html";
-  } catch (error) {
-    console.error("Firebase error:", error);
-    alert("There was a problem saving the order online. Please try again.");
-    document.getElementById("place-order").disabled = false;
-    isPlacingOrder = false;
-  }
-});
+      localStorage.setItem("lastOrderDataForConfirm", JSON.stringify(orderData)); // Store for confirm page
+      localStorage.setItem("tableNumber", tableNumber); 
 
-// Initialize
-renderCart();
+      try {
+        console.log("cart.js: Writing to Firebase:", orderData);
+        // 'db' is defined at the top of this file
+        let newOrderRef = db.ref("orders").push(); // Get unique key first
+        await newOrderRef.set(orderData); // Set data at that key
+        console.log("cart.js: Order pushed with key:", newOrderRef.key);
+        
+        cart = []; 
+        localStorage.removeItem("cart"); 
+        
+        window.location.href = `confirm.html?orderId=${newOrderRef.key}`; 
+      } catch (error) {
+        console.error("cart.js: Firebase error during order placement:", error);
+        alert("There was a problem placing your order online. Please try again. Error: " + error.message);
+      } finally {
+        isPlacingOrder = false;
+        placeOrderBtn.disabled = false;
+        placeOrderBtn.textContent = "Place Order"; // Reset button text
+        // Try to re-apply language in case this text was just added by JS
+        if (typeof applyLanguage === 'function' && typeof currentLang !== 'undefined') {
+            applyLanguage(currentLang);
+        }
+      }
+    });
+} else {
+    console.error("Place order button or table number input not found.");
+}
+
+// Autofill table number if saved
+const savedTable = localStorage.getItem("tableNumber");
+if (savedTable && tableNumberInput) {
+  tableNumberInput.value = savedTable;
+}
