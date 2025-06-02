@@ -1,4 +1,4 @@
-// menu.js (Updated to fetch from Firebase and handle object structures)
+// menu.js (Updated to fetch from Firebase and handle object structures for items)
 
 // Get references to HTML elements
 const tabsContainer = document.getElementById("category-tabs");
@@ -36,16 +36,13 @@ try {
 
   db.ref('menu').on('value', (snapshot) => {
     const firebaseMenuData = snapshot.val();
-    console.log("Customer Menu: Raw data from Firebase /menu:", firebaseMenuData); // Log raw data
+    console.log("Customer Menu: Raw data from Firebase /menu:", firebaseMenuData); 
 
     if (firebaseMenuData) {
       if (typeof firebaseMenuData === 'object' && !Array.isArray(firebaseMenuData)) {
-        // If it's an object (e.g., keyed by Firebase push IDs), convert its values to an array.
-        // This is how admin-menu.js saves categories if it uses .push() for new categories.
         fullMenuData = Object.values(firebaseMenuData);
         console.log("Customer Menu: Converted menu object to array:", fullMenuData);
       } else if (Array.isArray(firebaseMenuData)) {
-        // If it's already an array (e.g., if you imported a JSON array directly)
         fullMenuData = firebaseMenuData;
         console.log("Customer Menu: Menu is already an array:", fullMenuData);
       } else {
@@ -54,9 +51,9 @@ try {
       }
 
       if (fullMenuData.length > 0) {
-        const categoryNames = fullMenuData.map(c => c.category).filter(name => typeof name === 'string'); // Ensure names are strings
+        const categoryNames = fullMenuData.map(c => c.category).filter(name => typeof name === 'string');
         if (!activeCategoryName || !categoryNames.includes(activeCategoryName)) {
-          activeCategoryName = categoryNames[0] || ""; // Default to first valid category name
+          activeCategoryName = categoryNames[0] || ""; 
         }
       } else {
         activeCategoryName = "";
@@ -70,7 +67,7 @@ try {
     }
     renderTabs();
     renderMenu();
-    if (typeof updateCartCount === 'function') updateCartCount(); // Make sure this function exists if called
+    if (typeof updateCartCount === 'function') updateCartCount();
 
   }, (error) => {
     console.error("Customer Menu: Error fetching menu data from Firebase:", error);
@@ -125,8 +122,8 @@ function renderMenu() {
     return;
   }
 
-  // Handle pizzas with sizes/subcategories (assuming structure from your original menu-data.js)
-  if (catObj.category === "Pizzas") { // Check against the actual category name string
+  if (catObj.category === "Pizzas") {
+    // (Pizza rendering logic - seems okay for now based on your problem description)
     if (catObj.subcategories && Array.isArray(catObj.subcategories)) {
       catObj.subcategories.forEach(sub => {
         if (!sub || !sub.name || !Array.isArray(sub.sizes)) {
@@ -181,8 +178,8 @@ function renderMenu() {
         });
     }
   } else {
-    // Other categories: items
-    const itemsObject = catObj.items || {}; // Expect items to be an object now
+    // Other categories: items - *** THIS IS THE UPDATED PART ***
+    const itemsObject = catObj.items || {}; // Items are expected to be an object
     const itemsArray = Object.values(itemsObject); // Convert the object's values to an array
 
     if (itemsArray.length === 0) {
@@ -260,10 +257,9 @@ function fixGridForMobile() {
 window.addEventListener('resize', fixGridForMobile);
 
 // --- Initial calls ---
-fixGridForMobile(); // Call once on load
-// renderTabs() and renderMenu() are now called by the Firebase listener after data is fetched.
-// updateCartCount() is also called by the Firebase listener and addToCart.
-
+fixGridForMobile(); 
+// renderTabs() and renderMenu() are called by Firebase listener
+// updateCartCount() is also called by Firebase listener and addToCart.
 
 // --- Expose addToCart globally ---
 window.addToCart = addToCart;
