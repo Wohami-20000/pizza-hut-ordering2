@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Item Details - Pizza Hut</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
+  <link rel="stylesheet" href="style.css" /> <!-- Votre feuille de style principale -->
+  <style>
+    .detail-section + .detail-section {
+      margin-top: 1.5rem; /* équivalent de space-y-6 pour les sections */
+      padding-top: 1.5rem;
+      border-top: 1px solid #e5e7eb; /* gray-200 */
+    }
+    /* Animation subtile pour le spinner de chargement */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .fa-spinner {
+      animation: spin 1s linear infinite;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+  <header class="flex items-center justify-between px-4 py-3 bg-red-700 text-white shadow-lg sticky top-0 z-30">
+    <div class="flex items-center">
+      <a href="menu.html" class="text-white hover:text-red-200 transition-colors mr-3 p-2 rounded-full hover:bg-red-600">
+        <i class="fas fa-arrow-left text-lg"></i>
+      </a>
+      <span class="font-bold text-lg sm:text-xl tracking-tight" data-translate="item_details_title_header">Détails de l'article</span>
+    </div>
+    <div class="flex items-center space-x-3 sm:space-x-4">
+      <select id="language-switcher" class="bg-red-600 text-white border-2 border-red-500 rounded-lg p-1.5 text-xs sm:text-sm focus:ring-2 focus:ring-white focus:outline-none appearance-none shadow-sm hover:border-red-400">
+        <option value="en">English</option>
+        <option value="fr">Français</option>
+        <option value="ar">العربية</option>
+      </select>
+      <a href="cart.html" id="cart-btn" class="relative text-white hover:text-red-200 transition-colors p-2 rounded-full hover:bg-red-600">
+          <i class="fas fa-shopping-cart text-xl"></i>
+          <span id="cart-count" class="absolute -top-1.5 -right-1.5 bg-yellow-400 text-red-700 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-md">0</span>
+      </a>
+    </div>
+  </header>
+
+  <main id="item-details-container" class="container mx-auto max-w-3xl p-3 sm:p-6 mt-4 mb-8">
+    <!-- État de chargement -->
+    <div id="loading-state" class="text-center py-20">
+      <i class="fas fa-spinner fa-spin text-red-600 text-5xl"></i>
+      <p class="text-gray-600 text-lg mt-4" data-translate="loading_item_details">Chargement des détails de l'article...</p>
+    </div>
+
+    <!-- Contenu de l'article (Initialement caché) -->
+    <article id="item-content" class="hidden bg-white rounded-xl shadow-2xl overflow-hidden">
+      <div id="item-image-wrapper" class="bg-gray-200">
+        <!-- Image populée par JS -->
+      </div>
+
+      <div class="p-5 md:p-8">
+        <h1 id="item-name" class="text-2xl md:text-4xl font-extrabold text-gray-800 mb-2">Nom de l'article</h1>
+        <p id="item-short-desc" class="text-gray-600 mb-5 text-base leading-relaxed">Courte description de l'article.</p>
+        
+        <div class="mb-6 pb-6 border-b border-gray-200">
+          <span id="item-price" class="text-4xl font-bold text-red-700">0.00 MAD</span>
+        </div>
+
+        <div id="item-long-desc-section" class="detail-section hidden">
+          <h2 class="text-xl font-semibold text-gray-700 mb-3" data-translate="description_heading">Description</h2>
+          <p id="item-long-desc" class="text-gray-700 leading-relaxed text-sm prose max-w-none"></p>
+        </div>
+
+        <div id="item-ingredients-section" class="detail-section hidden">
+          <h2 class="text-xl font-semibold text-gray-700 mb-3" data-translate="ingredients_heading">Ingrédients</h2>
+          <ul id="item-ingredients-list" class="list-disc list-inside text-gray-700 space-y-1.5 text-sm pl-1">
+            <!-- Ingrédients populés par JS -->
+          </ul>
+        </div>
+
+        <div id="item-allergies-section" class="detail-section hidden">
+          <h2 class="text-xl font-semibold text-gray-700 mb-3" data-translate="allergies_heading">Allergènes</h2>
+          <ul id="item-allergies-list" class="list-disc list-inside text-red-600 space-y-1.5 text-sm pl-1">
+            <!-- Allergies populées par JS -->
+          </ul>
+          <p id="no-allergies-message" class="text-gray-500 text-sm hidden italic" data-translate="no_allergies_reported">Aucun allergène signalé pour cet article.</p>
+        </div>
+
+        <div class="mt-10">
+          <button id="add-to-cart-details-btn" class="w-full bg-red-600 text-white py-3.5 px-6 rounded-lg text-lg font-semibold hover:bg-red-700 focus:bg-red-800 transition duration-150 ease-in-out focus:outline-none focus:ring-4 focus:ring-red-300 shadow-lg">
+            <i class="fas fa-cart-plus mr-2"></i><span data-translate="add_to_cart_button">Ajouter au panier</span>
+          </button>
+        </div>
+      </div>
+    </article>
+
+    <!-- État d'erreur (Initialement caché) -->
+    <div id="error-state" class="hidden text-center py-20 bg-white p-8 rounded-xl shadow-xl">
+      <i class="fas fa-exclamation-triangle text-red-500 text-5xl mb-4"></i>
+      <p class="text-red-600 text-xl font-semibold" data-translate="item_not_found_error">Désolé, l'article n'a pas pu être trouvé.</p>
+      <p class="text-gray-600 mt-2 mb-6" data-translate="item_not_found_suggestion">Veuillez vérifier l'URL ou retourner au menu.</p>
+      <a href="menu.html" class="mt-4 inline-block bg-red-600 text-white px-8 py-3 rounded-lg hover:bg-red-700 transition font-semibold" data-translate="back_to_menu">
+        <i class="fas fa-arrow-left mr-2"></i>Retour au Menu
+      </a>
+    </div>
+  </main>
+
+  <footer class="text-center p-4 text-gray-600 text-xs border-t border-gray-200 bg-gray-100 mt-auto">
+    &copy; <span id="current-year-details"></span> Pizza Hut Clone. À des fins éducatives.
+  </footer>
+
+  <!-- SDKs Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <!-- Votre configuration Firebase -->
+  <script src="firebase.js"></script>
+  <!-- Traductions linguistiques -->
+  <script src="lang.js"></script>
+  <!-- Script de la page des détails de l'article -->
+  <script>
+    // item-details.js
+    // Correction : Utilisation de dbDetailsInstance de manière cohérente
+    const dbDetailsInstance = firebase.database(); 
+    console.log("item-details.js: Objet Firebase dbDetailsInstance initialisé.");
+
+    let currentItemDetailsData = null; 
+    let currentItemLang = localStorage.getItem("lang") || "en";
+    let cartDetails = JSON.parse(localStorage.getItem("cart")) || [];
+
+    // --- Références aux éléments HTML ---
+    const loadingStateDiv = document.getElementById('loading-state');
+    const itemContentArticle = document.getElementById('item-content');
+    const errorStateDiv = document.getElementById('error-state');
+    const itemImageWrapper = document.getElementById('item-image-wrapper');
+    const itemNameH1 = document.getElementById('item-name');
+    const itemShortDescP = document.getElementById('item-short-desc');
+    const itemPriceSpan = document.getElementById('item-price');
+    const itemLongDescSection = document.getElementById('item-long-desc-section');
+    const itemLongDescP = document.getElementById('item-long-desc');
+    const itemIngredientsSection = document.getElementById('item-ingredients-section');
+    const itemIngredientsListUl = document.getElementById('item-ingredients-list');
+    const itemAllergiesSection = document.getElementById('item-allergies-section');
+    const itemAllergiesListUl = document.getElementById('item-allergies-list');
+    const noAllergiesMessageP = document.getElementById('no-allergies-message');
+    const addToCartDetailsBtn = document.getElementById('add-to-cart-details-btn');
+    const cartCountDetailsSpan = document.getElementById('cart-count');
+
+    // --- Fonctions Utilitaires ---
+    function escapeHTMLDetails(str) {
+      if (typeof str !== 'string') return str !== null && str !== undefined ? String(str) : '';
+      return str.replace(/[&<>"']/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': "&quot;", "'": '&#39;' }[match]));
+    }
+    
+    function updateCartCountDetails() {
+        cartDetails = JSON.parse(localStorage.getItem("cart")) || []; 
+        const count = cartDetails.reduce((sum, item) => sum + item.qty, 0);
+        if (cartCountDetailsSpan) cartCountDetailsSpan.textContent = count;
+    }
+
+    // Fonctions locales du panier pour cette page
+    const itemDetailsCartFunctions = {
+        addToCart: (itemId, itemName, itemPrice, itemImageURL = '') => {
+            console.log("item-details.js: addToCart appelé pour l'article :", itemName, "ID:", itemId, "Prix:", itemPrice);
+            if (typeof itemPrice !== 'number' || isNaN(itemPrice)) {
+                alert("Impossible d'ajouter l'article : erreur de prix."); return;
+            }
+            const existingItemIndex = cartDetails.findIndex(cartItem => cartItem.id === itemId);
+            if (existingItemIndex > -1) {
+                cartDetails[existingItemIndex].qty++;
+            } else {
+                cartDetails.push({ id: itemId, name: itemName, price: itemPrice, qty: 1, imageURL: itemImageURL });
+            }
+            localStorage.setItem("cart", JSON.stringify(cartDetails));
+            updateCartCountDetails();
+            
+            if (addToCartDetailsBtn) {
+                const btnSpan = addToCartDetailsBtn.querySelector('span');
+                const originalTextKey = btnSpan ? btnSpan.dataset.translate : 'add_to_cart_button';
+                const addedTextKey = 'added_to_cart_details_feedback';
+                const addedText = (typeof translations !== 'undefined' && translations[currentItemLang]?.[addedTextKey]) || 'Ajouté !';
+                
+                addToCartDetailsBtn.innerHTML = `<i class="fas fa-check-circle mr-2"></i> ${addedText}`;
+                addToCartDetailsBtn.disabled = true;
+                setTimeout(() => {
+                    const cartText = (typeof translations !== 'undefined' && translations[currentItemLang]?.[originalTextKey]) || "Ajouter au panier";
+                    addToCartDetailsBtn.innerHTML = `<i class="fas fa-cart-plus mr-2"></i><span data-translate="${originalTextKey}">${cartText}</span>`;
+                    addToCartDetailsBtn.disabled = false;
+                }, 1500);
+            }
+        }
+    };
+
+    // --- Fonction d'affichage ---
+    function displayItemDetails(itemData, categoryId, itemId) { // itemId est la clé Firebase ici
+        if (!itemData) {
+            if(loadingStateDiv) loadingStateDiv.classList.add('hidden');
+            if(itemContentArticle) itemContentArticle.classList.add('hidden');
+            if(errorStateDiv) errorStateDiv.classList.remove('hidden');
+            console.error("Détails de l'article : Aucune donnée d'article à afficher.");
+            return;
+        }
+        currentItemDetailsData = itemData; 
+
+        const itemName = itemData.name ? escapeHTMLDetails(itemData.name) : 'Article';
+        const itemPrice = itemData.price !== undefined && !isNaN(parseFloat(itemData.price)) ? parseFloat(itemData.price).toFixed(2) : 'N/A';
+        const itemShortDesc = itemData.shortDesc || itemData.desc || ''; // Compatibilité avec l'ancien champ 'desc'
+        const itemLongDesc = itemData.longDesc || '';
+        const itemImageURL = itemData.imageURL || '';
+        const ingredients = Array.isArray(itemData.ingredients) ? itemData.ingredients : [];
+        const allergies = Array.isArray(itemData.allergies) ? itemData.allergies : [];
+
+        document.title = `${itemName} - Pizza Hut`; 
+
+        if (itemImageWrapper) {
+            const imagePlaceholder = '<div class="w-full h-64 md:h-80 bg-gray-200 flex items-center justify-center text-gray-400 rounded-t-xl border-b border-gray-300"><i class="fas fa-image text-5xl"></i></div>';
+            itemImageWrapper.innerHTML = itemImageURL 
+                ? `<img src="${escapeHTMLDetails(itemImageURL)}" alt="${itemName}" class="w-full h-64 md:h-80 object-cover rounded-t-xl">` 
+                : imagePlaceholder;
+        }
+        if (itemNameH1) itemNameH1.textContent = itemName;
+        if (itemShortDescP) {
+            itemShortDescP.textContent = escapeHTMLDetails(itemShortDesc);
+            itemShortDescP.classList.toggle('hidden', !itemShortDesc); // Cacher si vide
+        }
+        if (itemPriceSpan) itemPriceSpan.textContent = `${itemPrice} MAD`;
+
+        if (itemLongDesc && itemLongDescP && itemLongDescSection) {
+            itemLongDescP.innerHTML = escapeHTMLDetails(itemLongDesc).replace(/\n/g, '<br>'); // Permettre les sauts de ligne
+            itemLongDescSection.classList.remove('hidden');
+        } else if (itemLongDescSection) {
+            itemLongDescSection.classList.add('hidden');
+        }
+
+        if (ingredients.length > 0 && itemIngredientsListUl && itemIngredientsSection) {
+            itemIngredientsListUl.innerHTML = '';
+            ingredients.forEach(ing => {
+                const li = document.createElement('li');
+                li.className = "text-gray-600";
+                li.textContent = escapeHTMLDetails(ing);
+                itemIngredientsListUl.appendChild(li);
+            });
+            itemIngredientsSection.classList.remove('hidden');
+        } else if (itemIngredientsSection) {
+            itemIngredientsSection.classList.add('hidden');
+        }
+
+        if (allergies.length > 0 && itemAllergiesListUl && itemAllergiesSection) {
+            itemAllergiesListUl.innerHTML = '';
+            allergies.forEach(allergen => {
+                const li = document.createElement('li');
+                li.className = "text-red-500 font-medium";
+                li.textContent = escapeHTMLDetails(allergen);
+                itemAllergiesListUl.appendChild(li);
+            });
+            itemAllergiesSection.classList.remove('hidden');
+            if(noAllergiesMessageP) noAllergiesMessageP.classList.add('hidden');
+        } else if (itemAllergiesSection && noAllergiesMessageP) { 
+            itemAllergiesListUl.innerHTML = ''; // S'assurer que la liste est vide
+            itemAllergiesSection.classList.remove('hidden'); 
+            noAllergiesMessageP.classList.remove('hidden'); // Afficher "aucun allergène"
+        } else if (itemAllergiesSection){
+             itemAllergiesSection.classList.add('hidden');
+        }
+        
+        if (addToCartDetailsBtn) {
+            // Utiliser itemId (la clé Firebase) pour la cohérence avec le panier
+            addToCartDetailsBtn.onclick = () => {
+                itemDetailsCartFunctions.addToCart(itemId, itemName, parseFloat(itemData.price || 0), itemImageURL);
+            };
+        }
+
+        if(loadingStateDiv) loadingStateDiv.classList.add('hidden');
+        if(errorStateDiv) errorStateDiv.classList.add('hidden');
+        if(itemContentArticle) itemContentArticle.classList.remove('hidden');
+        if (typeof applyLanguage === 'function') applyLanguage(currentItemLang); 
+    }
+
+    // Gère le changement de langue pour cette page
+    function applyLanguageItemDetailsPage(lang) { 
+        currentItemLang = lang; 
+        localStorage.setItem("lang", lang); 
+        if (typeof applyLanguage === 'function') { 
+            applyLanguage(lang); 
+        }
+        
+        // Logique pour mettre à jour le texte du bouton "Ajouter au panier" si nécessaire
+        if (currentItemDetailsData && addToCartDetailsBtn && !addToCartDetailsBtn.disabled) {
+            const btnSpan = addToCartDetailsBtn.querySelector('span');
+            const textKey = btnSpan ? btnSpan.dataset.translate : 'add_to_cart_button';
+            const translatedText = (typeof translations !== 'undefined' && translations[currentItemLang]?.[textKey]) || "Add to Cart";
+            if (btnSpan) btnSpan.textContent = translatedText;
+        } else if (addToCartDetailsBtn && addToCartDetailsBtn.disabled) {
+            // Si le bouton est désactivé ("Added!"), retraduire ce message aussi
+             const addedTextKey = 'added_to_cart_details_feedback'; 
+             const addedText = (typeof translations !== 'undefined' && translations[currentItemLang]?.[addedTextKey]) || 'Added!';
+             addToCartDetailsBtn.innerHTML = `<i class="fas fa-check-circle mr-2"></i> ${addedText}`;
+        }
+    }
+
+    // --- Initialisation principale ---
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log("item-details.js: DOMContentLoaded.");
+        updateCartCountDetails();
+        if(document.getElementById('current-year-details')) {
+            document.getElementById('current-year-details').textContent = new Date().getFullYear();
+        }
+
+        const languageSwitcherDetails = document.getElementById('language-switcher');
+        if (languageSwitcherDetails) {
+            currentLang = localStorage.getItem("lang") || "en";
+            languageSwitcherDetails.value = currentLang;
+            if (typeof applyLanguage === 'function') {
+                applyLanguage(currentLang); 
+            } else {
+                console.warn("item-details.js: La fonction globale applyLanguage n'a pas été trouvée. Assurez-vous que lang.js est chargé.");
+            }
+
+            languageSwitcherDetails.addEventListener('change', (e) => {
+                applyLanguageItemDetailsPage(e.target.value);
+            });
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const categoryId = params.get('categoryId');
+        const itemId = params.get('itemId'); // Ceci est la clé Firebase de l'article
+
+        if (categoryId && itemId) {
+            console.log(`item-details.js: Récupération des détails pour Catégorie ID: ${categoryId}, Article ID (clé): ${itemId}`);
+            // Correction : Utilisation de dbDetailsInstance
+            dbDetailsInstance.ref(`menu/${categoryId}/items/${itemId}`).once('value')
+                .then(snapshot => {
+                    const itemData = snapshot.val();
+                    if (itemData) {
+                        console.log("item-details.js: Données de l'article récupérées:", itemData);
+                        displayItemDetails(itemData, categoryId, itemId); 
+                    } else {
+                        console.error(`item-details.js: Article non trouvé dans Firebase: menu/${categoryId}/items/${itemId}`);
+                        if(loadingStateDiv) loadingStateDiv.classList.add('hidden');
+                        if(itemContentArticle) itemContentArticle.classList.add('hidden');
+                        if(errorStateDiv) errorStateDiv.classList.remove('hidden');
+                        if (typeof applyLanguage === 'function') applyLanguage(currentLang);
+                    }
+                })
+                .catch(error => {
+                    console.error("item-details.js: Erreur lors de la récupération des données de l'article:", error);
+                    if(loadingStateDiv) loadingStateDiv.classList.add('hidden');
+                    if(itemContentArticle) itemContentArticle.classList.add('hidden');
+                    if(errorStateDiv) errorStateDiv.classList.remove('hidden');
+                    if (typeof applyLanguage === 'function') applyLanguage(currentLang);
+                });
+        } else {
+            console.error("item-details.js: ID de catégorie ou ID d'article manquant dans les paramètres URL.");
+            if(loadingStateDiv) loadingStateDiv.classList.add('hidden');
+            if(itemContentArticle) itemContentArticle.classList.add('hidden');
+            if(errorStateDiv) errorStateDiv.classList.remove('hidden');
+             if (typeof applyLanguage === 'function') applyLanguage(currentLang);
+        }
+    });
+  </script>
+</body>
+</html>

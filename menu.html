@@ -2,37 +2,81 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Pizza Hut – Menu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Pizza Hut - Menu</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" /> </head>
-<body class="bg-gray-50 min-h-screen flex flex-col">
-  <header class="flex items-center justify-between px-4 py-3 bg-red-600 text-white shadow-md">
-    <div class="flex items-center space-x-2">
-      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Logo" class="w-10 h-10 rounded shadow-sm bg-white" />
-      <span class="font-bold text-2xl tracking-tight">Pizza Hut</span>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
+  <link rel="stylesheet" href="style.css" /> 
+  <style>
+    /* Basic scrollbar styling for category tabs */
+    #category-tabs::-webkit-scrollbar {
+      height: 8px; /* Slimmer scrollbar */
+    }
+    #category-tabs::-webkit-scrollbar-track {
+      background: #f9fafb; /* gray-50 */
+      border-radius: 10px;
+    }
+    #category-tabs::-webkit-scrollbar-thumb {
+      background: #ef4444; /* red-500 */
+      border-radius: 10px;
+    }
+    #category-tabs::-webkit-scrollbar-thumb:hover {
+      background: #dc2626; /* red-600 */
+    }
+    .menu-item-card {
+        cursor: pointer; /* Indicate items are clickable */
+    }
+    .category-tab.active-tab { /* Style for active tab */
+        border-color: #ef4444; /* red-500 */
+        color: #ef4444;
+        font-weight: 600;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+
+  <header class="flex items-center justify-between px-4 py-3 bg-red-700 text-white shadow-lg sticky top-0 z-30">
+    <div class="flex items-center space-x-3">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="w-10 h-10 rounded-full shadow-sm bg-white p-0.5" />
+      <span class="font-bold text-xl sm:text-2xl tracking-tight" data-translate="app_title">Pizza Hut</span>
     </div>
-    <select id="language-switcher" class="text-black rounded p-1">
-      <option value="en">English</option>
-      <option value="fr">Français</option>
-      <option value="ar">العربية</option>
-    </select>
+    <div class="flex items-center space-x-3 sm:space-x-4">
+        <select id="language-switcher" class="bg-red-600 text-white border border-red-500 rounded-md p-1.5 text-xs sm:text-sm focus:ring-2 focus:ring-white focus:outline-none appearance-none">
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="ar">العربية</option>
+        </select>
+        <a href="cart.html" id="cart-btn" class="relative text-white hover:text-red-200 transition-colors">
+            <i class="fas fa-shopping-cart text-2xl"></i>
+            <span id="cart-count" class="absolute -top-2.5 -right-2.5 bg-yellow-400 text-red-700 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-md">0</span>
+        </a>
+    </div>
   </header>
 
-  <nav id="category-tabs" class="flex overflow-x-auto bg-white shadow mb-2 sticky top-0 z-10">
-    </nav>
+  <nav id="category-tabs" class="flex overflow-x-auto bg-white shadow-md sticky top-[60px] sm:top-[68px] z-20 border-b border-gray-300">
+    <p class="p-4 text-gray-500 italic" data-translate="loading_categories">Loading categories...</p>
+  </nav>
 
-  <main class="flex-1 px-2 pb-28 pt-2 sm:px-4">
-    <div id="menu-grid" class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-5">
-        </div>
+  <main class="flex-1 px-3 sm:px-4 md:px-6 py-5">
+    <h2 id="category-title-h2" class="text-2xl sm:text-3xl font-extrabold text-gray-800 mb-6 text-center" data-translate="select_category_prompt">Select a category</h2>
+    <div id="menu-grid" class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
+        <p class="text-gray-500 italic col-span-full text-center py-10" data-translate="menu_loading_placeholder">Loading menu items...</p>
+    </div>
   </main>
 
-  <button id="cart-btn" class="fixed bottom-4 right-4 bg-green-600 text-white rounded-full shadow-lg px-6 py-3 flex items-center space-x-2 text-lg z-50 transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400">
-    <span>🛒</span>
-    <span id="cart-count" class="font-bold">0</span>
-  </button>
+  <footer class="text-center p-4 text-gray-600 text-xs border-t border-gray-200 bg-gray-100">
+    &copy; <span id="current-year"></span> Pizza Hut Clone. For educational purposes.
+  </footer>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script> 
-  <script src="firebase.js"></script>   <script src="menu.js"></script>     <script src="lang.js"></script>     </body>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="firebase.js"></script> 
+  <script src="lang.js"></script>
+  <script src="menu.js"></script>
+  
+  <script>
+    document.getElementById('current-year').textContent = new Date().getFullYear();
+  </script>
+
+</body>
 </html>

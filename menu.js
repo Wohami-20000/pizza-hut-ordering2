@@ -1,265 +1,254 @@
-// menu.js (Updated to fetch from Firebase and handle object structures for items)
+// menu.js - Updated to display more item details and link to item-details.html
 
-// Get references to HTML elements
+const dbInstance = firebase.database();
+console.log("menu.js: Firebase dbInstance object initialized.");
+
+let menuDataCache = {}; 
+let currentActiveCategoryId = null;
+let cart = JSON.parse(localStorage.getItem("cart")) || [];
+let currentLang = localStorage.getItem("lang") || "en";
+
+// --- HTML Element References ---
 const tabsContainer = document.getElementById("category-tabs");
 const menuGrid = document.getElementById("menu-grid");
-const cartBtn = document.getElementById("cart-btn");
+const cartBtn = document.getElementById("cart-btn"); 
 const cartCountSpan = document.getElementById("cart-count");
+const categoryTitleH2 = document.getElementById("category-title-h2");
 
-// Global variables to store menu data and current state
-let fullMenuData = []; // This will hold the menu from Firebase as an ARRAY of categories
-let activeCategoryName = ""; // Name of the currently active category
-let cart = JSON.parse(localStorage.getItem("cart")) || [];
-
-// Helper function to prevent naughty code in names/descriptions
+// --- Utility ---
 function escapeHTML(str) {
-  if (typeof str !== 'string') {
-    return str !== null && str !== undefined ? String(str) : '';
-  }
-  return str.replace(/[&<>"']/g, function (match) {
-    return {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;'
-    }[match];
-  });
+  if (typeof str !== 'string') return str !== null && str !== undefined ? String(str) : '';
+  return str.replace(/[&<>"']/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': "&quot;", "'": '&#39;' }[match]));
 }
 
-// --- Firebase Listener: Get the menu from the magic whiteboard! ---
-try {
-  if (typeof firebase === 'undefined' || typeof firebase.database === 'undefined') {
-    throw new Error("Firebase is not initialized. Make sure firebase.js is loaded before menu.js and configured correctly.");
+// --- Rendering Functions ---
+function renderCategoriesTabs(menuObject) {
+  if (!tabsContainer) { console.error("Menu.js: #category-tabs not found."); return; }
+  tabsContainer.innerHTML = ''; 
+
+  if (!menuObject || Object.keys(menuObject).length === 0) {
+    tabsContainer.innerHTML = `<p class="p-4 text-gray-500 italic" data-translate="no_categories_available">No categories available.</p>`;
+    if (categoryTitleH2 && typeof translations !== 'undefined' && translations[currentLang]) {
+        categoryTitleH2.textContent = translations[currentLang]?.no_categories_available || "No categories available";
+    } else if (categoryTitleH2) {
+        categoryTitleH2.textContent = "No categories available";
+    }
+    if (menuGrid) menuGrid.innerHTML = ''; 
+    if (typeof applyLanguage === 'function') applyLanguage(currentLang);
+    return;
   }
-  const db = firebase.database(); // Get Firebase database instance
 
-  db.ref('menu').on('value', (snapshot) => {
-    const firebaseMenuData = snapshot.val();
-    console.log("Customer Menu: Raw data from Firebase /menu:", firebaseMenuData); 
+  let firstCategoryId = null;
+  let isFirstTab = true;
 
-    if (firebaseMenuData) {
-      if (typeof firebaseMenuData === 'object' && !Array.isArray(firebaseMenuData)) {
-        fullMenuData = Object.values(firebaseMenuData);
-        console.log("Customer Menu: Converted menu object to array:", fullMenuData);
-      } else if (Array.isArray(firebaseMenuData)) {
-        fullMenuData = firebaseMenuData;
-        console.log("Customer Menu: Menu is already an array:", fullMenuData);
-      } else {
-        console.error("Customer Menu: Menu data from Firebase is not a recognized format (object or array).");
-        fullMenuData = [];
-      }
+  Object.entries(menuObject).forEach(([categoryId, categoryData]) => {
+    if (isFirstTab) {
+        firstCategoryId = categoryId;
+        isFirstTab = false;
+    }
+    if (!categoryData || !categoryData.category) return;
+    
+    const tabButton = document.createElement('button');
+    tabButton.className = 'category-tab whitespace-nowrap py-3 px-5 text-sm sm:text-base font-medium text-gray-500 hover:text-red-600 hover:border-red-600 border-b-2 border-transparent focus:outline-none transition-colors duration-150 ease-in-out';
+    tabButton.textContent = escapeHTML(categoryData.category);
+    tabButton.dataset.translate = `cat_${categoryData.category.toLowerCase().replace(/\s+/g, '_')}`; // For translation key
+    tabButton.setAttribute('role', 'tab');
+    tabButton.setAttribute('aria-selected', 'false');
+    tabButton.onclick = () => window.menuFunctions.selectCategory(categoryId, tabButton);
+    tabsContainer.appendChild(tabButton);
+  });
+  
+  if (typeof applyLanguage === 'function') applyLanguage(currentLang); // Translate newly added tabs
 
-      if (fullMenuData.length > 0) {
-        const categoryNames = fullMenuData.map(c => c.category).filter(name => typeof name === 'string');
-        if (!activeCategoryName || !categoryNames.includes(activeCategoryName)) {
-          activeCategoryName = categoryNames[0] || ""; 
-        }
-      } else {
-        activeCategoryName = "";
-        if (tabsContainer) tabsContainer.innerHTML = "<p data-translate='menu_empty'>Menu is currently empty.</p>";
-      }
+  // Automatically select and render the first category if no category is currently active or if current is invalid
+  if (firstCategoryId && (!currentActiveCategoryId || !menuObject[currentActiveCategoryId])) {
+    currentActiveCategoryId = firstCategoryId; // Update the global active ID
+    const firstTabElement = tabsContainer.querySelector('.category-tab'); // Get the first rendered tab
+    if (firstTabElement) { // Ensure the element exists before trying to click
+        window.menuFunctions.selectCategory(firstCategoryId, firstTabElement);
     } else {
-      console.warn("Customer Menu: No menu data found in Firebase at '/menu'.");
-      fullMenuData = [];
-      activeCategoryName = "";
-      if (tabsContainer) tabsContainer.innerHTML = "<p data-translate='menu_unavailable'>Menu not available.</p>";
+        console.warn("Menu.js: First category tab element not found for auto-selection.");
+        renderMenuItems(firstCategoryId); // Attempt to render items anyway
     }
-    renderTabs();
-    renderMenu();
-    if (typeof updateCartCount === 'function') updateCartCount();
-
-  }, (error) => {
-    console.error("Customer Menu: Error fetching menu data from Firebase:", error);
-    if (tabsContainer) tabsContainer.innerHTML = "<p data-translate='menu_error_loading'>Error loading menu. Please try again later.</p>";
-    if (menuGrid) menuGrid.innerHTML = "";
-  });
-} catch (e) {
-  console.error("Customer Menu: Firebase setup error:", e);
-  if (tabsContainer) tabsContainer.innerHTML = "<p data-translate='menu_error_critical'>Critical error: Firebase not set up for menu.</p>";
-  if (menuGrid) menuGrid.innerHTML = "";
+  } else if (currentActiveCategoryId && menuObject[currentActiveCategoryId]) {
+    // If a category was active and still exists, re-apply active style and render items
+    const activeTabElement = Array.from(tabsContainer.querySelectorAll('.category-tab')).find(tab => tab.textContent === menuObject[currentActiveCategoryId].category);
+    if(activeTabElement) window.menuFunctions.selectCategory(currentActiveCategoryId, activeTabElement);
+    else renderMenuItems(currentActiveCategoryId); // Fallback if tab not found but ID is valid
+  } else if (categoryTitleH2 && Object.keys(menuObject).length > 0){ // A category exists, but none were active
+    const firstCatId = Object.keys(menuObject)[0];
+    const firstTabElement = tabsContainer.querySelector('.category-tab');
+    window.menuFunctions.selectCategory(firstCatId, firstTabElement);
+  }
 }
 
+function renderMenuItems(categoryId) {
+  if (!menuGrid) { console.error("Menu.js: #menu-grid not found."); return; }
+  if (!categoryTitleH2) { console.warn("Menu.js: #category-title-h2 not found."); }
+  
+  menuGrid.innerHTML = ''; 
+  currentActiveCategoryId = categoryId; 
 
-// --- Category Tabs ---
-function renderTabs() {
-  if (!tabsContainer) return;
-  tabsContainer.innerHTML = ""; 
-  if (!fullMenuData || fullMenuData.length === 0) {
+  const categoryData = menuDataCache[categoryId];
+  if (!categoryData) {
+    if (categoryTitleH2) categoryTitleH2.textContent = "Category Not Found";
+    menuGrid.innerHTML = `<p class="text-gray-600 col-span-full p-4" data-translate="category_not_found">Selected category data is missing.</p>`;
+    if (typeof applyLanguage === 'function') applyLanguage(currentLang);
     return;
   }
 
-  const categoryNames = fullMenuData.map(c => c.category).filter(name => typeof name === 'string');
-
-  categoryNames.forEach(catName => {
-    const btn = document.createElement("button");
-    btn.className = "flex-shrink-0 px-3 py-2 mx-1 rounded-t text-base sm:text-lg whitespace-nowrap " +
-      (activeCategoryName === catName ? "bg-red-600 text-white font-semibold shadow" : "bg-gray-100 text-gray-700 hover:bg-red-100");
-    btn.textContent = escapeHTML(catName);
-    btn.onclick = () => {
-      activeCategoryName = catName;
-      renderTabs(); 
-      renderMenu(); 
-      window.scrollTo({top: 0, behavior: "smooth"});
-    };
-    tabsContainer.appendChild(btn);
-  });
-}
-
-// --- Menu Grid ---
-function renderMenu() {
-  if (!menuGrid) return;
-  menuGrid.innerHTML = ""; 
-  if (!activeCategoryName || !fullMenuData || fullMenuData.length === 0) {
-    menuGrid.innerHTML = "<p data-translate='select_category_items'>Select a category to see items.</p>";
-    return;
+  if (categoryTitleH2) {
+    categoryTitleH2.textContent = escapeHTML(categoryData.category);
+    categoryTitleH2.dataset.translate = `cat_title_${categoryData.category.toLowerCase().replace(/\s+/g, '_')}`;
   }
 
-  const catObj = fullMenuData.find(c => c.category === activeCategoryName);
-  if (!catObj) {
-    console.warn(`Customer Menu: Category object for "${escapeHTML(activeCategoryName)}" not found.`);
-    menuGrid.innerHTML = "<p data-translate='category_items_load_error'>Items for this category could not be loaded.</p>";
-    return;
-  }
-
-  if (catObj.category === "Pizzas") {
-    // (Pizza rendering logic - seems okay for now based on your problem description)
-    if (catObj.subcategories && Array.isArray(catObj.subcategories)) {
-      catObj.subcategories.forEach(sub => {
-        if (!sub || !sub.name || !Array.isArray(sub.sizes)) {
-            console.warn('Customer Menu: Skipping invalid subcategory or subcategory with invalid sizes:', sub);
-            return;
-        }
-        const card = document.createElement("div");
-        card.className = "bg-white rounded-xl p-4 shadow flex flex-col mb-1";
-        card.innerHTML = `
-          <div class="font-bold text-lg mb-1" data-translate-item="${sub.id || sub.name}_name">${escapeHTML(sub.name)}</div>
-          ${sub.desc ? `<div class="text-gray-600 mb-1 text-sm" data-translate-item="${sub.id || sub.name}_desc">${escapeHTML(sub.desc)}</div>` : ""}
-          ${sub.recipes && Array.isArray(sub.recipes) ? `<ul class="mb-1 text-xs text-gray-500">${sub.recipes.map(r => `<li data-translate-item="${sub.id || sub.name}_recipe_${r.toLowerCase().replace(/\s/g, '_')}">• ${escapeHTML(r)}</li>`).join("")}</ul>` : ""}
-          <div class="flex flex-col gap-2 mb-2">
-            ${sub.sizes.map(sz => {
-              if (!sz || typeof sz.size === 'undefined' || typeof sz.price === 'undefined') {
-                  console.warn('Customer Menu: Skipping invalid size in subcategory:', sub.name, sz);
-                  return '';
-              }
-              const itemNameEsc = escapeHTML(sub.name.replace(/'/g, "\\'"));
-              const itemSizeEsc = escapeHTML(sz.size.replace(/'/g, "\\'"));
-              return `
-                <button class="border rounded px-2 py-1 flex justify-between items-center hover:bg-green-50 active:bg-green-100 mb-1 text-sm"
-                  onclick="addToCart('${itemNameEsc}', '${itemSizeEsc}', ${parseFloat(sz.price)})">
-                  <span data-translate-item="${sub.id || sub.name}_size_${sz.size.toLowerCase()}">${escapeHTML(sz.size)}</span>
-                  <span class="font-semibold">${parseFloat(sz.price)} DH</span>
-                </button>
-              `;
-            }).join("")}
-          </div>
-        `;
-        menuGrid.appendChild(card);
-      });
-    }
-    const options = catObj.options || [];
-    if (Array.isArray(options)) {
-        options.forEach(opt => {
-            if(!opt || !opt.name || !opt.price || typeof opt.price.Individual === 'undefined' || typeof opt.price.Double === 'undefined' || typeof opt.price.Triple === 'undefined'){
-                console.warn('Customer Menu: Skipping invalid option:', opt);
-                return;
-            }
-            const card = document.createElement("div");
-            card.className = "bg-yellow-50 rounded-xl p-4 shadow flex flex-col";
-            card.innerHTML = `
-              <div class="font-semibold mb-1" data-translate-item="${opt.id || opt.name}_name">${escapeHTML(opt.name)}</div>
-              <div class="text-gray-600 text-xs mb-1">${opt.desc ? escapeHTML(opt.desc) : ""}</div>
-              <div class="text-gray-800 text-xs">
-                +${parseFloat(opt.price.Individual)} DH (Individuelle), 
-                +${parseFloat(opt.price.Double)} DH (Double), 
-                +${parseFloat(opt.price.Triple)} DH (Triple)
-              </div>`;
-            menuGrid.appendChild(card);
-        });
-    }
+  // As per user: We are not focusing on Pizza specific subcategory display in this step.
+  // All categories will attempt to render items generically.
+  if (categoryData.items && Object.keys(categoryData.items).length > 0) {
+    Object.entries(categoryData.items).forEach(([itemIdFromKey, itemData]) => {
+      const itemId = itemData.id || itemIdFromKey; // Prefer item.id if present
+      if(itemData && typeof itemData === 'object') { 
+        menuGrid.appendChild(createMenuItemCard(itemData, categoryId, itemId));
+      } else {
+        console.warn(`Menu.js: Item data for key ${itemIdFromKey} in category ${categoryId} is invalid or not an object:`, itemData);
+      }
+    });
   } else {
-    // Other categories: items - *** THIS IS THE UPDATED PART ***
-    const itemsObject = catObj.items || {}; // Items are expected to be an object
-    const itemsArray = Object.values(itemsObject); // Convert the object's values to an array
+    menuGrid.innerHTML = `<p class="text-gray-600 col-span-full p-4 text-center" data-translate="no_items_in_category">No items available in this category yet.</p>`;
+  }
+  if (typeof applyLanguage === 'function') applyLanguage(currentLang);
+}
 
-    if (itemsArray.length === 0) {
-        menuGrid.innerHTML = `<p data-translate="no_items_category">No items in this category yet.</p>`;
-    } else {
-        itemsArray.forEach(item => {
-            if (!item || !item.name) { 
-                console.warn('Customer Menu: Skipping invalid item:', item);
-                return;
-            }
-            const card = document.createElement("div");
-            card.className = "bg-white rounded-xl p-4 shadow flex flex-col mb-1";
-            
-            const itemNameEsc = escapeHTML(item.name.replace(/'/g, "\\'"));
-            const itemPrice = item.price !== undefined && item.price !== null ? parseFloat(item.price) : null;
+function createMenuItemCard(item, categoryId, itemId) {
+  const itemCard = document.createElement("div");
+  itemCard.className = "menu-item-card bg-white rounded-xl shadow-lg overflow-hidden flex flex-col hover:shadow-2xl transition-shadow duration-300 ease-in-out group";
+  itemCard.dataset.categoryId = categoryId; 
+  itemCard.dataset.itemId = itemId; 
 
-            card.innerHTML = `
-              <div class="font-bold text-lg mb-1" data-translate-item="${item.id || item.name}_name">${escapeHTML(item.name)}</div>
-              ${item.desc ? `<div class="text-gray-600 mb-2 text-sm" data-translate-item="${item.id || item.name}_desc">${escapeHTML(item.desc)}</div>` : ""}
-              ${itemPrice !== null ? `<div class="font-semibold mb-2">${itemPrice} DH</div>` : ""}
-              ${itemPrice !== null ? `<button class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 active:bg-green-800 text-base font-semibold" 
-                                            onclick="addToCart('${itemNameEsc}', '', ${itemPrice})">
-                                            <span data-translate="add_to_cart">Add to Cart</span>
-                                          </button>` : ""}
-            `;
-            menuGrid.appendChild(card);
-        });
+  const itemName = item.name ? escapeHTML(item.name) : 'Unnamed Item';
+  const itemPrice = item.price !== undefined && !isNaN(parseFloat(item.price)) ? parseFloat(item.price).toFixed(2) : '0.00';
+  const itemShortDescription = item.shortDesc || item.desc || 'Tap for more details!'; 
+  const itemImageURL = item.imageURL || ''; // Ensure imageURL is defined
+
+  const imagePlaceholder = '<div class="w-full h-48 bg-gray-200 flex items-center justify-center text-gray-400 rounded-t-xl"><i class="fas fa-image text-4xl"></i></div>';
+  const imageHTML = itemImageURL 
+    ? `<img src="${escapeHTML(itemImageURL)}" alt="${itemName}" class="w-full h-48 object-cover rounded-t-xl group-hover:scale-105 transition-transform duration-300 ease-in-out">`
+    : imagePlaceholder;
+  
+  itemCard.innerHTML = `
+    <div class="relative" onclick="window.menuFunctions.navigateToItemDetails('${categoryId}', '${itemId}')">
+      ${imageHTML}
+    </div>
+    <div class="p-4 sm:p-5 flex flex-col flex-grow">
+      <h3 class="text-md sm:text-lg font-bold text-red-700 mb-1 truncate group-hover:text-red-800 transition-colors cursor-pointer" title="${itemName}" onclick="window.menuFunctions.navigateToItemDetails('${categoryId}', '${itemId}')">${itemName}</h3>
+      <p class="text-xs text-gray-600 mb-3 flex-grow min-h-[40px] leading-relaxed">${escapeHTML(itemShortDescription)}</p>
+      <div class="flex justify-between items-center mt-auto pt-3 border-t border-gray-200">
+        <span class="text-lg sm:text-xl font-bold text-gray-900">${itemPrice} MAD</span>
+        <button 
+          class="add-to-cart-btn bg-red-600 text-white py-2 px-3 sm:px-4 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 transition text-xs sm:text-sm font-semibold shadow-md"
+          onclick="event.stopPropagation(); window.menuFunctions.addToCart('${itemId}', '${itemName}', ${parseFloat(item.price || 0)}, '${escapeHTML(itemImageURL)}')">
+          <i class="fas fa-cart-plus mr-1 sm:mr-1.5"></i><span data-translate="add_to_cart">Add to Cart</span>
+        </button>
+      </div>
+    </div>
+  `;
+  return itemCard;
+}
+
+// --- Cart & Category Selection ---
+window.menuFunctions = {
+  ...(window.menuFunctions || {}),
+  addToCart: (itemId, itemName, itemPrice, itemImageURL = '') => {
+    console.log("Menu.js: addToCart for item:", itemName, "ID:", itemId, "Price:", itemPrice, "Img:", itemImageURL);
+    if (typeof itemPrice !== 'number' || isNaN(itemPrice)) {
+        alert("Cannot add item: price error."); return;
     }
+    const existingItemIndex = cart.findIndex(cartItem => cartItem.id === itemId);
+    if (existingItemIndex > -1) cart[existingItemIndex].qty++;
+    else cart.push({ id: itemId, name: itemName, price: itemPrice, qty: 1, imageURL: itemImageURL });
+    localStorage.setItem("cart", JSON.stringify(cart));
+    updateCartCount();
+    const buttons = document.querySelectorAll(`.menu-item-card[data-item-id="${itemId}"] .add-to-cart-btn`);
+    buttons.forEach(button => {
+        const originalTextEl = button.querySelector('span');
+        const originalTextKey = originalTextEl ? originalTextEl.dataset.translate : 'add_to_cart';
+        const addedText = (typeof translations !== 'undefined' && translations[currentLang]?.added_to_cart_feedback) || 'Added!';
+        button.innerHTML = `<i class="fas fa-check mr-1.5"></i> ${addedText}`;
+        button.disabled = true;
+        setTimeout(() => {
+            const cartText = (typeof translations !== 'undefined' && translations[currentLang]?.[originalTextKey]) || "Add to Cart";
+            button.innerHTML = `<i class="fas fa-cart-plus mr-1.5"></i><span data-translate="${originalTextKey}">${cartText}</span>`;
+            button.disabled = false;
+        }, 1200);
+    });
+  },
+  selectCategory: (categoryId, clickedTabElement) => {
+    console.log("Menu.js: selectCategory called for ID:", categoryId);
+    currentActiveCategoryId = categoryId;
+    document.querySelectorAll("#category-tabs .category-tab").forEach(tab => {
+        tab.classList.remove("text-red-700", "border-red-700", "font-semibold", "active-tab");
+        tab.classList.add("text-gray-500", "hover:text-red-600", "hover:border-red-600", "border-transparent");
+        tab.setAttribute('aria-selected', 'false');
+    });
+    if (clickedTabElement) {
+        clickedTabElement.classList.add("text-red-700", "border-red-700", "font-semibold", "active-tab");
+        clickedTabElement.classList.remove("text-gray-500", "border-transparent");
+        clickedTabElement.setAttribute('aria-selected', 'true');
+    }
+    renderMenuItems(categoryId);
+  },
+  navigateToItemDetails: (categoryId, itemId) => {
+    console.log(`Menu.js: Navigating to details page for item ID: ${itemId}, category ID: ${categoryId}`);
+    window.location.href = `item-details.html?categoryId=${categoryId}&itemId=${itemId}`;
   }
-}
-
-// --- Cart ---
-function addToCart(name, size, price) {
-  if (price === undefined || price === null || isNaN(parseFloat(price))) {
-      console.error("Attempted to add item with invalid price:", name, size, price);
-      alert("Sorry, this item cannot be added due to a price error.");
-      return;
-  }
-  const numericPrice = parseFloat(price);
-
-  const idx = cart.findIndex(i => i.name === name && i.size === size);
-  if (idx > -1) {
-    cart[idx].qty += 1;
-  } else {
-    cart.push({ name, size, price: numericPrice, qty: 1 });
-  }
-  localStorage.setItem("cart", JSON.stringify(cart));
-  updateCartCount();
-  if (cartBtn) {
-    cartBtn.classList.add("ring", "ring-green-300");
-    setTimeout(() => cartBtn.classList.remove("ring", "ring-green-300"), 600);
-  }
-}
+};
 
 function updateCartCount() {
-  const count = cart.reduce((sum, i) => sum + i.qty, 0);
-  if (cartCountSpan) {
-    cartCountSpan.textContent = count;
-  }
+  const count = cart.reduce((sum, item) => sum + item.qty, 0);
+  if (cartCountSpan) cartCountSpan.textContent = count;
 }
 
-if (cartBtn) {
-  cartBtn.onclick = () => window.location.href = "cart.html";
-}
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("Menu.js: DOMContentLoaded event fired.");
+    updateCartCount(); 
 
-// --- Responsive adjustments ---
-function fixGridForMobile() {
-  if (window.innerWidth < 400) {
-    if (menuGrid) {
-        menuGrid.classList.remove('sm:grid-cols-2', 'md:grid-cols-3');
-        menuGrid.classList.add('grid-cols-1');
+    const languageSwitcherMenu = document.getElementById('language-switcher');
+    if (languageSwitcherMenu) {
+        if (typeof applyLanguage === 'function' && typeof translations !== 'undefined') {
+            currentLang = localStorage.getItem("lang") || "en";
+            languageSwitcherMenu.value = currentLang;
+        } else {
+            console.warn("Menu.js: applyLanguage function or translations missing. Make sure lang.js is loaded before menu.js.");
+        }
+        
+        languageSwitcherMenu.addEventListener('change', (e) => {
+            currentLang = e.target.value;
+            localStorage.setItem('lang', currentLang);
+            if (typeof applyLanguage === 'function') applyLanguage(currentLang); 
+            renderCategoriesTabs(menuDataCache); 
+            if (currentActiveCategoryId) renderMenuItems(currentActiveCategoryId);
+            else if (categoryTitleH2 && typeof translations !== 'undefined' && translations[currentLang]) {
+                categoryTitleH2.textContent = translations[currentLang]?.select_category_prompt || "Select a category";
+            }
+        });
+    } else {
+        console.warn("Menu.js: language-switcher not found.");
     }
-  }
-}
-window.addEventListener('resize', fixGridForMobile);
+    
+    dbInstance.ref('menu').on('value', snapshot => {
+        menuDataCache = snapshot.val() || {};
+        console.log("Menu.js: Menu data received/updated:", menuDataCache);
+        // If currentActiveCategoryId is null or no longer valid, renderCategoriesTabs will select the first one
+        if (!currentActiveCategoryId || !menuDataCache[currentActiveCategoryId]) {
+            currentActiveCategoryId = null; // Reset if invalid
+        }
+        renderCategoriesTabs(menuDataCache); 
+        if (typeof applyLanguage === 'function') applyLanguage(currentLang);
+    }, error => {
+        console.error("Menu.js: Firebase /menu listener error:", error);
+        if (menuGrid) menuGrid.innerHTML = "<p>Error loading menu. Please try again.</p>";
+        if (categoryTitleH2) categoryTitleH2.textContent = "Error Loading Menu";
+    });
 
-// --- Initial calls ---
-fixGridForMobile(); 
-// renderTabs() and renderMenu() are called by Firebase listener
-// updateCartCount() is also called by Firebase listener and addToCart.
-
-// --- Expose addToCart globally ---
-window.addToCart = addToCart;
+    if (cartBtn) cartBtn.onclick = () => window.location.href = "cart.html";
+});
