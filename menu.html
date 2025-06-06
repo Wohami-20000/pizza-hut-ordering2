@@ -1,35 +1,46 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Pizza Hut - Menu</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
-  <link rel="stylesheet" href="style.css" /> 
+  <link rel="stylesheet" href="style.css" />
   <style>
-    /* Basic scrollbar styling for category tabs */
-    #category-tabs::-webkit-scrollbar {
-      height: 8px; /* Slimmer scrollbar */
+    #category-tabs::-webkit-scrollbar { height: 8px; }
+    #category-tabs::-webkit-scrollbar-track { background: #f9fafb; }
+    #category-tabs::-webkit-scrollbar-thumb { background: #ef4444; border-radius: 10px; }
+    #category-tabs::-webkit-scrollbar-thumb:hover { background: #dc2626; }
+    .menu-item-card { cursor: pointer; }
+    .category-tab.active-tab { border-color: #ef4444; color: #ef4444; font-weight: 600; }
+    .category-section { scroll-margin-top: 180px; /* Adjusted for header + search + nav */ }
+    /* Style for the back-to-top button */
+    #back-to-top-btn {
+        display: none; /* Hidden by default */
+        position: fixed; /* Fixed position */
+        bottom: 90px; /* Adjust to be above the cart summary bar */
+        right: 20px;
+        z-index: 99; /* Ensure it's on top */
+        background-color: #ef4444; /* red-500 */
+        color: white;
+        border: none;
+        border-radius: 50%; /* Circular button */
+        width: 48px;
+        height: 48px;
+        font-size: 20px;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.3s, background-color 0.3s, transform 0.3s;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        display: flex; /* Use flex to center icon */
+        align-items: center;
+        justify-content: center;
     }
-    #category-tabs::-webkit-scrollbar-track {
-      background: #f9fafb; /* gray-50 */
-      border-radius: 10px;
-    }
-    #category-tabs::-webkit-scrollbar-thumb {
-      background: #ef4444; /* red-500 */
-      border-radius: 10px;
-    }
-    #category-tabs::-webkit-scrollbar-thumb:hover {
-      background: #dc2626; /* red-600 */
-    }
-    .menu-item-card {
-        cursor: pointer; /* Indicate items are clickable */
-    }
-    .category-tab.active-tab { /* Style for active tab */
-        border-color: #ef4444; /* red-500 */
-        color: #ef4444;
-        font-weight: 600;
+    #back-to-top-btn:hover {
+        opacity: 1;
+        background-color: #dc2626; /* red-600 */
+        transform: translateY(-2px);
     }
   </style>
 </head>
@@ -53,16 +64,45 @@
     </div>
   </header>
 
-  <nav id="category-tabs" class="flex overflow-x-auto bg-white shadow-md sticky top-[60px] sm:top-[68px] z-20 border-b border-gray-300">
+  <div id="search-container" class="bg-white p-3 shadow-md sticky top-[60px] sm:top-[68px] z-20 border-b">
+    <div class="relative">
+        <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+            <i class="fas fa-search text-gray-400"></i>
+        </span>
+        <input type="search" id="search-bar"
+               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:ring-red-500 focus:border-red-500 transition"
+               placeholder="Search for food..." data-translate="search_placeholder" />
+    </div>
+  </div>
+
+  <nav id="category-tabs" class="flex overflow-x-auto bg-white shadow-md sticky top-[125px] sm:top-[133px] z-20 border-b border-gray-300">
     <p class="p-4 text-gray-500 italic" data-translate="loading_categories">Loading categories...</p>
   </nav>
 
-  <main class="flex-1 px-3 sm:px-4 md:px-6 py-5">
-    <h2 id="category-title-h2" class="text-2xl sm:text-3xl font-extrabold text-gray-800 mb-6 text-center" data-translate="select_category_prompt">Select a category</h2>
-    <div id="menu-grid" class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
-        <p class="text-gray-500 italic col-span-full text-center py-10" data-translate="menu_loading_placeholder">Loading menu items...</p>
+  <main id="menu-container" class="flex-1 px-3 sm:px-4 md:px-6 py-5 pb-[80px]">
+    <p id="loading-placeholder" class="text-gray-500 italic col-span-full text-center py-10" data-translate="menu_loading_placeholder">Loading menu...</p>
+    <div id="no-results-message" class="hidden text-center py-10">
+        <p class="text-xl font-semibold text-gray-700" data-translate="no_results_title">No results found</p>
+        <p class="text-gray-500 mt-2" data-translate="no_results_desc">Try searching for something else.</p>
     </div>
   </main>
+
+  <div id="cart-summary-bar" class="fixed bottom-0 left-0 right-0 bg-red-700 text-white p-3 shadow-lg z-40 transform translate-y-full transition-transform duration-300 ease-in-out">
+    <div class="max-w-screen-xl mx-auto flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <span id="summary-cart-count" class="bg-yellow-400 text-red-700 text-sm font-bold rounded-full h-6 w-6 flex items-center justify-center shadow-md">0</span>
+        <span class="text-lg font-semibold" data-translate="items_in_cart">Items</span>
+      </div>
+      <div class="flex items-center space-x-4">
+        <span id="summary-cart-total" class="text-xl font-bold">0.00 MAD</span>
+        <a href="cart.html" class="bg-yellow-400 text-red-700 px-5 py-2 rounded-full font-bold text-lg hover:bg-yellow-300 transition-colors shadow-md" data-translate="view_cart">View Cart</a>
+      </div>
+    </div>
+  </div>
+
+  <button id="back-to-top-btn" title="Go to top">
+    <i class="fas fa-arrow-up"></i>
+  </button>
 
   <footer class="text-center p-4 text-gray-600 text-xs border-t border-gray-200 bg-gray-100">
     &copy; <span id="current-year"></span> Pizza Hut Clone. For educational purposes.
@@ -70,10 +110,10 @@
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <script src="firebase.js"></script> 
+  <script src="firebase.js"></script>
   <script src="lang.js"></script>
   <script src="menu.js"></script>
-  
+
   <script>
     document.getElementById('current-year').textContent = new Date().getFullYear();
   </script>
