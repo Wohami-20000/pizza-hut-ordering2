@@ -23,6 +23,9 @@ const summaryCartTotalSpan = document.getElementById('summary-cart-total');
 // New element for back-to-top button
 const backToTopBtn = document.getElementById('back-to-top-btn');
 
+// New element for My Orders button
+const myOrdersBtn = document.getElementById('my-orders-btn');
+
 
 // --- Utility ---
 function escapeHTML(str) {
@@ -79,7 +82,7 @@ function updateMenuCardQuantity(itemId) {
     </div>`
     :
     `<button class="add-to-cart-btn bg-red-600 text-white px-4 py-2 rounded-full font-semibold hover:bg-red-700 transition-colors w-full sm:w-auto"
-      onclick="event.stopPropagation(); window.menuFunctions.addToCart('${itemId}', '${escapeHTML(existingCartItem ? existingCartItem.name : '')}', ${existingCartItem ? existingCartItem.price : 0}, '${escapeHTML(existingCartItem ? existingCartItem.image : '')}')"
+      onclick="event.stopPropagation(); window.menuFunctions.handleInitialAddToCartClick('${itemId}', '${escapeHTML(existingCartItem ? existingCartItem.name : '')}', ${existingCartItem ? existingCartItem.price : 0}, '${escapeHTML(existingCartItem ? existingCartItem.image : '')}')"
       data-translate="add_button">
       <i class="fas fa-plus mr-2"></i> Add
     </button>`;
@@ -155,6 +158,7 @@ function createMenuItemCard(item, categoryId, itemId) {
   card.id = `item-${itemId}`; // Add ID for easy targeting
   card.className = 'menu-item-card bg-white rounded-lg shadow-md p-4 flex flex-col justify-between transform transition-transform hover:scale-[1.02] duration-200'; // Existing card styles
   // The card's click leads to item details page (as per your existing setup)
+  // This behavior remains unchanged, clicking anywhere on the card (except the add/quantity buttons) will go to details.
   card.onclick = () => window.menuFunctions.navigateToItemDetails(categoryId, itemId); 
 
   // Ensure item.price is a number, default to 0 if undefined/null
@@ -190,9 +194,9 @@ function createMenuItemCard(item, categoryId, itemId) {
           </button>
         </div>`
         :
-        // Item not in cart - show "Add" button
+        // Item not in cart - show "Add" button: This button will now navigate to details page first
         `<button class="add-to-cart-btn bg-red-600 text-white px-4 py-2 rounded-full font-semibold hover:bg-red-700 transition-colors w-full sm:w-auto"
-          onclick="event.stopPropagation(); window.menuFunctions.addToCart('${itemId}', '${escapeHTML(item.name || '')}', ${itemPrice}, '${escapeHTML(item.image_url || '')}')"
+          onclick="event.stopPropagation(); window.menuFunctions.handleInitialAddToCartClick('${categoryId}', '${itemId}')"
           data-translate="add_button">
           <i class="fas fa-plus mr-2"></i> Add
         </button>`
@@ -320,7 +324,13 @@ window.menuFunctions = {
       });
     }
   },
-  // MODIFIED addToCart to include updateMenuCardQuantity and updateSummaryBar
+  // This is the function called when the 'Add' button is clicked for the first time
+  handleInitialAddToCartClick: (categoryId, itemId) => {
+    // Navigate to the item details page
+    window.menuFunctions.navigateToItemDetails(categoryId, itemId);
+  },
+  // This function is for adding an item *after* user has chosen options (from details page)
+  // or for direct quantity updates from the menu page's +/- buttons.
   addToCart: (itemId, itemName, itemPrice, itemImageURL = '') => {
     const existingItemIndex = cart.findIndex((item) => item.id === itemId);
 
@@ -336,11 +346,9 @@ window.menuFunctions = {
     updateMenuCardQuantity(itemId); // Update the specific menu card
     updateSummaryBar(); // Update the bottom summary bar
   },
-  // navigateToItemDetails is called directly by card.onclick, no changes here
+  // navigateToItemDetails is called directly by card.onclick AND by handleInitialAddToCartClick
   navigateToItemDetails: (categoryId, itemId) => {
     // This function navigates to the item details page
-    // It's already in your provided item-details.html setup and is correctly called
-    // by the card.onclick event handler in createMenuItemCard.
     console.log(`Navigating to details for Category: ${categoryId}, Item: ${itemId}`);
     window.location.href = `item-details.html?categoryId=${categoryId}&itemId=${itemId}`;
   },
@@ -373,6 +381,17 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCartCount();
     updateSummaryBar(); // Call on load to ensure bar state is correct
     
+    // Set up "My Orders" link
+    const lastOrderId = localStorage.getItem("lastOrderId");
+    if (myOrdersBtn) {
+        if (lastOrderId) {
+            myOrdersBtn.href = `confirm.html?orderId=${lastOrderId}`;
+        } else {
+            myOrdersBtn.href = 'confirm.html'; // Default to confirm page if no order ID is found
+        }
+    }
+
+
     if(searchBar) {
         searchBar.addEventListener('input', filterMenu);
     }
@@ -423,5 +442,29 @@ document.addEventListener('DOMContentLoaded', () => {
         backToTopBtn.addEventListener('click', () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         });
+    }
+
+    // Check URL parameters for 'add_from_details'
+    const urlParams = new URLSearchParams(window.location.search);
+    const addFromDetails = urlParams.get('add_from_details');
+    const returnItemId = urlParams.get('itemId');
+
+    if (addFromDetails === 'true' && returnItemId) {
+        // Find the item in cache and simulate an add
+        const categoryIdFromReturn = urlParams.get('categoryId');
+        if (menuDataCache[categoryIdFromReturn] && menuDataCache[categoryIdFromReturn].items[returnItemId]) {
+            const item = menuDataCache[categoryIdFromReturn].items[returnItemId];
+            // Call the addToCart function directly, as the item is already selected
+            // We don't want to navigate again, just add to cart and update UI
+            window.menuFunctions.addToCart(returnItemId, item.name, item.price, item.image_url);
+        } else {
+            console.warn("menu.js: Item not found in cache for post-details add:", returnItemId);
+            // Even if not found in cache, still try to update UI based on cart data if it exists
+            updateMenuCardQuantity(returnItemId); 
+            updateSummaryBar();
+            updateCartCount();
+        }
+        // Clean the URL to prevent re-adding on refresh
+        history.replaceState({}, document.title, window.location.pathname);
     }
 });

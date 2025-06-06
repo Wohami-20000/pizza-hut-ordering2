@@ -2,11 +2,165 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
   <title>Pizza Hut - Cart</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css"> </head>
+  <link rel="stylesheet" href="style.css"> 
+  <style>
+    /* Custom styles for Glovo-like look */
+    .cart-item-card {
+      display: flex;
+      align-items: center;
+      gap: 1rem; /* Equivalent to Tailwind's gap-4 */
+      padding: 1rem;
+      background-color: #fff;
+      border-radius: 0.75rem; /* rounded-xl */
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* shadow-md */
+    }
+
+    .cart-item-image {
+      flex-shrink: 0;
+      width: 4.5rem; /* w-18 */
+      height: 4.5rem; /* h-18 */
+      border-radius: 0.5rem; /* rounded-lg */
+      overflow: hidden;
+      background-color: #f3f4f6; /* gray-100 */
+    }
+
+    .cart-item-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .cart-item-details {
+      flex-grow: 1;
+      min-width: 0; /* Allows text to truncate */
+    }
+
+    .cart-item-name {
+      font-weight: 600; /* font-semibold */
+      font-size: 1.125rem; /* text-lg */
+      color: #1f2937; /* gray-800 */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cart-item-price-each {
+      font-size: 0.875rem; /* text-sm */
+      color: #4b5563; /* gray-600 */
+    }
+
+    .cart-item-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem; /* gap-3 */
+    }
+
+    .quantity-btn {
+      background-color: #f3f4f6; /* gray-200 */
+      color: #4b5563; /* gray-700 */
+      padding: 0.25rem 0.75rem; /* px-3 py-1 */
+      border-radius: 0.375rem; /* rounded-md */
+      transition: background-color 0.15s ease-in-out;
+    }
+
+    .quantity-btn:hover {
+      background-color: #e5e7eb; /* gray-300 */
+    }
+
+    .remove-item-btn {
+      color: #ef4444; /* red-500 */
+      transition: color 0.15s ease-in-out;
+    }
+
+    .remove-item-btn:hover {
+      color: #dc2626; /* red-700 */
+    }
+
+    /* Sticky Order Summary Bar */
+    .order-summary-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: #ef4444; /* red-500, similar to menu page */
+      color: white;
+      padding: 1rem 1.5rem; /* p-4 sm:p-6 */
+      box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2);
+      z-index: 50; /* Above other content */
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top-left-radius: 1rem;
+      border-top-right-radius: 1rem;
+    }
+
+    .order-summary-bar-total {
+      font-weight: bold;
+      font-size: 1.5rem; /* text-2xl */
+    }
+
+    .order-summary-bar-button {
+      background-color: #facc15; /* yellow-400 */
+      color: #b91c1c; /* red-700 */
+      padding: 0.75rem 1.5rem; /* py-3 px-6 */
+      border-radius: 0.75rem; /* rounded-lg */
+      font-weight: 600; /* font-semibold */
+      font-size: 1.125rem; /* text-lg */
+      transition: background-color 0.15s ease-in-out, transform 0.15s ease-in-out;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .order-summary-bar-button:hover {
+      background-color: #eab308; /* yellow-500 */
+      transform: translateY(-2px);
+    }
+
+    /* Message box for alerts */
+    .message-box {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #fff;
+      padding: 2rem;
+      border-radius: 0.75rem;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      z-index: 1000;
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+      display: none; /* Hidden by default */
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+    }
+    .message-box h3 {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #333;
+    }
+    .message-box p {
+      color: #555;
+      margin-bottom: 1rem;
+    }
+    .message-box button {
+      background-color: #ef4444; /* red-500 */
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      transition: background-color 0.15s ease-in-out;
+    }
+    .message-box button:hover {
+      background-color: #dc2626; /* red-700 */
+    }
+  </style>
+</head>
 <body class="bg-gray-100 text-gray-900 min-h-screen flex flex-col">
 
   <header class="bg-red-600 text-white p-4 shadow-md sticky top-0 z-20">
@@ -26,29 +180,49 @@
     </div>
   </header>
 
-  <main class="container mx-auto p-4 sm:p-6 mt-4 max-w-xl flex-grow">
+  <main class="container mx-auto p-4 sm:p-6 mt-4 max-w-xl flex-grow pb-[120px]">
     <div class="bg-white p-6 rounded-xl shadow-xl">
       <h1 id="cart-title" class="text-3xl font-bold mb-6 text-center text-gray-800">🛒 Your Cart</h1>
+
+      <div id="message-container" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+        <strong class="font-bold" data-translate="error_title">Error!</strong>
+        <span class="block sm:inline" id="message-text"></span>
+        <span class="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer" onclick="document.getElementById('message-container').classList.add('hidden');">
+          <i class="fas fa-times"></i>
+        </span>
+      </div>
 
       <div id="cart-items" class="space-y-4 mb-6">
         <p>Loading cart...</p>
       </div>
 
       <div class="border-t pt-4 mb-6">
-        <label id="table-label" for="table-number" class="block mb-2 font-semibold text-gray-700">Table Number</label>
-        <input type="number" id="table-number" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500 focus:border-red-500" placeholder="Enter your table number" inputmode="numeric" />
+        <label id="table-label" for="table-number" class="block mb-2 font-semibold text-gray-700" data-translate="table_number_label">Table Number</label>
+        <input type="number" id="table-number" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500 focus:border-red-500" placeholder="Enter your table number" inputmode="numeric" data-translate="table_number_placeholder" />
       </div>
 
-      <div class="flex justify-between items-center mb-6 p-4 bg-gray-100 rounded-lg">
-        <span id="total-label" class="font-bold text-xl text-gray-800">Total:</span>
-        <span class="font-bold text-xl text-red-600"><span id="cart-total">0.00</span> MAD</span>
-      </div>
-
-      <button id="place-order" class="w-full bg-green-600 text-white py-3 px-6 rounded-lg text-lg font-semibold hover:bg-green-700 focus:bg-green-800 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-75 disabled:opacity-50">
-        Place Order
-      </button>
+      <!-- Total and Place Order Button will be in the sticky footer -->
     </div>
   </main>
+
+  <!-- Sticky Order Summary Bar at the bottom -->
+  <div class="order-summary-bar">
+    <div class="flex flex-col items-start">
+      <span class="text-white font-semibold text-sm" data-translate="cart_total_label">Total:</span>
+      <span class="order-summary-bar-total"><span id="cart-total">0.00</span> MAD</span>
+    </div>
+    <button id="place-order" class="order-summary-bar-button" data-translate="place_order_button">
+      Place Order
+    </button>
+  </div>
+
+  <!-- Custom Message Box Modal -->
+  <div id="custom-message-box" class="message-box">
+    <h3 id="message-box-title"></h3>
+    <p id="message-box-text"></p>
+    <button id="message-box-ok-btn" data-translate="message_box_ok">OK</button>
+  </div>
+
 
   <footer class="text-center p-4 text-gray-600 text-sm mt-auto">
     &copy; <span id="current-year"></span> Pizza Hut Clone. For educational purposes.
@@ -60,7 +234,9 @@
   
   <script src="firebase.js"></script> 
   
-  <script src="lang.js"></script> <script src="cart.js"></script>   <script>
+  <script src="lang.js"></script> 
+  <script src="cart.js"></script>   
+  <script>
     // This inline script is primarily for the language switcher on this page
     document.addEventListener('DOMContentLoaded', () => {
         const languageSwitcherCart = document.getElementById('language-switcher');
@@ -84,8 +260,9 @@
                 if (typeof applyLanguage === 'function') {
                     applyLanguage(currentLang);
                     // After applying language, re-render cart in case "Your cart is empty" text needs update
-                    if (typeof renderCart === 'function' && cart.length === 0) {
-                        renderCart();
+                    // Ensure currentLang is passed if renderCart itself uses it for translations
+                    if (typeof renderCart === 'function' && cart.length === 0) { // Assuming 'cart' is global from cart.js
+                        renderCart(); // This will re-apply language for empty cart message
                     }
                 }
             });

@@ -2,56 +2,90 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Pizza Hut - Order Confirmed</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet" />
-  </head>
-<body class="bg-green-50 text-green-800 p-4 sm:p-6 min-h-screen flex flex-col items-center justify-center">
+  <link rel="stylesheet" href="style.css"> <!-- Ensure your main style.css is linked -->
+  <style>
+    /* Custom styles for specific elements if needed beyond Tailwind */
+    .order-item-list li {
+      padding: 0.5rem 0;
+      border-bottom: 1px dotted #e5e7eb; /* gray-200 for subtle separator */
+    }
+    .order-item-list li:last-child {
+      border-bottom: none;
+    }
+    /* Style for the Save PDF button feedback */
+    #save-pdf-btn.generating {
+        background-color: #facc15; /* yellow-400 */
+        color: #b91c1c; /* red-700 */
+        cursor: not-allowed;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-900 min-h-screen flex flex-col">
 
-  <div class="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg text-center">
-    <i class="fas fa-check-circle text-6xl text-green-500 mb-6"></i>
-    <h1 id="order-confirmed" class="text-3xl sm:text-4xl font-bold mb-3 text-gray-800">Thank you for your order!</h1>
-    
-    <div class="my-4">
-      <label for="language-switcher" class="text-sm text-gray-600 mr-2">Language:</label>
-      <select id="language-switcher" class="border border-gray-300 rounded p-1.5 text-sm focus:ring-2 focus:ring-red-500">
-        <option value="en">English</option>
-        <option value="fr">Français</option>
-        <option value="ar">العربية</option>
-      </select>
+  <!-- Header - Consistent with menu.html and cart.html -->
+  <header class="flex items-center justify-between px-4 py-3 bg-red-700 text-white shadow-lg sticky top-0 z-30">
+    <div class="flex items-center space-x-3">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="w-10 h-10 rounded-full shadow-sm bg-white p-0.5" />
+      <span class="font-bold text-xl sm:text-2xl tracking-tight" data-translate="app_title">Pizza Hut</span>
     </div>
-
-    <p id="order-received" class="mb-6 text-gray-600 text-lg">Your order has been received and is being prepared.</p>
-
-    <div id="order-summary-container" class="border-t border-b border-gray-200 py-6 my-6">
-        <h2 id="summary-title" class="text-2xl font-semibold text-gray-700 mb-4">Order Summary</h2>
-        <div id="order-summary" class="bg-gray-50 rounded-lg p-4 text-left space-y-2 text-sm sm:text-base">
-            <p data-translate="loading_order_details">Loading order details...</p>
-        </div>
+    <div class="flex items-center space-x-3 sm:space-x-4">
+        <select id="language-switcher" class="bg-red-600 text-white border border-red-500 rounded-md p-1.5 text-xs sm:text-sm focus:ring-2 focus:ring-white focus:outline-none appearance-none">
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="ar">العربية</option>
+        </select>
+        <a href="cart.html" id="cart-btn" class="relative text-white hover:text-red-200 transition-colors">
+            <i class="fas fa-shopping-cart text-2xl"></i>
+            <span id="cart-count" class="absolute -top-2.5 -right-2.5 bg-yellow-400 text-red-700 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-md">0</span>
+        </a>
     </div>
+  </header>
 
+  <main class="container mx-auto p-4 sm:p-6 mt-8 mb-8 flex-grow flex items-center justify-center">
+    <div class="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg text-center">
+      <i class="fas fa-check-circle text-6xl text-green-600 mb-6"></i>
+      <h1 id="order-confirmed" class="text-3xl sm:text-4xl font-bold mb-3 text-gray-800" data-translate="order_confirmed">Thank you for your order!</h1>
+      
+      <p id="order-received" class="mb-6 text-gray-600 text-lg" data-translate="order_received">Your order has been received and is being prepared.</p>
 
-    <button id="done-btn" class="mt-6 w-full sm:w-auto bg-green-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-green-700 focus:bg-green-800 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-75">
-      Done
-    </button>
-  </div>
+      <div id="order-summary-container" class="border-t border-b border-gray-200 py-6 my-6">
+          <h2 id="summary-title" class="text-2xl font-semibold text-gray-700 mb-4" data-translate="order_summary_title">Order Summary</h2>
+          <div id="order-summary" class="bg-gray-50 rounded-lg p-4 text-left space-y-2 text-sm sm:text-base shadow-inner">
+              <p data-translate="loading_order_details">Loading order details...</p>
+          </div>
+      </div>
 
-  <footer class="text-center p-4 text-gray-500 text-xs mt-8">
+      <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-6">
+        <button id="save-pdf-btn" class="w-full sm:w-auto bg-red-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-red-700 focus:bg-red-800 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75" data-translate="save_pdf_button">
+            <i class="fas fa-file-pdf mr-2"></i> <span>Save as PDF</span>
+        </button>
+        <button id="done-btn" class="w-full sm:w-auto bg-red-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-red-700 focus:bg-red-800 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75" data-translate="done_button">
+          Done
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="text-center p-4 text-gray-600 text-sm mt-auto border-t border-gray-200 bg-gray-100">
     &copy; <span id="current-year"></span> Pizza Hut Clone. For educational purposes.
   </footer>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script> <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   
   <script src="firebase.js"></script> 
-  
   <script src="lang.js"></script> 
+  <!-- html2pdf.js library for PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
 
   <script>
     // Initialize Firebase services ONCE
     const db = firebase.database();
-    // const auth = firebase.auth(); // If needed for other purposes on this page
+    console.log("confirm.js: Firebase 'db' object initialized.");
 
     function escapeHTML(str) {
       if (typeof str !== 'string') return str !== null && str !== undefined ? String(str) : '';
@@ -60,6 +94,16 @@
       }[s]));
     }
     
+    // Function to update the cart count in the header (if needed on this page)
+    function updateCartCountNav() {
+        const cart = JSON.parse(localStorage.getItem("cart")) || [];
+        const count = cart.reduce((sum, i) => sum + i.quantity, 0); // Use .quantity
+        const cartCountSpan = document.getElementById('cart-count'); 
+        if (cartCountSpan) {
+            cartCountSpan.textContent = count;
+        }
+    }
+
     function displayOrderData(order, langKey) {
         const summaryDiv = document.getElementById("order-summary");
         const t = translations[langKey] || translations["en"]; // Fallback to English
@@ -69,36 +113,51 @@
             return;
         }
         if (!order || !order.items || !order.table || typeof order.total === 'undefined') {
-            summaryDiv.innerHTML = `<p data-translate="no_order_data">${t.noOrderData || "Order data could not be displayed."}</p>`;
+            summaryDiv.innerHTML = `<p data-translate="no_order_data_found">${t.no_order_data_found || "Order data could not be displayed."}</p>`;
             return;
         }
 
-        let html = `<p class="mb-2"><strong>${t.tableLabel || 'Table #'}</strong> <span class="text-red-600 font-semibold">${escapeHTML(order.table)}</span></p>`;
+        let html = `<p class="mb-2"><strong>${t.table_label || 'Table #'}</strong> <span class="text-red-600 font-semibold">${escapeHTML(order.table)}</span></p>`;
         if (order.timestamp) {
              html += `<p class="text-xs text-gray-500 mb-3"><strong>${t.order_placed_at || 'Placed at:'}</strong> ${new Date(order.timestamp).toLocaleString()}</p>`;
         }
-        html += `<h4 class='font-semibold text-gray-700 mb-2'>${t.items || 'Items'}:</h4><ul class="list-disc list-inside pl-5 text-gray-600 space-y-1">`;
+        html += `<h4 class='font-semibold text-gray-700 mb-2'>${t.items_heading || 'Items'}:</h4><ul class="order-item-list list-none pl-0 text-gray-700 space-y-0">`; // Changed to list-none for custom styling
         
         order.items.forEach(item => {
-          html += `<li>${item.qty} x ${escapeHTML(item.name)} - ${(parseFloat(item.price) || 0).toFixed(2)} MAD</li>`;
+          // FIX: Use item.quantity consistently
+          html += `<li>${item.quantity} x ${escapeHTML(item.name)} - ${(parseFloat(item.price) || 0).toFixed(2)} MAD</li>`;
         });
         
         html += `</ul>`;
-        html += `<p class="font-bold text-xl text-right mt-4 pt-3 border-t">${t.totalLabel || 'Total:'} <span class="text-red-600">${(parseFloat(order.total) || 0).toFixed(2)} MAD</span></p>`;
+        html += `<p class="font-bold text-xl text-right mt-4 pt-3 border-t border-gray-200">${t.total_label || 'Total:'} <span class="text-red-600">${(parseFloat(order.total) || 0).toFixed(2)} MAD</span></p>`;
         if (order.status) {
-            html += `<p class="mt-3 text-sm"><strong>${t.status || 'Status:'}</strong> <span class="capitalize text-blue-600 font-medium">${escapeHTML(order.status)}</span></p>`;
+            html += `<p class="mt-3 text-sm text-right"><strong>${t.status_label || 'Status:'}</strong> <span class="capitalize text-blue-600 font-medium">${escapeHTML(order.status)}</span></p>`;
         }
         summaryDiv.innerHTML = html;
+        if (typeof applyLanguage === 'function') { // Re-apply translations for dynamically added content
+          applyLanguage(langKey, summaryDiv);
+        }
     }
 
-    function applyLanguage(lang) {
+    // Get references to the PDF button and its text span at the top of the script execution
+    const savePdfBtn = document.getElementById('save-pdf-btn');
+    // Safely get savePdfBtnSpan - it might be null if savePdfBtn isn't available yet
+    const savePdfBtnSpan = savePdfBtn ? savePdfBtn.querySelector('span') : null;
+    let isGeneratingPdf = false; // Flag to prevent multiple clicks
+
+    // Consolidated applyLanguage function for the page
+    function applyLanguageConfirmPage(lang) {
       const t = translations[lang] || translations["en"];
       if (!t) return;
       
-      document.getElementById("order-confirmed").textContent = t.orderConfirmed || "Thank you for your order!";
-      document.getElementById("order-received").textContent = t.orderReceived || "Your order has been received and is being prepared.";
-      document.getElementById("done-btn").textContent = t.done || "Done";
+      document.getElementById("order-confirmed").textContent = t.order_confirmed || "Thank you for your order!";
+      document.getElementById("order-received").textContent = t.order_received || "Your order has been received and is being prepared.";
+      document.getElementById("done-btn").textContent = t.done_button || "Done"; // Changed to done_button
       document.getElementById("summary-title").textContent = t.order_summary_title || "Order Summary";
+      // Safely update PDF button text
+      if (savePdfBtnSpan) {
+        savePdfBtnSpan.textContent = t.save_pdf_button || "Save as PDF";
+      }
       
       // Re-render summary with new language if order data is already loaded
       if (window.currentOrderData) {
@@ -116,7 +175,8 @@
     document.addEventListener('DOMContentLoaded', () => {
         console.log("confirm.html: DOMContentLoaded.");
         document.getElementById('current-year').textContent = new Date().getFullYear();
-        
+        updateCartCountNav(); // Update cart count in header
+
         let currentLang = localStorage.getItem("lang") || "en";
         const languageSwitcherConfirm = document.getElementById('language-switcher');
         if (languageSwitcherConfirm) {
@@ -124,7 +184,7 @@
             languageSwitcherConfirm.addEventListener('change', (e) => {
                 currentLang = e.target.value;
                 localStorage.setItem('lang', currentLang);
-                applyLanguage(currentLang);
+                applyLanguageConfirmPage(currentLang); // Use the page-specific language applier
             });
         }
         
@@ -160,9 +220,7 @@
                 })
                 .finally(() => {
                     // Apply language after attempting to load data, to ensure all texts are translated
-                    if (typeof applyLanguage === 'function') {
-                        applyLanguage(currentLang);
-                    }
+                    applyLanguageConfirmPage(currentLang); // Use the page-specific language applier
                 });
         } else {
             console.warn("confirm.html: No orderId in URL. Trying localStorage for 'lastOrderDataForConfirm'.");
@@ -176,17 +234,63 @@
                 document.getElementById("order-summary").innerHTML = `<p data-translate="no_order_data_found">${translations[currentLang].no_order_data_found || "No order details to display."}</p>`;
             }
             // Apply language after attempting to load data
-            if (typeof applyLanguage === 'function') {
-                applyLanguage(currentLang);
-            }
+            applyLanguageConfirmPage(currentLang); // Use the page-specific language applier
         }
 
         const doneBtn = document.getElementById("done-btn");
         if (doneBtn) {
             doneBtn.addEventListener("click", () => {
-              // No need to remove lastOrderDataForConfirm if we primarily use orderId from URL
-              // localStorage.removeItem("lastOrderDataForConfirm"); 
-              window.location.href = "menu.html"; // Go to menu instead of index?
+              window.location.href = "menu.html"; 
+            });
+        }
+
+        // Add event listener for the Save PDF button
+        if (savePdfBtn) {
+            savePdfBtn.addEventListener('click', () => {
+                if (isGeneratingPdf) return; // Prevent multiple clicks
+
+                if (!window.currentOrderData) {
+                    console.warn("No order data available to generate PDF.");
+                    // You might want to show a message to the user here
+                    return;
+                }
+
+                isGeneratingPdf = true;
+                savePdfBtn.disabled = true;
+                savePdfBtn.classList.add('generating'); // Add class for styling
+                if (savePdfBtnSpan) { // Safely update text
+                    savePdfBtnSpan.textContent = (translations[currentLang]?.generating_pdf_feedback || "Generating PDF...");
+                }
+
+                const element = document.getElementById('order-summary-container'); // Element to convert to PDF
+                const orderNumber = window.currentOrderData.orderId || (window.currentOrderData.timestamp ? new Date(window.currentOrderData.timestamp).getTime() : 'order');
+                const filename = `PizzaHut_Order_${orderNumber}.pdf`;
+
+                // html2pdf options
+                const opt = {
+                    margin: 10,
+                    filename: filename,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, logging: false, useCORS: true }, // scale up for better resolution
+                    jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' } // a5 format for a receipt-like feel
+                };
+
+                html2pdf().set(opt).from(element).save()
+                    .then(() => {
+                        console.log("PDF generated successfully!");
+                    })
+                    .catch(error => {
+                        console.error("Error generating PDF:", error);
+                        // Optionally show an error message to the user
+                    })
+                    .finally(() => {
+                        isGeneratingPdf = false;
+                        savePdfBtn.disabled = false;
+                        savePdfBtn.classList.remove('generating');
+                        if (savePdfBtnSpan) { // Safely update text
+                            savePdfBtnSpan.textContent = (translations[currentLang]?.save_pdf_button || "Save as PDF");
+                        }
+                    });
             });
         }
     });

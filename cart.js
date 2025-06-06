@@ -6,7 +6,41 @@ const db = firebase.database();
 console.log("cart.js: Firebase 'db' object initialized.");
 
 // Load cart from localStorage or empty array
+// IMPORTANT: Ensure 'quantity' is used consistently, not 'qty'
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+// --- Global variables for message box ---
+const messageBox = document.getElementById('custom-message-box');
+const messageBoxTitle = document.getElementById('message-box-title');
+const messageBoxText = document.getElementById('message-box-text');
+const messageBoxOkBtn = document.getElementById('message-box-ok-btn');
+
+function showMessageBox(titleKey, messageKey, isError = false) {
+  let translatedTitle = (typeof translations !== 'undefined' && translations[currentLang]?.[titleKey]) || titleKey;
+  let translatedMessage = (typeof translations !== 'undefined' && translations[currentLang]?.[messageKey]) || messageKey;
+  let translatedOk = (typeof translations !== 'undefined' && translations[currentLang]?.message_box_ok) || "OK";
+
+  messageBoxTitle.textContent = translatedTitle;
+  messageBoxText.textContent = translatedMessage;
+  messageBoxOkBtn.textContent = translatedOk;
+
+  // Apply error styling if needed
+  if (isError) {
+    messageBoxTitle.classList.add('text-red-600');
+    messageBoxOkBtn.classList.add('bg-red-600');
+    messageBoxOkBtn.classList.remove('bg-gray-500'); // Remove default non-error color if any
+  } else {
+    messageBoxTitle.classList.remove('text-red-600');
+    messageBoxOkBtn.classList.remove('bg-red-600');
+    // messageBoxOkBtn.classList.add('bg-gray-500'); // Re-add default if it was removed
+  }
+
+  messageBox.style.display = 'flex'; // Show the modal
+  messageBoxOkBtn.onclick = () => {
+    messageBox.style.display = 'none'; // Hide the modal on OK
+  };
+}
+
 
 function escapeHTML(str) {
   if (typeof str !== 'string') return str !== null && str !== undefined ? String(str) : '';
@@ -17,7 +51,7 @@ function escapeHTML(str) {
 
 function renderCart() {
   const container = document.getElementById("cart-items");
-  const cartTotalEl = document.getElementById("cart-total");
+  const cartTotalEl = document.getElementById("cart-total"); // For sticky footer total
 
   if (!container || !cartTotalEl) {
     console.error("Cart HTML elements not found!");
@@ -26,10 +60,14 @@ function renderCart() {
 
   container.innerHTML = ""; // Clear previous items
 
+  // Re-load cart here to ensure it's up-to-date with localStorage
+  // This is crucial if changes happen on menu page and user navigates back
+  cart = JSON.parse(localStorage.getItem("cart")) || [];
+
   if (cart.length === 0) {
-    container.innerHTML = "<p data-translate='cart_empty'>Your cart is empty.</p>";
+    container.innerHTML = "<p data-translate='cart_empty' class='text-gray-600 text-center py-4'>Your cart is empty.</p>";
     cartTotalEl.textContent = "0.00";
-    // Try to re-apply language in case this message was just added
+    // Apply language after setting content for empty cart message
     if (typeof applyLanguage === 'function' && typeof currentLang !== 'undefined') {
         applyLanguage(currentLang);
     }
@@ -39,34 +77,40 @@ function renderCart() {
   let total = 0;
 
   cart.forEach((item, index) => {
-    const itemTotalPrice = (parseFloat(item.price) || 0) * (parseInt(item.qty) || 0);
+    // FIX: Use item.quantity consistently
+    const itemQuantity = parseInt(item.quantity) || 0;
+    const itemPrice = parseFloat(item.price) || 0;
+    const itemTotalPrice = itemPrice * itemQuantity;
     total += itemTotalPrice;
 
     const itemDiv = document.createElement("div");
-    itemDiv.className = "bg-white rounded-lg shadow p-4 flex justify-between items-center mb-3";
+    itemDiv.className = "cart-item-card"; // Apply Glovo-like card styling
 
     itemDiv.innerHTML = `
-      <div class="flex-grow">
-        <div class="font-semibold text-lg text-gray-800">${escapeHTML(item.name)}</div>
-        <div class="text-sm text-gray-600">${(parseFloat(item.price) || 0).toFixed(2)} MAD each</div>
+      <div class="cart-item-image">
+        <img src="${escapeHTML(item.image_url || 'https://via.placeholder.com/72x72?text=Item')}" alt="${escapeHTML(item.name || 'Cart Item')}">
       </div>
-      <div class="flex items-center space-x-3">
+      <div class="cart-item-details">
+        <div class="cart-item-name">${escapeHTML(item.name)}</div>
+        <div class="cart-item-price-each">${itemPrice.toFixed(2)} <span class="font-semibold">MAD each</span></div>
+      </div>
+      <div class="cart-item-controls">
         <button 
-          onclick="window.cartFunctions.changeQty(${index}, -1)" 
-          class="bg-gray-200 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-300 transition text-sm font-medium"
+          onclick="window.cartFunctions.changeQuantity(${index}, -1)" 
+          class="quantity-btn"
           aria-label="Decrease quantity of ${escapeHTML(item.name)}">
           -
         </button>
-        <span class="font-medium w-8 text-center">${item.qty}</span>
+        <span class="font-medium w-6 text-center">${itemQuantity}</span>
         <button 
-          onclick="window.cartFunctions.changeQty(${index}, 1)" 
-          class="bg-gray-200 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-300 transition text-sm font-medium"
+          onclick="window.cartFunctions.changeQuantity(${index}, 1)" 
+          class="quantity-btn"
           aria-label="Increase quantity of ${escapeHTML(item.name)}">
           +
         </button>
         <button 
           onclick="window.cartFunctions.removeItem(${index})" 
-          class="text-red-500 hover:text-red-700 transition ml-4"
+          class="remove-item-btn"
           aria-label="Remove ${escapeHTML(item.name)} from cart">
           <i class="fas fa-trash"></i>
         </button>
@@ -76,117 +120,138 @@ function renderCart() {
   });
 
   cartTotalEl.textContent = total.toFixed(2);
+  // Ensure the total in the sticky footer also updates if it's separate
+  const stickyCartTotalEl = document.querySelector('.order-summary-bar-total #cart-total');
+  if (stickyCartTotalEl) {
+    stickyCartTotalEl.textContent = total.toFixed(2);
+  }
+
+  // After rendering, ensure translations are applied to any new elements
+  if (typeof applyLanguage === 'function') {
+    applyLanguage(currentLang, container);
+    applyLanguage(currentLang, document.querySelector('.order-summary-bar')); // Apply to sticky footer
+  }
 }
 
 // Expose functions to global scope for onclick handlers
 window.cartFunctions = {
-  changeQty: (index, delta) => {
+  changeQuantity: (index, delta) => { // FIX: Renamed from changeQty
     if (cart[index]) {
-      cart[index].qty += delta;
-      if (cart[index].qty <= 0) {
+      cart[index].quantity += delta; // FIX: Use item.quantity
+      if (cart[index].quantity <= 0) {
         cart.splice(index, 1);
       }
       localStorage.setItem("cart", JSON.stringify(cart));
-      renderCart();
-      updateCartCountNav(); 
+      renderCart(); // Re-render the cart display
+      updateCartCountNav(); // Update header cart count
+      updatePlaceOrderButtonState(); // Update button state
     }
   },
   removeItem: (index) => {
     cart.splice(index, 1);
     localStorage.setItem("cart", JSON.stringify(cart));
-    renderCart();
-    updateCartCountNav();
+    renderCart(); // Re-render the cart display
+    updateCartCountNav(); // Update header cart count
+    updatePlaceOrderButtonState(); // Update button state
   }
 };
 
 function updateCartCountNav() {
     const cartForCount = JSON.parse(localStorage.getItem("cart")) || [];
-    const count = cartForCount.reduce((sum, i) => sum + i.qty, 0);
+    const count = cartForCount.reduce((sum, i) => sum + i.quantity, 0); // FIX: Use item.quantity
     const cartCountSpanDetails = document.getElementById('cart-count-details'); // In cart.html header
     if (cartCountSpanDetails) {
         cartCountSpanDetails.textContent = count;
     }
 }
 
-// Initial render
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        renderCart();
-        updateCartCountNav();
-    });
-} else {
+// Function to update the "Place Order" button state (enabled/disabled)
+function updatePlaceOrderButtonState() {
+  const placeOrderBtn = document.getElementById("place-order");
+  if (placeOrderBtn) {
+    placeOrderBtn.disabled = cart.length === 0;
+  }
+}
+
+
+// Initial render and setup on DOMContentLoaded
+document.addEventListener('DOMContentLoaded', () => {
+    let currentLang = localStorage.getItem('lang') || 'en'; // Ensure currentLang is available
     renderCart();
     updateCartCountNav();
-}
+    updatePlaceOrderButtonState(); // Set initial state of place order button
 
+    // Place Order button event listener
+    const placeOrderBtn = document.getElementById("place-order");
+    const tableNumberInput = document.getElementById("table-number");
+    const messageContainer = document.getElementById('message-container');
+    const messageText = document.getElementById('message-text');
 
-// Place Order
-let isPlacingOrder = false;
-const placeOrderBtn = document.getElementById("place-order");
-const tableNumberInput = document.getElementById("table-number");
+    if (placeOrderBtn && tableNumberInput) {
+        placeOrderBtn.addEventListener("click", async () => {
+          if (placeOrderBtn.disabled) return; // Prevent double clicks or disabled clicks
+          
+          const tableNumber = tableNumberInput.value.trim();
+          if (!tableNumber || isNaN(parseInt(tableNumber)) || parseInt(tableNumber) <= 0) {
+            showMessageBox('validation_error_title', 'table_number_missing_error', true); // Use custom message box
+            return;
+          }
 
-if (placeOrderBtn && tableNumberInput) {
-    placeOrderBtn.addEventListener("click", async () => {
-      if (isPlacingOrder) return;
-      
-      const tableNumber = tableNumberInput.value.trim();
-      if (!tableNumber || isNaN(parseInt(tableNumber)) || parseInt(tableNumber) <= 0) {
-        alert("Please enter a valid table number.");
-        return;
-      }
+          if (cart.length === 0) {
+            showMessageBox('validation_error_title', 'cart_empty_order_error', true); // Use custom message box
+            return;
+          }
 
-      if (cart.length === 0) {
-        alert("Your cart is empty. Please add items before placing an order.");
-        return;
-      }
+          placeOrderBtn.disabled = true;
+          placeOrderBtn.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.placing_order_feedback) || "Placing Order...";
 
-      isPlacingOrder = true;
-      placeOrderBtn.disabled = true;
-      placeOrderBtn.textContent = "Placing Order..."; // Feedback
+          const totalAmount = cart.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0), 0); // FIX: Use item.quantity
+          const orderData = {
+            table: tableNumber,
+            items: cart, 
+            total: totalAmount,
+            timestamp: new Date().toISOString(), 
+            status: "pending"
+          };
 
-      const totalAmount = cart.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * (parseInt(item.qty) || 0), 0);
-      const orderData = {
-        table: tableNumber,
-        items: cart, 
-        total: totalAmount,
-        timestamp: new Date().toISOString(), // Client-side timestamp
-        // timestamp: firebase.database.ServerValue.TIMESTAMP, // Alternative: Server-side timestamp
-        status: "pending"
-      };
+          localStorage.setItem("lastOrderDataForConfirm", JSON.stringify(orderData)); 
+          localStorage.setItem("tableNumber", tableNumber); 
 
-      localStorage.setItem("lastOrderDataForConfirm", JSON.stringify(orderData)); // Store for confirm page
-      localStorage.setItem("tableNumber", tableNumber); 
+          try {
+            console.log("cart.js: Writing to Firebase:", orderData);
+            let newOrderRef = db.ref("orders").push(); 
+            await newOrderRef.set(orderData); 
+            console.log("cart.js: Order pushed with key:", newOrderRef.key);
+            
+            // Save the order ID to localStorage for the "My Orders" link on the menu page
+            localStorage.setItem("lastOrderId", newOrderRef.key); // <--- ADDED LINE
 
-      try {
-        console.log("cart.js: Writing to Firebase:", orderData);
-        // 'db' is defined at the top of this file
-        let newOrderRef = db.ref("orders").push(); // Get unique key first
-        await newOrderRef.set(orderData); // Set data at that key
-        console.log("cart.js: Order pushed with key:", newOrderRef.key);
-        
-        cart = []; 
-        localStorage.removeItem("cart"); 
-        
-        window.location.href = `confirm.html?orderId=${newOrderRef.key}`; 
-      } catch (error) {
-        console.error("cart.js: Firebase error during order placement:", error);
-        alert("There was a problem placing your order online. Please try again. Error: " + error.message);
-      } finally {
-        isPlacingOrder = false;
-        placeOrderBtn.disabled = false;
-        placeOrderBtn.textContent = "Place Order"; // Reset button text
-        // Try to re-apply language in case this text was just added by JS
-        if (typeof applyLanguage === 'function' && typeof currentLang !== 'undefined') {
-            applyLanguage(currentLang);
-        }
-      }
-    });
-} else {
-    console.error("Place order button or table number input not found.");
-}
+            cart = []; 
+            localStorage.removeItem("cart"); 
+            
+            window.location.href = `confirm.html?orderId=${newOrderRef.key}`; 
+          } catch (error) {
+            console.error("cart.js: Firebase error during order placement:", error);
+            showMessageBox('order_error_title', 'order_placement_error_message', true); // Use custom message box
+          } finally {
+            placeOrderBtn.disabled = false;
+            placeOrderBtn.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.place_order_button) || "Place Order";
+            if (typeof applyLanguage === 'function') {
+                applyLanguage(currentLang); // Re-apply language in case button text was added by JS
+            }
+            updatePlaceOrderButtonState(); // Re-evaluate state after order attempt
+          }
+        });
+    } else {
+        console.error("Place order button or table number input not found.");
+    }
 
-// Autofill table number if saved
-const savedTable = localStorage.getItem("tableNumber");
-if (savedTable && tableNumberInput) {
-  tableNumberInput.value = savedTable;
-}
+    // Autofill table number if saved
+    const savedTable = localStorage.getItem("tableNumber");
+    if (savedTable && tableNumberInput) {
+      tableNumberInput.value = savedTable;
+    }
+
+    // Language switcher event (already in inline script, but just in case for consistency)
+    // The inline script already handles this.
+});

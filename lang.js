@@ -10,7 +10,26 @@ const translations = {
     backToMenu: "Back to Menu",
     done: "Done",
     noOrderData: "No order data found.",
-    // Add more as needed
+    // New translations for cart.js and confirm.html
+    validation_error_title: "Validation Error",
+    table_number_missing_error: "Please enter a valid table number.",
+    cart_empty_order_error: "Your cart is empty. Please add items before placing an order.",
+    placing_order_feedback: "Placing Order...",
+    order_error_title: "Order Error",
+    order_placement_error_message: "There was a problem placing your order online. Please try again.",
+    message_box_ok: "OK",
+    cart_total_label: "Total:",
+    order_summary_title: "Order Summary",
+    loading_order_details: "Loading order details...",
+    error_fetching_order: "Error fetching order details.",
+    order_placed_at: "Placed at:",
+    items_heading: "Items",
+    status_label: "Status:",
+    done_button: "Done", // Consistency with HTML
+    save_pdf_button: "Save as PDF",
+    generating_pdf_feedback: "Generating PDF...",
+    // New translation for My Orders button in menu.html
+    my_orders: "My Orders"
   },
   fr: {
     cartTitle: "🛒 Votre Panier",
@@ -22,8 +41,26 @@ const translations = {
     items: "Articles :",
     backToMenu: "Retour au menu",
     done: "Terminé",
-    noOrderData: "Aucune donnée de commande trouvée.",
-    // Add more as needed
+    // New translations for cart.js and confirm.html
+    validation_error_title: "Erreur de Validation",
+    table_number_missing_error: "Veuillez entrer un numéro de table valide.",
+    cart_empty_order_error: "Votre panier est vide. Veuillez ajouter des articles avant de passer commande.",
+    placing_order_feedback: "Passer la Commande...",
+    order_error_title: "Erreur de Commande",
+    order_placement_error_message: "Un problème est survenu lors de votre commande en ligne. Veuillez réessayer.",
+    message_box_ok: "OK",
+    cart_total_label: "Total :",
+    order_summary_title: "Résumé de la Commande",
+    loading_order_details: "Chargement des détails de la commande...",
+    error_fetching_order: "Erreur lors de la récupération des détails de la commande.",
+    order_placed_at: "Passée le :",
+    items_heading: "Articles",
+    status_label: "Statut :",
+    done_button: "Terminé",
+    save_pdf_button: "Enregistrer en PDF",
+    generating_pdf_feedback: "Génération du PDF...",
+    // New translation for My Orders button in menu.html
+    my_orders: "Mes Commandes"
   },
   ar: {
     cartTitle: "🛒 سلة التسوق",
@@ -36,6 +73,25 @@ const translations = {
     backToMenu: "العودة إلى القائمة",
     done: "تم",
     noOrderData: "لم يتم العثور على بيانات الطلب.",
-    // Add more as needed
+    // New translations for cart.js and confirm.html
+    validation_error_title: "خطأ في التحقق",
+    table_number_missing_error: "الرجاء إدخال رقم طاولة صحيح.",
+    cart_empty_order_error: "سلة التسوق فارغة. الرجاء إضافة عناصر قبل تقديم الطلب.",
+    placing_order_feedback: "جاري تقديم الطلب...",
+    order_error_title: "خطأ في الطلب",
+    order_placement_error_message: "حدثت مشكلة أثناء تقديم طلبك عبر الإنترنت. الرجاء المحاولة مرة أخرى.",
+    message_box_ok: "موافق",
+    cart_total_label: "المجموع:",
+    order_summary_title: "ملخص الطلب",
+    loading_order_details: "جاري تحميل تفاصيل الطلب...",
+    error_fetching_order: "خطأ في جلب تفاصيل الطلب.",
+    order_placed_at: "تم تقديم الطلب في:",
+    items_heading: "العناصر",
+    status_label: "الحالة:",
+    done_button: "تم",
+    save_pdf_button: "حفظ كملف PDF",
+    generating_pdf_feedback: "جاري إنشاء ملف PDF...",
+    // New translation for My Orders button in menu.html
+    my_orders: "طلباتي"
   }
 };
