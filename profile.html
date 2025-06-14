@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pizza Hut - Profile</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
+  <link rel="stylesheet" href="style.css"> 
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+
+  <header class="bg-red-600 text-white p-4 shadow-md sticky top-0 z-20">
+    <div class="container mx-auto flex justify-between items-center max-w-3xl">
+        <a href="menu.html" class="text-xl sm:text-2xl font-bold hover:opacity-80 transition">Pizza Hut Menu</a>
+        <div class="flex items-center space-x-4">
+            <select id="language-switcher" class="bg-red-700 text-white border border-red-800 rounded p-1.5 text-sm focus:ring-2 focus:ring-white focus:outline-none appearance-none">
+              <option value="en">English</option>
+              <option value="fr">Français</option>
+              <option value="ar">العربية</option>
+            </select>
+            <a href="cart.html" class="text-lg relative hover:opacity-80 transition">
+                <i class="fas fa-shopping-cart"></i>
+                Cart (<span id="cart-count-nav">0</span>) 
+            </a>
+        </div>
+    </div>
+  </header>
+
+  <main class="container mx-auto p-4 sm:p-6 mt-4 max-w-xl flex-grow">
+    <div class="bg-white p-6 rounded-xl shadow-xl">
+      <h1 id="profile-title" class="text-3xl font-bold mb-6 text-center text-gray-800" data-translate="profile_title">My Profile</h1>
+
+      <div id="message-container" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+        <strong class="font-bold" data-translate="error_title">Error!</strong>
+        <span class="block sm:inline" id="message-text"></span>
+        <span class="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer" onclick="document.getElementById('message-container').classList.add('hidden');">
+          <i class="fas fa-times"></i>
+        </span>
+      </div>
+
+      <form id="profile-form" class="space-y-4">
+        <div>
+          <label for="profile-email" class="block text-sm font-medium text-gray-700">Email Address</label>
+          <input type="email" id="profile-email" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed" readonly />
+        </div>
+        <div>
+          <label for="profile-name" class="block text-sm font-medium text-gray-700" data-translate="customer_name_label">Full Name</label>
+          <input type="text" id="profile-name" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500" placeholder="Your full name" required />
+        </div>
+        <div>
+          <label for="profile-phone" class="block text-sm font-medium text-gray-700" data-translate="phone_number_label">Phone Number</label>
+          <input type="tel" id="profile-phone" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500" placeholder="Your phone number" />
+        </div>
+        <div>
+          <label for="profile-address" class="block text-sm font-medium text-gray-700" data-translate="delivery_address_label">Delivery Address (Optional)</label>
+          <input type="text" id="profile-address" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500" placeholder="Your delivery address" />
+        </div>
+        <button type="submit" id="update-profile-btn" class="w-full bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg px-6 py-3 shadow-md transition" data-translate="update_profile_button">Update Profile</button>
+      </form>
+    </div>
+  </main>
+
+  <div id="custom-message-box" class="message-box">
+    <h3 id="message-box-title"></h3>
+    <p id="message-box-text"></p>
+    <button id="message-box-ok-btn" data-translate="message_box_ok">OK</button>
+  </div>
+
+  <footer class="text-center p-4 text-gray-600 text-sm mt-auto">
+    &copy; <span id="current-year"></span> Pizza Hut Clone. For educational purposes.
+    <script>document.getElementById('current-year').textContent = new Date().getFullYear();</script>
+  </footer>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="firebase.js"></script>
+  <script src="lang.js"></script>
+  <script src="profile.js"></script>
+</body>
+</html>

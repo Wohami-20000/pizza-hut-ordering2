@@ -1,11 +1,12 @@
 // menu.js - Refactored for a perfect, user-friendly menu with search and scroll-spy.
 
-const dbInstance = firebase.database();
+const dbInstance = firebase.database(); // This is fine here as db is typically available early
 console.log("menu.js: Firebase dbInstance object initialized.");
 
 let menuDataCache = {};
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 let currentLang = localStorage.getItem("lang") || "en";
+let orderType = localStorage.getItem("orderType") || null; // Get order type
 
 // --- HTML Element References ---
 const tabsContainer = document.getElementById("category-tabs");
@@ -378,17 +379,43 @@ window.menuFunctions = {
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize authInstance here
+    const authInstance = firebase.auth(); 
+
+    // Check if orderType is already set. If not, and no table number is present, redirect to order type selection.
+    // This ensures users always select an order type unless coming directly from an NFC dine-in scan.
+    if (!orderType && !localStorage.getItem('tableNumber')) {
+        authInstance.onAuthStateChanged(user => {
+            if (user) {
+                // User is logged in but no orderType is set, redirect to selection
+                window.location.href = 'order-type-selection.html';
+            } else {
+                // User is not logged in, redirect to authentication
+                window.location.href = 'auth.html';
+            }
+        });
+    }
+
     updateCartCount();
     updateSummaryBar(); // Call on load to ensure bar state is correct
     
     // Set up "My Orders" link
     const lastOrderId = localStorage.getItem("lastOrderId");
     if (myOrdersBtn) {
-        if (lastOrderId) {
-            myOrdersBtn.href = `confirm.html?orderId=${lastOrderId}`;
-        } else {
-            myOrdersBtn.href = 'confirm.html'; // Default to confirm page if no order ID is found
-        }
+        // Only show "My Orders" if there's a logged in user OR a last order ID
+        authInstance.onAuthStateChanged(user => { // Use authInstance here
+            if (user || lastOrderId) {
+                myOrdersBtn.style.display = 'block'; // Or 'inline-block' as appropriate for your design
+                if (lastOrderId) {
+                    myOrdersBtn.href = `confirm.html?orderId=${lastOrderId}`;
+                } else {
+                    // If logged in but no last order, might show an empty orders page or link to profile
+                    myOrdersBtn.href = '#'; // Or a more specific 'my-past-orders.html' page
+                }
+            } else {
+                myOrdersBtn.style.display = 'none'; // Hide if not logged in and no recent order
+            }
+        });
     }
 
 

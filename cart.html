@@ -167,12 +167,12 @@
     <div class="container mx-auto flex justify-between items-center max-w-3xl">
         <a href="menu.html" class="text-xl sm:text-2xl font-bold hover:opacity-80 transition">Pizza Hut Menu</a>
         <div class="flex items-center space-x-4">
-            <select id="language-switcher" class="bg-red-700 text-white border border-red-800 rounded p-1.5 text-sm focus:ring-2 focus:ring-white focus:outline-none">
+            <select id="language-switcher" class="bg-red-700 text-white border border-red-800 rounded p-1.5 text-sm focus:ring-2 focus:ring-white focus:outline-none appearance-none">
               <option value="en">English</option>
               <option value="fr">Français</option>
               <option value="ar">العربية</option>
             </select>
-            <a href="cart.html" class="text-lg relative hover:opacity-80 transition">
+            <a href="cart.html" id="cart-btn" class="relative text-lg hover:opacity-80 transition">
                 <i class="fas fa-shopping-cart"></i>
                 Cart (<span id="cart-count-details">0</span>)
             </a>
@@ -196,16 +196,12 @@
         <p>Loading cart...</p>
       </div>
 
-      <div class="border-t pt-4 mb-6">
-        <label id="table-label" for="table-number" class="block mb-2 font-semibold text-gray-700" data-translate="table_number_label">Table Number</label>
-        <input type="number" id="table-number" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500 focus:border-red-500" placeholder="Enter your table number" inputmode="numeric" data-translate="table_number_placeholder" />
-      </div>
+      <div id="order-details-input" class="border-t pt-4 mb-6">
+        </div>
 
-      <!-- Total and Place Order Button will be in the sticky footer -->
-    </div>
+      </div>
   </main>
 
-  <!-- Sticky Order Summary Bar at the bottom -->
   <div class="order-summary-bar">
     <div class="flex flex-col items-start">
       <span class="text-white font-semibold text-sm" data-translate="cart_total_label">Total:</span>
@@ -216,7 +212,6 @@
     </button>
   </div>
 
-  <!-- Custom Message Box Modal -->
   <div id="custom-message-box" class="message-box">
     <h3 id="message-box-title"></h3>
     <p id="message-box-text"></p>
@@ -230,7 +225,7 @@
   </footer>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script> <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   
   <script src="firebase.js"></script> 
   

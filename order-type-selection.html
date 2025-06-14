@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pizza Hut - Choose Order Type</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="bg-red-50 min-h-screen flex flex-col items-center justify-center">
+  <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md mx-4 text-center">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="w-32 mx-auto mb-8" />
+    <h1 class="text-3xl font-extrabold text-red-700 mb-6" id="choose-order-type-title">How would you like your order?</h1>
+
+    <div class="flex flex-col space-y-4">
+      <button id="btn-to-go" class="bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold rounded-lg px-8 py-4 shadow-md transition" data-order-type="toGo">
+        Take Away (To-Go)
+      </button>
+      <button id="btn-delivery" class="bg-purple-600 hover:bg-purple-700 text-white text-lg font-semibold rounded-lg px-8 py-4 shadow-md transition" data-order-type="delivery">
+        Delivery
+      </button>
+      <button id="btn-dine-in" class="bg-orange-600 hover:bg-orange-700 text-white text-lg font-semibold rounded-lg px-8 py-4 shadow-md transition" data-order-type="dineIn">
+        Dine-in
+      </button>
+    </div>
+
+    <p id="logout-message" class="text-gray-600 text-sm mt-8">
+      Logged in as <span id="user-email" class="font-semibold"></span>. <a href="#" id="logout-btn" class="text-blue-600 hover:underline">Logout</a>
+    </p>
+    <p id="error-message" class="text-red-500 text-sm mt-4 hidden"></p>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="firebase.js"></script>
+  <script src="lang.js"></script>
+  <script>
+    const auth = firebase.auth();
+    // Move db initialization inside DOMContentLoaded if it causes issues outside.
+    // However, it's generally safe if firebase.js is loaded first.
+    // The previous error for firebase.database implies the script attempting to use it
+    // might be running before the Firebase JS SDK itself is fully ready to expose the .database() method.
+
+    const chooseOrderTypeTitle = document.getElementById('choose-order-type-title');
+    const userEmailSpan = document.getElementById('user-email');
+    const logoutBtn = document.getElementById('logout-btn');
+    const errorMessageDiv = document.getElementById('error-message');
+
+    const btnToGo = document.getElementById('btn-to-go');
+    const btnDelivery = document.getElementById('btn-delivery');
+    const btnDineIn = document.getElementById('btn-dine-in');
+
+    let currentLang = localStorage.getItem('lang') || 'en';
+
+    // Translations for this page
+    const orderTypeTranslations = {
+      en: {
+        title: "How would you like your order?",
+        toGo: "Take Away (To-Go)",
+        delivery: "Delivery",
+        dineIn: "Dine-in",
+        loggedInAs: "Logged in as",
+        logout: "Logout",
+        noUserError: "No user is logged in. Please log in first."
+      },
+      fr: {
+        title: "Comment souhaitez-vous votre commande ?",
+        toGo: "À emporter",
+        delivery: "Livraison",
+        dineIn: "Sur place",
+        loggedInAs: "Connecté en tant que",
+        logout: "Déconnexion",
+        noUserError: "Aucun utilisateur n'est connecté. Veuillez vous connecter d'abord."
+      },
+      ar: {
+        title: "كيف تريد طلبك؟",
+        toGo: "جاهز (للتوصيل)",
+        delivery: "توصيل",
+        dineIn: "لتناول الطعام هنا",
+        loggedInAs: "تم تسجيل الدخول باسم",
+        logout: "تسجيل الخروج",
+        noUserError: "لم يتم تسجيل دخول أي مستخدم. الرجاء تسجيل الدخول أولاً."
+      }
+    };
+
+    function applyOrderTypeLanguage(lang) {
+        const t = orderTypeTranslations[lang] || orderTypeTranslations['en'];
+        chooseOrderTypeTitle.textContent = t.title;
+        btnToGo.textContent = t.toGo;
+        btnDelivery.textContent = t.delivery;
+        btnDineIn.textContent = t.dineIn;
+        document.getElementById('logout-message').childNodes[0].nodeValue = t.loggedInAs + ' ';
+        logoutBtn.textContent = t.logout;
+        document.documentElement.lang = lang; // Set HTML lang attribute
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize db here
+        const db = firebase.database(); 
+        
+        applyOrderTypeLanguage(currentLang);
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                userEmailSpan.textContent = user.email;
+
+                // Check if user has a custom claim for admin
+                // user.getIdTokenResult().then(idTokenResult => {
+                //     if (!!idTokenResult.claims.admin) {
+                //         // If admin, redirect to admin page
+                //         window.location.href = 'admin.html';
+                //     }
+                // });
+
+            } else {
+                // No user is logged in, redirect to auth.html
+                window.location.href = 'auth.html';
+            }
+        });
+
+        // Set up event listeners for order type buttons
+        document.querySelectorAll('button[data-order-type]').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const orderType = e.target.dataset.orderType;
+                localStorage.setItem('orderType', orderType);
+                // Clear table number if not dine-in
+                if (orderType !== 'dineIn') {
+                    localStorage.removeItem('tableNumber');
+                }
+                window.location.href = 'menu.html';
+            });
+        });
+
+        // Logout functionality
+        logoutBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                await auth.signOut();
+                localStorage.clear(); // Clear all local storage related to the order and user type
+                window.location.href = 'index.html'; // Redirect to the welcome page
+            } catch (error) {
+                console.error('Logout error:', error);
+                errorMessageDiv.textContent = 'Error logging out. Please try again.';
+                errorMessageDiv.classList.remove('hidden');
+            }
+        });
+
+        // Add language switcher to this page (similar to index.html and menu.html)
+        const languageSwitcherSelect = document.createElement('select');
+        languageSwitcherSelect.id = "language-switcher";
+        languageSwitcherSelect.className = "mt-8 p-2 rounded border w-40 text-center";
+        languageSwitcherSelect.innerHTML = `
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+            <option value="ar">العربية</option>
+        `;
+        languageSwitcherSelect.value = currentLang;
+        languageSwitcherSelect.addEventListener('change', (e) => {
+            currentLang = e.target.value;
+            localStorage.setItem('lang', currentLang);
+            applyOrderTypeLanguage(currentLang);
+        });
+        document.querySelector('.bg-white').appendChild(languageSwitcherSelect);
+    });
+  </script>
+</body>
+</html>

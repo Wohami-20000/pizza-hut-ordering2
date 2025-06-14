@@ -11,13 +11,18 @@
   <div class="flex flex-col items-center justify-center flex-1 w-full px-4">
     <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="w-40 mb-8 mt-12 rounded shadow" />
     <h1 id="welcome-title" class="text-4xl font-extrabold text-red-700 mb-6 text-center">Welcome to Pizza Hut</h1>
-    <a id="order-now-btn" href="menu.html" class="bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg px-8 py-4 shadow-lg transition mb-10">Order Now</a>
+    
+    <a id="order-now-btn" href="auth.html" class="bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg px-8 py-4 shadow-lg transition mb-10">Order Now</a>
+    
     <select id="language-switcher" class="mt-2 mb-8 p-2 rounded border w-40 text-center">
       <option value="en">English</option>
       <option value="fr">Français</option>
       <option value="ar">العربية</option>
     </select>
   </div>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="firebase.js"></script>
   <script src="lang.js"></script>
   <script>
     // Add translations for the welcome page
@@ -52,6 +57,20 @@
     switcher.addEventListener("change", (e) => {
       localStorage.setItem("lang", e.target.value);
       applyWelcomeLanguage(e.target.value);
+    });
+
+    // Handle NFC scan simulation (if coming from an NFC tag)
+    // A real NFC tag would redirect to something like index.html?table=5
+    // Here, we simulate that to bypass auth for dine-in
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tableNumber = urlParams.get('table');
+
+        if (tableNumber) {
+            localStorage.setItem('orderType', 'dineIn');
+            localStorage.setItem('tableNumber', tableNumber);
+            window.location.href = 'menu.html'; // Direct to menu for dine-in
+        }
     });
   </script>
 </body>
