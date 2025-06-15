@@ -168,27 +168,6 @@ function updatePlaceOrderButtonState() {
 
 // Function to render the dynamic input field based on order type
 async function renderOrderDetailsInput(user) { // user parameter added
-    const orderDetailsInputDiv = document.getElementById('order-details-input'); 
-    if (!orderDetailsInputDiv) {
-        console.error("Order details input div not found!");
-        return;
-    }
-    orderDetailsInputDiv.innerHTML = ''; // Clear previous content
-
-    const orderType = localStorage.getItem('orderType') || null; 
-
-    if (orderType === 'dineIn') { 
-        const tableNumber = localStorage.getItem('tableNumber') || ''; 
-        orderDetailsInputDiv.innerHTML = `
-            <label id="table-label" for="table-number" class="block mb-2 font-semibold text-gray-700" data-translate="table_number_label">Table Number</label>
-            <input type="number" id="table-number" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500 focus:border-red-500" placeholder="Enter your table number" inputmode="numeric" value="${escapeHTML(tableNumber)}" data-translate="table_number_placeholder" />
-        `;
-        const tableNumberInputEl = document.getElementById("table-number"); 
-        if (tableNumber && tableNumberInputEl) { 
-            tableNumberInputEl.value = tableNumber; 
-        }
-
-async function renderOrderDetailsInput(user) { // user parameter added
     const orderDetailsInputDiv = document.getElementById('order-details-input'); 
     if (!orderDetailsInputDiv) {
         console.error("Order details input div not found!");
@@ -244,7 +223,7 @@ async function renderOrderDetailsInput(user) { // user parameter added
         if (orderType === null) {
             window.location.href = 'order-type-selection.html'; // Redirect if no orderType and not a dine-in bypass
         } else {
-            // Handle unexpected or invalid orderType (e.g., localStorage corruption)
+            // Handle unexpected or invalid orderType (e.e.g., localStorage corruption)
             showMessageBox('validation_error_title', 'order_type_missing_error', true); 
         }
         document.getElementById("place-order").disabled = true; 
@@ -258,147 +237,147 @@ async function renderOrderDetailsInput(user) { // user parameter added
 
 // Initial render and setup on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
-    currentLang = localStorage.getItem('lang') || 'en'; 
-    
-    renderCart(); 
-    updateCartCountNav(); 
-    updatePlaceOrderButtonState(); 
+    currentLang = localStorage.getItem('lang') || 'en'; 
+    
+    renderCart(); 
+    updateCartCountNav(); 
+    updatePlaceOrderButtonState(); 
 
-    const placeOrderBtn = document.getElementById("place-order"); 
+    const placeOrderBtn = document.getElementById("place-order"); 
 
-    auth.onAuthStateChanged(async (user) => {
-        await renderOrderDetailsInput(user); 
+    auth.onAuthStateChanged(async (user) => {
+        await renderOrderDetailsInput(user); 
 
-        if (placeOrderBtn) { 
-            const oldClickListener = placeOrderBtn._currentClickListener; 
-            if (oldClickListener) {
-                placeOrderBtn.removeEventListener("click", oldClickListener);
-            }
+        if (placeOrderBtn) { 
+            const oldClickListener = placeOrderBtn._currentClickListener; 
+            if (oldClickListener) {
+                placeOrderBtn.removeEventListener("click", oldClickListener);
+            }
 
             // Define newClickListener, ensuring 'user' from onAuthStateChanged is directly used.
-            const newClickListener = async () => {
-                if (placeOrderBtn.disabled) return;
-                
-                let orderDetails = {};
-                let validationError = false;
+            const newClickListener = async () => {
+                if (placeOrderBtn.disabled) return;
+                
+                let orderDetails = {};
+                let validationError = false;
 
-                let orderType = localStorage.getItem("orderType"); 
+                let orderType = localStorage.getItem("orderType"); 
 
-                if (orderType === 'dineIn') { 
-                    const localTableNumberInput = document.getElementById('table-number'); 
-                    const tableNumber = localTableNumberInput ? localTableNumberInput.value.trim() : '';
-                    if (!tableNumber || isNaN(parseInt(tableNumber)) || parseInt(tableNumber) <= 0) {
-                        showMessageBox('validation_error_title', 'table_number_missing_error', true); 
-                        validationError = true;
-                    } else {
-                        orderDetails.table = tableNumber;
-                    }
-                } else if (orderType === 'toGo' || orderType === 'delivery') { 
-                    if (!user) { // Directly use 'user' from the outer onAuthStateChanged scope
-                        showMessageBox('validation_error_title', 'no_user_logged_in', true); 
-                        validationError = true;
-                    } else {
-                        const userProfileSnapshot = await db.ref('users/' + user.uid).once('value'); 
-                        const userProfile = userProfileSnapshot.val() || {}; 
+                if (orderType === 'dineIn') { 
+                    const localTableNumberInput = document.getElementById('table-number'); 
+                    const tableNumber = localTableNumberInput ? localTableNumberInput.value.trim() : '';
+                    if (!tableNumber || isNaN(parseInt(tableNumber)) || parseInt(tableNumber) <= 0) {
+                        showMessageBox('validation_error_title', 'table_number_missing_error', true); 
+                        validationError = true;
+                    } else {
+                        orderDetails.table = tableNumber;
+                    }
+                } else if (orderType === 'toGo' || orderType === 'delivery') { 
+                    if (!user) { // Directly use 'user' from the outer onAuthStateChanged scope
+                        showMessageBox('validation_error_title', 'no_user_logged_in', true); 
+                        validationError = true;
+                    } else {
+                        const userProfileSnapshot = await db.ref('users/' + user.uid).once('value'); 
+                        const userProfile = userProfileSnapshot.val() || {}; 
 
-                        const customerName = userProfile.name ? userProfile.name.trim() : '';
-                        const customerPhone = userProfile.phone ? userProfile.phone.trim() : '';
+                        const customerName = userProfile.name ? userProfile.name.trim() : '';
+                        const customerPhone = userProfile.phone ? userProfile.phone.trim() : '';
 
-                        if (!customerName || customerName.toLowerCase() === 'customer' || !customerPhone) {
-                            showMessageBox('validation_error_title', 'profile_details_missing_error', true); 
-                            validationError = true;
-                        } else {
-                            orderDetails.userId = user.uid; // Assign UID from 'user'
-                            orderDetails.customerName = customerName;
-                            orderDetails.customerPhone = customerPhone;
+                        if (!customerName || customerName.toLowerCase() === 'customer' || !customerPhone) {
+                            showMessageBox('validation_error_title', 'profile_details_missing_error', true); 
+                            validationError = true;
+                        } else {
+                            orderDetails.userId = user.uid; // Assign UID from 'user'
+                            orderDetails.customerName = customerName;
+                            orderDetails.customerPhone = customerPhone;
 
-                            if (orderType === 'delivery') { 
-                                const deliveryAddressInput = document.getElementById('delivery-address');
-                                const deliveryAddress = deliveryAddressInput ? deliveryAddressInput.value.trim() : '';
-                                if (!deliveryAddress) {
-                                    showMessageBox('validation_error_title', 'delivery_address_missing_error', true); 
-                                    validationError = true;
-                                } else {
-                                    orderDetails.deliveryAddress = deliveryAddress;
-                                }
-                            }
-                        }
-                } else { // This 'else' handles cases where orderType is not set or unexpected.
+                            if (orderType === 'delivery') { 
+                                const deliveryAddressInput = document.getElementById('delivery-address');
+                                const deliveryAddress = deliveryAddressInput ? deliveryAddressInput.value.trim() : '';
+                                if (!deliveryAddress) {
+                                    showMessageBox('validation_error_title', 'delivery_address_missing_error', true); 
+                                    validationError = true;
+                                } else {
+                                    orderDetails.deliveryAddress = deliveryAddress;
+                                }
+                            }
+                        }
+                    }
+                } else { // This 'else' handles cases where orderType is not set or unexpected.
                     // This case means orderType is null or invalid, or somehow was not set properly.
-                    // If it reaches here and orderType is not null, it's an unexpected state.
                     if (orderType === null) {
                         window.location.href = 'order-type-selection.html'; // Redirect if no orderType and not a dine-in bypass
                     } else {
-                        // Handle unexpected or invalid orderType (e.g., localStorage corruption)
+                        // Handle unexpected or invalid orderType (e.e.g., localStorage corruption)
                         showMessageBox('validation_error_title', 'order_type_missing_error', true); 
                     }
                     document.getElementById("place-order").disabled = true; 
                     return;
                 }
 
-                if (validationError) {
-                  return;
-                }
+                if (validationError) {
+                  return;
+                }
 
-                if (cart.length === 0) { 
-                  showMessageBox('validation_error_title', 'cart_empty_order_error', true); 
-                  return;
-                }
+                if (cart.length === 0) { 
+                  showMessageBox('validation_error_title', 'cart_empty_order_error', true); 
+                  return;
+                }
 
-                placeOrderBtn.disabled = true; 
-                placeOrderBtn.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.placing_order_feedback) || "Placing Order..."; 
+                placeOrderBtn.disabled = true; 
+                placeOrderBtn.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.placing_order_feedback) || "Placing Order..."; 
 
-                const totalAmount = cart.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0), 0); 
-                const orderData = {
-                  orderType: orderType, 
-                  ...orderDetails,     
-                  items: cart, 
-                  total: totalAmount, 
-                  timestamp: new Date().toISOString(), 
-                  status: "pending" 
-                };
+                const totalAmount = cart.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0), 0); 
+                const orderData = {
+                  orderType: orderType, 
+                  ...orderDetails,     
+                  items: cart, 
+                  total: totalAmount, 
+                  timestamp: new Date().toISOString(), 
+                  status: "pending" 
+                };
 
-                // LOGGING FOR DEBUGGING WRITE OPERATIONS
-                console.log("cart.js: Preparing order for Firebase write:", orderData);
-                if (user) { // Use the 'user' variable from onAuthStateChanged
-                    console.log("cart.js: Current authenticated user UID for write:", user.uid);
-                } else {
-                    console.warn("cart.js: No authenticated user found during order write for non-dineIn order (this should not happen if user validation passed).");
-                }
+                // LOGGING FOR DEBUGGING WRITE OPERATIONS
+                console.log("cart.js: Preparing order for Firebase write:", orderData);
+                if (user) { // Use the 'user' variable from onAuthStateChanged
+                    console.log("cart.js: Current authenticated user UID for write:", user.uid);
+                } else {
+                    console.warn("cart.js: No authenticated user found during order write for non-dineIn order (this should not happen if user validation passed).");
+                }
 
-                localStorage.setItem("lastOrderDataForConfirm", JSON.stringify(orderData)); 
-                if (orderType === 'dineIn') { 
-                    localStorage.setItem("tableNumber", orderDetails.table); 
-                } else {
-                    localStorage.removeItem("tableNumber"); 
-                }
+                localStorage.setItem("lastOrderDataForConfirm", JSON.stringify(orderData)); 
+                if (orderType === 'dineIn') { 
+                    localStorage.setItem("tableNumber", orderDetails.table); 
+                } else {
+                    localStorage.removeItem("tableNumber"); 
+                }
 
-                try {
-                    console.log("cart.js: Attempting to write order to Firebase with data:", orderData); 
-                    let newOrderRef = db.ref("orders").push(); 
-                    await newOrderRef.set(orderData); 
-                    console.log("cart.js: Order pushed successfully with key:", newOrderRef.key); 
-                    
-                    localStorage.setItem("lastOrderId", newOrderRef.key); 
-                    localStorage.removeItem("cart"); 
-                    
-                    window.location.href = `confirm.html?orderId=${newOrderRef.key}`; 
-                } catch (error) {
-                    console.error("cart.js: Firebase error during order placement (CAUGHT):", error); 
-                    showMessageBox('order_error_title', `Order placement failed: ${error.message}`, true); 
-                } finally {
-                    placeOrderBtn.disabled = false; 
-                    placeOrderBtn.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.place_order_button) || "Place Order"; 
-                    if (typeof applyLanguage === 'function') {
-                        applyLanguage(currentLang);
-                    }
-                    updatePlaceOrderButtonState(); 
-                }
-            };
-            placeOrderBtn.addEventListener("click", newClickListener);
-            placeOrderBtn._currentClickListener = newClickListener; 
-        } else {
-            console.error("Place order button not found.");
-        }
-    });
+                try {
+                    console.log("cart.js: Attempting to write order to Firebase with data:", orderData); 
+                    let newOrderRef = db.ref("orders").push(); 
+                    await newOrderRef.set(orderData); 
+                    console.log("cart.js: Order pushed successfully with key:", newOrderRef.key); 
+                    
+                    localStorage.setItem("lastOrderId", newOrderRef.key); 
+                    localStorage.removeItem("cart"); 
+                    
+                    window.location.href = `confirm.html?orderId=${newOrderRef.key}`; 
+                } catch (error) {
+                    console.error("cart.js: Firebase error during order placement (CAUGHT):", error); 
+                    showMessageBox('order_error_title', `Order placement failed: ${error.message}`, true); 
+                } finally {
+                    placeOrderBtn.disabled = false; 
+                    placeOrderBtn.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.place_order_button) || "Place Order"; 
+                    if (typeof applyLanguage === 'function') {
+                        applyLanguage(currentLang);
+                    }
+                    updatePlaceOrderButtonState(); 
+                }
+            };
+            placeOrderBtn.addEventListener("click", newClickListener);
+            placeOrderBtn._currentClickListener = newClickListener; 
+        } else {
+            console.error("Place order button not found.");
+        }
+    });
 });
