@@ -27,7 +27,7 @@ function showMessage(containerId, message, isError = false) {
             container.classList.remove('bg-green-100', 'text-green-700', 'border-green-400');
             container.classList.add('bg-red-100', 'text-red-700', 'border-red-400');
         } else {
-            container.classList.remove('bg-red-100', 'text-red-700', 'border-red-400');
+            container.classList.remove('bg-red-100', 'text-red-700', 'border-red-700'); // Ensure it's not red by default
             container.classList.add('bg-green-100', 'text-green-700', 'border-green-400');
         }
     }
@@ -59,8 +59,8 @@ function escapeHTML(str) {
 // ---------------------- ORDER MANAGEMENT ----------------------
 
 function loadOrders() {
-    // ordersRef.off(); // Detach previous listener if any, to prevent duplicates
-    ordersRef.on('value', snapshot => {
+    ordersRef.off(); // Detach previous listener if any, to prevent duplicates
+    ordersRef.on('value', snapshot => { // Use on('value') for real-time updates
         const ordersTable = document.getElementById('ordersTableBody');
         if (!ordersTable) {
             console.error("Dashboard: ordersTableBody not found.");
@@ -88,6 +88,7 @@ function loadOrders() {
             const order = childSnapshot.val();
             const key = childSnapshot.key;
 
+            // Update counts based on current status
             if (order.status === 'pending') {
                 pendingOrders++;
             } else if (order.status === 'delivered') {
@@ -129,6 +130,7 @@ function loadOrders() {
         document.getElementById('pending-orders-count').textContent = pendingOrders;
         document.getElementById('delivered-orders-count').textContent = deliveredOrders;
 
+        // Apply language after populating the table to ensure dropdown options are translated
         if (typeof applyLanguage === 'function') applyLanguage(currentLang, ordersTable);
 
 
@@ -136,14 +138,16 @@ function loadOrders() {
         console.error("Dashboard: Orders 'value' listener error:", error);
         showMessage("error-message-admin-page", `Error loading orders: ${error.message}`, true);
         document.getElementById('ordersTableBody').innerHTML = `<tr><td colspan="7" class="text-center py-4 text-red-500" data-translate="error_loading_orders">Error loading orders: ${error.message}</td></tr>`;
-        if (typeof applyLanguage === 'function') applyLanguage(currentLang, document.getElementById('ordersTableBody'));
+        if (typeof applyLanguage === 'function') applyLanguage(currentLang, ordersTable);
     });
 }
 
+// Function to update order status in Firebase
 function updateOrderStatus(orderId, newStatus) {
     ordersRef.child(orderId).update({ status: newStatus })
         .then(() => {
             console.log(`Order ${orderId} status updated to ${newStatus}`);
+            // No need to re-load orders explicitly here because the on('value') listener will handle it.
         })
         .catch(error => {
             console.error(`Error updating order ${orderId} status:`, error);
@@ -280,10 +284,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Restore last active section or show dashboard
                     const activeSectionIdStorage = localStorage.getItem('adminActiveSection');
                     const activeTitleStorage = localStorage.getItem('adminActiveTitle');
-                    const dashboardLink = document.querySelector('aside .nav-link[data-section=\"dashboard-section\"]'); // Corrected ID usage
+                    const dashboardLink = document.querySelector('aside .nav-link[data-section="dashboard-section"]'); 
 
                     if (activeSectionIdStorage && document.getElementById(activeSectionIdStorage)) {
-                        const linkToActivate = document.querySelector(`aside .nav-link[data-section=\"${activeSectionIdStorage}\"]`);
+                        const linkToActivate = document.querySelector(`aside .nav-link[data-section="${activeSectionIdStorage}"]`);
                         if (linkToActivate) {
                             showSection(activeSectionIdStorage, activeTitleStorage || linkToActivate.getAttribute('data-title'));
                             setActiveLink(linkToActivate);
@@ -299,7 +303,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const adminPageErrorTextContainer = document.getElementById('error-message-admin-page');
                     if (adminPageErrorTextContainer) {
                         adminPageErrorTextContainer.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.access_denied_admin) || "Access Denied: You do not have administrator privileges.";
-                        adminPageErrorTextContainer.classList.remove('hidden'); // Show the error container
+                        adminPageErrorTextContainer.classList.remove('hidden'); 
                     }
                     document.getElementById('ordersTableBody').innerHTML = `<tr><td colspan="7" class="text-center py-4 text-red-500" data-translate="access_denied_admin">Access Denied: You do not have administrator privileges.</td></tr>`;
                     if (document.getElementById('categories-list')) {
