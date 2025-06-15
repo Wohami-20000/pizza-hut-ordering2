@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Pizza Hut - Order Confirmed</title>
+  <title data-translate="order_confirmed_title">Order Confirmed - Pizza Hut</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css"> 
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
+  <link rel="stylesheet" href="style.css">
   <style>
     /* Custom styles for specific elements if needed beyond Tailwind */
+    body {
+        font-family: 'Poppins', sans-serif;
+    }
     .order-item-list li {
       padding: 0.5rem 0;
       border-bottom: 1px dotted #e5e7eb; /* gray-200 for subtle separator */
@@ -63,9 +66,17 @@
     .message-box button:hover {
       background-color: #dc2626; /* red-700 */
     }
+
+    /* Animation for loading spinner */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .fa-spinner {
+      animation: spin 1s linear infinite;
+    }
   </style>
 </head>
-<body class="bg-gray-100 text-gray-900 min-h-screen flex flex-col">
+<body class="bg-gray-100 min-h-screen flex flex-col">
 
   <header class="bg-red-600 text-white p-4 shadow-md sticky top-0 z-20">
     <div class="container mx-auto flex justify-between items-center max-w-3xl">
@@ -76,47 +87,64 @@
               <option value="fr">Français</option>
               <option value="ar">العربية</option>
             </select>
-            <a href="cart.html" class="text-lg relative hover:opacity-80 transition">
+            <a href="cart.html" id="cart-btn" class="relative text-lg hover:opacity-80 transition">
                 <i class="fas fa-shopping-cart"></i>
-                Cart (<span id="cart-count-nav">0</span>) 
+                Cart (<span id="cart-count-nav">0</span>)
             </a>
         </div>
     </div>
   </header>
 
-  <main class="container mx-auto p-4 sm:p-6 mt-4 flex-grow">
-    <div class="bg-white p-6 rounded-xl shadow-xl mb-8 text-center">
-      <i class="fas fa-check-circle text-green-500 text-6xl mb-4"></i>
-      <h1 class="text-3xl font-bold text-gray-800 mb-2" data-translate="order_confirmed">Thank you for your order!</h1>
-      <p class="text-gray-600 mb-6" data-translate="order_received">Your order has been received and is being prepared.</p>
-      
-      <div id="error-fetching-order" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+  <main class="container mx-auto p-4 sm:p-6 mt-8 flex-grow">
+    <div class="bg-white p-6 sm:p-8 rounded-xl shadow-xl max-w-2xl mx-auto">
+      <h1 class="text-3xl sm:text-4xl font-extrabold text-green-600 mb-4 text-center">
+        <i class="fas fa-check-circle mr-2"></i> <span data-translate="order_confirmed">Order Confirmed!</span>
+      </h1>
+      <p class="text-gray-700 text-center mb-8" data-translate="order_received">Your order has been received and is being prepared.</p>
+
+      <!-- Loading State -->
+      <div id="loading-order" class="text-center py-8 text-gray-500">
+        <i class="fas fa-spinner fa-spin text-4xl mb-4"></i>
+        <p class="text-lg" data-translate="loading_order_details">Loading order details...</p>
+      </div>
+
+      <!-- Error State -->
+      <div id="error-fetching-order" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative text-center mb-4" role="alert">
         <strong class="font-bold" data-translate="error_title">Error!</strong>
         <span class="block sm:inline" id="error-message-text"></span>
       </div>
 
-      <div id="order-summary-section" class="text-left mt-6 border-t pt-6">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4" data-translate="order_summary_title">Order Summary</h2>
-        <div id="order-summary-details" class="space-y-2 text-gray-700">
+      <!-- Order Summary Section (Initially hidden) -->
+      <section id="order-summary-section" class="hidden">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2" data-translate="order_summary_title">Order Summary</h2>
+        <div id="order-summary-details" class="space-y-3 text-gray-700">
           <p><strong>Order ID:</strong> <span id="order-id-display"></span></p>
-          <p><strong>Order Type:</strong> <span id="order-type-display"></span></p>
-          <p class="hidden"><strong>Customer Name:</strong> <span id="customer-name-display"></span></p>
-          <p class="hidden"><strong>Phone Number:</strong> <span id="customer-phone-display"></span></p>
-          <p class="hidden"><strong>Delivery Address:</strong> <span id="delivery-address-display"></span></p>
-          <p id="table-number-display-p" class="hidden"><strong>Table Number:</strong> <span id="table-number-display"></span></p>
-          <p><strong><span data-translate="items_heading">Items</span>:</strong></p>
-          <ul id="items-list" class="order-item-list border rounded-lg p-3 bg-gray-50 max-h-48 overflow-y-auto">
-            </ul>
-          <p class="text-xl font-bold text-right pt-2" data-translate="total_label">
-            Total: <span id="total-amount-display">0.00</span> MAD
-          </p>
-          <p><strong><span data-translate="status_label">Status</span>:</strong> <span id="order-status-display"></span></p>
-          <p><strong><span data-translate="order_placed_at">Placed at</span>:</strong> <span id="order-timestamp-display"></span></p>
-        </div>
-      </div>
+          <p><strong><span data-translate="order_type_label">Order Type:</span></strong> <span id="order-type-display"></span></p>
+          <p class="hidden"><strong><span data-translate="customer_name_label">Customer Name:</span></strong> <span id="customer-name-display"></span></p>
+          <p class="hidden"><strong><span data-translate="phone_number_label">Phone Number:</span></strong> <span id="customer-phone-display"></span></p>
+          <p class="hidden" id="delivery-address-display-p"><strong><span data-translate="delivery_address_label">Delivery Address:</span></strong> <span id="delivery-address-display"></span></p>
+          <p class="hidden" id="table-number-display-p"><strong><span data-translate="table_number_label">Table Number:</span></strong> <span id="table-number-display"></span></p>
+          
+          <h3 class="text-xl font-semibold mt-6 mb-3 border-b pb-2" data-translate="items_heading">Items</h3>
+          <ul id="items-list" class="order-item-list">
+            <!-- Order items will be dynamically inserted here -->
+          </ul>
 
-      <div class="mt-8 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 justify-center">
-        <button id="save-pdf-btn" class="bg-yellow-400 text-red-700 px-6 py-3 rounded-lg font-semibold hover:bg-yellow-300 transition-colors shadow-md">
+          <div class="text-right text-xl font-bold mt-6 pt-4 border-t-2 border-gray-200">
+            <span data-translate="cart_total_label">Total:</span> <span id="total-amount-display">0.00</span> MAD
+          </div>
+
+          <p class="text-gray-600 text-sm text-right">
+            <span data-translate="order_placed_at">Placed at:</span> <span id="order-timestamp-display"></span>
+          </p>
+          <p class="text-gray-800 text-lg font-semibold text-right">
+            <span data-translate="status_label">Status:</span> <span id="order-status-display" class="text-blue-600"></span>
+          </p>
+        </div>
+      </section>
+
+      <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-8">
+        <button id="save-pdf-btn" class="bg-yellow-400 text-red-700 px-6 py-3 rounded-lg font-semibold hover:bg-yellow-300 transition-colors shadow-md flex items-center justify-center">
             <i class="fas fa-file-pdf mr-2"></i> <span data-translate="save_pdf_button">Save as PDF</span>
         </button>
         <a href="menu.html" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-md flex items-center justify-center">
@@ -141,8 +169,10 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <!-- HTML2PDF library for PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" xintegrity="sha512-GsIDXPiSPanhYcYjWlpewLHfn0P5At/gZQvQvB5pMdxu6hxDg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  
   <script src="firebase.js"></script> 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="lang.js"></script> 
   <script src="confirm.js"></script>   
 </body>
