@@ -1,7 +1,8 @@
 // auth.js
 const auth = firebase.auth();
-const db = firebase.database(); // You already have db initialized in firebase.js, but ensure it's accessible
+const db = firebase.database();
 
+// --- Form Elements ---
 const loginForm = document.getElementById('login-form');
 const signupForm = document.getElementById('signup-form');
 const showSignupBtn = document.getElementById('show-signup');
@@ -10,7 +11,54 @@ const authTitle = document.getElementById('auth-title');
 const loginErrorMessage = document.getElementById('login-error-message');
 const signupErrorMessage = document.getElementById('signup-error-message');
 
-// Custom element for password input with confirmation
+// --- Social & Guest Login Buttons ---
+const googleBtn = document.getElementById('google-signin-btn');
+const appleBtn = document.getElementById('apple-signin-btn');
+const guestBtn = document.getElementById('guest-continue-btn');
+
+// --- Password Reset Modal Elements ---
+const forgotPasswordModal = document.getElementById('forgot-password-modal');
+const forgotPasswordLink = document.getElementById('forgot-password-link');
+const closeModalBtn = document.getElementById('close-modal-btn');
+const sendResetLinkBtn = document.getElementById('send-reset-link-btn');
+const resetErrorMessage = document.getElementById('reset-error-message');
+const resetSuccessMessage = document.getElementById('reset-success-message');
+
+// --- Utility Functions ---
+function displayError(element, message) {
+  element.textContent = message;
+  element.classList.remove('hidden');
+}
+
+function hideError(element) {
+  element.classList.add('hidden');
+  element.textContent = '';
+}
+
+// --- Form Switching with Animation ---
+function switchForms(showForm, hideForm, newTitle) {
+    hideForm.classList.add('hidden-form');
+    authTitle.textContent = newTitle;
+
+    setTimeout(() => {
+        showForm.classList.remove('hidden-form');
+        hideError(loginErrorMessage);
+        hideError(signupErrorMessage);
+    }, 100); // A small delay to ensure the class is applied before removing
+}
+
+showSignupBtn.addEventListener('click', (e) => {
+  e.preventDefault();
+  switchForms(signupForm, loginForm, 'Create Account');
+});
+
+showLoginBtn.addEventListener('click', (e) => {
+  e.preventDefault();
+  switchForms(loginForm, signupForm, 'Customer Login');
+});
+
+
+// --- Custom Password Input Element (no changes needed here) ---
 class PasswordInput extends HTMLElement {
   constructor() {
     super();
@@ -20,7 +68,7 @@ class PasswordInput extends HTMLElement {
         .password-group {
           display: flex;
           flex-direction: column;
-          gap: 0.75rem; /* Equivalent to Tailwind's space-y-3 */
+          gap: 1.5rem; /* space-y-6 */
         }
         input {
           width: 100%;
@@ -37,12 +85,16 @@ class PasswordInput extends HTMLElement {
         .error-message {
           color: #ef4444; /* red-500 */
           font-size: 0.875rem; /* text-sm */
+          display: none; /* Hidden by default */
+        }
+        .error-message.visible {
+            display: block;
         }
       </style>
       <div class="password-group">
         <input type="password" id="password" placeholder="Password" required />
         <input type="password" id="confirm-password" placeholder="Confirm Password" required />
-        <p id="password-error" class="error-message hidden">Passwords do not match.</p>
+        <p id="password-error" class="error-message">Passwords do not match.</p>
       </div>
     `;
     this.passwordInput = this.shadowRoot.getElementById('password');
@@ -55,10 +107,10 @@ class PasswordInput extends HTMLElement {
 
   validatePasswords() {
     if (this.passwordInput.value !== this.confirmPasswordInput.value) {
-      this.passwordError.classList.remove('hidden');
+      this.passwordError.classList.add('visible');
       return false;
     } else {
-      this.passwordError.classList.add('hidden');
+      this.passwordError.classList.remove('visible');
       return true;
     }
   }
@@ -73,81 +125,46 @@ class PasswordInput extends HTMLElement {
            this.validatePasswords();
   }
 }
-
 customElements.define('password-input', PasswordInput);
 
 
-// Function to display error messages
-function displayError(element, message) {
-  element.textContent = message;
-  element.classList.remove('hidden');
-}
+// --- Core Authentication Logic ---
 
-// Function to hide error messages
-function hideError(element) {
-  element.classList.add('hidden');
-  element.textContent = '';
-}
+const handleSuccessfulLogin = (user) => {
+  console.log('User logged in:', user.uid);
+  // Save user data to Realtime Database on login/signup
+  db.ref('users/' + user.uid).update({
+      email: user.email,
+      lastLogin: new Date().toISOString(),
+      name: user.displayName || 'Customer',
+      phone: user.phoneNumber || ''
+  });
+  window.location.href = 'order-type-selection.html';
+};
 
-// Switch between login and signup forms
-showSignupBtn.addEventListener('click', (e) => {
-  e.preventDefault();
-  loginForm.classList.add('hidden');
-  signupForm.classList.remove('hidden');
-  authTitle.textContent = 'Create Account';
-  hideError(loginErrorMessage);
-  hideError(signupErrorMessage);
-});
-
-showLoginBtn.addEventListener('click', (e) => {
-  e.preventDefault();
-  signupForm.classList.add('hidden');
-  loginForm.classList.remove('hidden');
-  authTitle.textContent = 'Customer Login';
-  hideError(loginErrorMessage);
-  hideError(signupErrorMessage);
-});
-
-// Login Form Submission
+// Email/Password Login
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   hideError(loginErrorMessage);
-
   const email = document.getElementById('login-email').value;
   const password = document.getElementById('login-password').value;
 
   try {
     const userCredential = await auth.signInWithEmailAndPassword(email, password);
-    const user = userCredential.user;
-
-    // Check if the user is an admin (if you integrate custom claims later)
-    // For now, all logged-in users are considered customers
-    console.log('User logged in:', user.uid);
-
-    // Redirect to order type selection
-    window.location.href = 'order-type-selection.html'; // We'll create this next
+    handleSuccessfulLogin(userCredential.user);
   } catch (error) {
-    console.error('Login error:', error.code, error.message);
-    let errorMessage = 'Invalid email or password.';
-    if (error.code === 'auth/user-not-found') {
-      errorMessage = 'No user found with this email.';
-    } else if (error.code === 'auth/wrong-password') {
-      errorMessage = 'Incorrect password.';
-    } else if (error.code === 'auth/invalid-email') {
-      errorMessage = 'Invalid email format.';
-    }
-    displayError(loginErrorMessage, errorMessage);
+    displayError(loginErrorMessage, 'Invalid email or password.');
   }
 });
 
-// Sign Up Form Submission
+// Email/Password Sign Up
 signupForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   hideError(signupErrorMessage);
 
   const email = document.getElementById('signup-email').value;
   const passwordInputComponent = signupForm.querySelector('password-input');
-  const password = passwordInputComponent.password; // Get value from custom element
+  const password = passwordInputComponent.password;
   const phone = document.getElementById('signup-phone').value;
   const name = document.getElementById('signup-name').value;
 
@@ -159,37 +176,97 @@ signupForm.addEventListener('submit', async (e) => {
   try {
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
-
-    // Save additional user data to Realtime Database
+    // Update profile with name
+    await user.updateProfile({ displayName: name });
+    // Save additional data to Realtime DB
     await db.ref('users/' + user.uid).set({
       email: user.email,
       name: name || 'Customer',
       phone: phone || '',
       createdAt: new Date().toISOString()
     });
-
-    console.log('User signed up and data saved:', user.uid);
-
-    // Redirect to order type selection
-    window.location.href = 'order-type-selection.html'; // We'll create this next
+    handleSuccessfulLogin(user);
   } catch (error) {
-    console.error('Sign up error:', error.code, error.message);
-    let errorMessage = 'Error signing up. Please try again.';
-    if (error.code === 'auth/email-already-in-use') {
-      errorMessage = 'This email is already in use.';
-    } else if (error.code === 'auth/weak-password') {
-      errorMessage = 'Password is too weak (should be at least 6 characters).';
-    } else if (error.code === 'auth/invalid-email') {
-      errorMessage = 'Invalid email format.';
-    }
-    displayError(signupErrorMessage, errorMessage);
+    let msg = 'Error signing up. Please try again.';
+    if (error.code === 'auth/email-already-in-use') msg = 'This email is already in use.';
+    if (error.code === 'auth/weak-password') msg = 'Password should be at least 6 characters.';
+    displayError(signupErrorMessage, msg);
   }
 });
 
-// Check auth state on load (already in your admin-login.html, but crucial here too)
+// Google Sign-In
+googleBtn.addEventListener('click', async () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try {
+        const result = await auth.signInWithPopup(provider);
+        handleSuccessfulLogin(result.user);
+    } catch (error) {
+        console.error("Google Sign-In Error:", error);
+        displayError(loginErrorMessage, 'Could not sign in with Google. Please try again.');
+    }
+});
+
+// Apple Sign-In
+appleBtn.addEventListener('click', async () => {
+    const provider = new firebase.auth.OAuthProvider('apple.com');
+    try {
+        const result = await auth.signInWithPopup(provider);
+        handleSuccessfulLogin(result.user);
+    } catch (error) {
+        console.error("Apple Sign-In Error:", error);
+        displayError(loginErrorMessage, 'Could not sign in with Apple. Please try again.');
+    }
+});
+
+
+// Continue as Guest
+guestBtn.addEventListener('click', async () => {
+    try {
+        const userCredential = await auth.signInAnonymously();
+        console.log('Guest user signed in:', userCredential.user.uid);
+        // Set a flag to identify guest users
+        localStorage.setItem('isGuest', 'true');
+        // Redirect to order type selection
+        window.location.href = 'order-type-selection.html';
+    } catch (error) {
+        console.error("Guest Sign-In Error:", error);
+        displayError(loginErrorMessage, 'Could not continue as guest. Please try again.');
+    }
+});
+
+// --- Password Reset Logic ---
+forgotPasswordLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    forgotPasswordModal.classList.remove('hidden');
+    hideError(resetErrorMessage);
+    hideError(resetSuccessMessage);
+});
+
+closeModalBtn.addEventListener('click', () => {
+    forgotPasswordModal.classList.add('hidden');
+});
+
+sendResetLinkBtn.addEventListener('click', async () => {
+    const email = document.getElementById('reset-email').value;
+    if (!email) {
+        displayError(resetErrorMessage, 'Please enter your email address.');
+        return;
+    }
+    hideError(resetErrorMessage);
+    hideError(resetSuccessMessage);
+
+    try {
+        await auth.sendPasswordResetEmail(email);
+        resetSuccessMessage.textContent = 'Password reset link sent! Check your inbox.';
+        resetSuccessMessage.classList.remove('hidden');
+    } catch (error) {
+        displayError(resetErrorMessage, 'Failed to send reset link. Please check the email and try again.');
+    }
+});
+
+// Redirect if already logged in (but not a guest)
 auth.onAuthStateChanged(user => {
-  if (user) {
-    // User is logged in, redirect to order type selection
+  if (user && !user.isAnonymous) {
     window.location.href = 'order-type-selection.html';
   }
 });
