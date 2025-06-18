@@ -1,127 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Pizza Hut - Login / Sign Up</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
-  <style>
-    /* Custom Pizza Hut Red */
-    :root {
-      --brand-red: #EE3A43;
-      --brand-red-dark: #D71921;
-    }
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pizza Hut - Welcome</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --brand-red: #D71921; /* Pizza Hut Red */
+            --brand-yellow: #FFC72C; /* Vibrant Yellow for buttons */
+            --brand-text-dark: #231F20; /* Dark charcoal for text */
+        }
 
-    body {
-      background-color: #F7F5F3; /* A neutral off-white background */
-    }
+        /* NEW: Solid Red Background */
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--brand-red);
+        }
 
-    .brand-button {
-      background-color: var(--brand-red);
-    }
-    .brand-button:hover {
-      background-color: var(--brand-red-dark);
-    }
+        /* NEW: Solid White Card */
+        .auth-card {
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* NEW: Standard Input field styling for a white background */
+        .form-input {
+            background-color: #f3f4f6; /* light gray bg */
+            border: 1px solid #d1d5db; /* gray border */
+            color: var(--brand-text-dark);
+        }
+        .form-input::placeholder { color: #9ca3af; } /* darker placeholder */
+        .form-input:focus {
+            border-color: var(--brand-yellow);
+            box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.5);
+            outline: none;
+        }
 
-    /* Form transition animations */
-    .auth-form {
-      transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out, visibility 0.5s;
-      visibility: visible;
-      opacity: 1;
-      transform: translateY(0);
-    }
-    .auth-form.hidden-form {
-      opacity: 0;
-      transform: translateY(20px);
-      position: absolute;
-      visibility: hidden;
-    }
-    .form-container {
-        position: relative;
-    }
-  </style>
+        /* Form transition animations (unchanged) */
+        .auth-form {
+            transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .auth-form.hidden-form {
+            opacity: 0;
+            transform: translateX(-30px);
+            position: absolute;
+            pointer-events: none;
+        }
+        .form-container {
+            position: relative;
+            min-height: 420px; /* Increased height for checkbox */
+        }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+<body class="min-h-screen flex items-center justify-center p-4">
 
-  <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md mx-auto">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="w-24 mx-auto mb-6" />
-    <h1 id="auth-title" class="text-3xl font-extrabold text-gray-800 mb-6 text-center">Customer Login</h1>
+    <div class="auth-card p-8 w-full max-w-md mx-auto">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="w-24 mx-auto mb-6" />
+        <h1 id="auth-title" class="text-3xl font-bold text-gray-800 mb-6 text-center tracking-wide">Customer Login</h1>
 
-    <div class="form-container">
-        <form id="login-form" class="auth-form space-y-6">
-          <input type="email" id="login-email" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition" placeholder="Email" required />
-          <input type="password" id="login-password" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition" placeholder="Password" required />
-          <div class="text-right text-sm">
-            <a href="#" id="forgot-password-link" class="font-medium text-red-600 hover:text-red-500">Forgot password?</a>
-          </div>
-          <button type="submit" class="w-full brand-button text-white text-lg font-semibold rounded-lg px-6 py-3 shadow-md transition" id="login-btn">Login</button>
-          <p class="text-center text-sm">
-            Don't have an account? <a href="#" id="show-signup" class="text-blue-600 hover:underline font-semibold">Sign Up</a>
-          </p>
-          <p id="login-error-message" class="text-red-500 text-sm text-center mt-4 hidden"></p>
-        </form>
+        <div class="form-container">
+            <form id="login-form" class="auth-form space-y-6">
+                <input type="email" id="login-email" class="w-full p-3 form-input rounded-lg transition" placeholder="Email" required />
+                <input type="password" id="login-password" class="w-full p-3 form-input rounded-lg transition" placeholder="Password" required />
+                <div class="text-right text-sm">
+                    <a href="#" id="forgot-password-link" class="font-medium text-blue-600 hover:text-blue-800">Forgot password?</a>
+                </div>
+                <button type="submit" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg transform hover:scale-105 transition" id="login-btn" style="background-color: var(--brand-yellow); color: var(--brand-text-dark);">Login</button>
+                <p class="text-center text-sm text-gray-600">
+                    Don't have an account? <a href="#" id="show-signup" class="text-blue-600 hover:underline font-semibold">Sign Up</a>
+                </p>
+                <p id="login-error-message" class="text-red-600 text-sm font-semibold text-center mt-4 h-5"></p>
+            </form>
 
-        <form id="signup-form" class="auth-form hidden-form space-y-6">
-          <input type="email" id="signup-email" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition" placeholder="Email" required />
-          <password-input></password-input>
-          <input type="tel" id="signup-phone" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition" placeholder="Phone Number" />
-          <input type="text" id="signup-name" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition" placeholder="Full Name" />
-          <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg px-6 py-3 shadow-md transition" id="signup-btn">Sign Up</button>
-          <p class="text-center text-sm">
-            Already have an account? <a href="#" id="show-login" class="text-blue-600 hover:underline font-semibold">Login</a>
-          </p>
-          <p id="signup-error-message" class="text-red-500 text-sm text-center mt-4 hidden"></p>
-        </form>
+            <form id="signup-form" class="auth-form hidden-form w-full space-y-6">
+                <input type="email" id="signup-email" class="w-full p-3 form-input rounded-lg transition" placeholder="Email" required />
+                <password-input></password-input>
+                <div class="flex items-start">
+                    <div class="flex items-center h-5">
+                        <input id="terms-checkbox" type="checkbox" value="" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300" required>
+                    </div>
+                    <label for="terms-checkbox" class="ml-2 text-sm font-normal text-gray-600">I agree to the <a href="#" class="text-blue-600 hover:underline">Terms and Conditions</a> and <a href="#" class="text-blue-600 hover:underline">Privacy Policy</a>.</label>
+                </div>
+                <button type="submit" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg transform hover:scale-105 transition" id="signup-btn" style="background-color: var(--brand-yellow); color: var(--brand-text-dark);">Create Account</button>
+                <p class="text-center text-sm text-gray-600">
+                    Already have an account? <a href="#" id="show-login" class="text-blue-600 hover:underline font-semibold">Login</a>
+                </p>
+                <p id="signup-error-message" class="text-red-600 text-sm font-semibold text-center mt-4 h-5"></p>
+            </form>
+        </div>
+
+        <div class="my-6 flex items-center">
+            <div class="flex-grow border-t border-gray-300"></div>
+            <span class="flex-shrink mx-4 text-gray-500 text-sm">OR</span>
+            <div class="flex-grow border-t border-gray-300"></div>
+        </div>
+
+        <div class="space-y-4">
+            <button id="google-signin-btn" class="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-700 hover:bg-gray-50 transform hover:scale-105 transition">
+                <img class="h-6 w-6 mr-3" src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google icon">
+                Sign in with Google
+            </button>
+            <button id="guest-continue-btn" class="w-full py-3 px-4 rounded-lg shadow-md bg-gray-600 text-white hover:bg-gray-700 transform hover:scale-105 transition">
+                Continue as Guest
+            </button>
+        </div>
     </div>
 
-    <div class="my-6 flex items-center">
-        <div class="flex-grow border-t border-gray-300"></div>
-        <span class="flex-shrink mx-4 text-gray-500 text-sm">OR</span>
-        <div class="flex-grow border-t border-gray-300"></div>
+    <div id="forgot-password-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+            <h3 class="text-lg font-medium text-gray-900 text-center">Reset Password</h3>
+            <p class="text-sm text-gray-500 mt-2 mb-4 text-center">Enter your email and we'll send a reset link.</p>
+            <input type="email" id="reset-email" class="w-full p-3 border border-gray-300 rounded-lg" placeholder="Your email address">
+            <p id="reset-error-message" class="text-red-500 text-sm text-center h-4 mt-2"></p>
+            <p id="reset-success-message" class="text-green-500 text-sm text-center h-4 mt-2"></p>
+            <div class="mt-4 space-y-2">
+                <button id="send-reset-link-btn" class="w-full px-4 py-2 text-white rounded-md" style="background-color: var(--brand-red);">Send Reset Link</button>
+                <button id="close-modal-btn" class="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+            </div>
+        </div>
     </div>
 
-    <div class="space-y-4">
-        <button id="google-signin-btn" class="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-700 hover:bg-gray-50 transition">
-            <img class="h-6 w-6 mr-3" src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google icon">
-            Sign in with Google
-        </button>
-        <button id="apple-signin-btn" class="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-black text-white hover:bg-gray-800 transition">
-            <i class="fab fa-apple text-xl mr-3"></i>
-            Sign in with Apple
-        </button>
-        <button id="guest-continue-btn" class="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm bg-gray-600 text-white hover:bg-gray-700 transition">
-            Continue as Guest
-        </button>
-    </div>
-  </div>
-
-  <div id="forgot-password-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-      <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-          <div class="mt-3 text-center">
-              <h3 class="text-lg leading-6 font-medium text-gray-900">Reset Password</h3>
-              <div class="mt-2 px-7 py-3">
-                  <p class="text-sm text-gray-500 mb-4">Enter your email address and we will send you a link to reset your password.</p>
-                  <input type="email" id="reset-email" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500" placeholder="Your email address">
-                  <p id="reset-error-message" class="text-red-500 text-sm text-center mt-2 hidden"></p>
-                  <p id="reset-success-message" class="text-green-500 text-sm text-center mt-2 hidden"></p>
-              </div>
-              <div class="items-center px-4 py-3">
-                  <button id="send-reset-link-btn" class="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300">
-                      Send Reset Link
-                  </button>
-                  <button id="close-modal-btn" class="mt-3 px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300 focus:outline-none">
-                      Cancel
-                  </button>
-              </div>
-          </div>
-      </div>
-  </div>
-
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <script src="firebase.js"></script>
-  <script src="auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="firebase.js"></script>
+    <script src="auth.js"></script>
 </body>
 </html>

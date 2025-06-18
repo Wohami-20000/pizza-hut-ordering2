@@ -13,7 +13,6 @@ const signupErrorMessage = document.getElementById('signup-error-message');
 
 // --- Social & Guest Login Buttons ---
 const googleBtn = document.getElementById('google-signin-btn');
-const appleBtn = document.getElementById('apple-signin-btn');
 const guestBtn = document.getElementById('guest-continue-btn');
 
 // --- Password Reset Modal Elements ---
@@ -27,24 +26,25 @@ const resetSuccessMessage = document.getElementById('reset-success-message');
 // --- Utility Functions ---
 function displayError(element, message) {
   element.textContent = message;
-  element.classList.remove('hidden');
 }
 
 function hideError(element) {
-  element.classList.add('hidden');
   element.textContent = '';
 }
 
 // --- Form Switching with Animation ---
 function switchForms(showForm, hideForm, newTitle) {
-    hideForm.classList.add('hidden-form');
+    if (!hideForm.classList.contains('hidden-form')) {
+        hideForm.classList.add('hidden-form');
+    }
+    
     authTitle.textContent = newTitle;
-
+    
     setTimeout(() => {
         showForm.classList.remove('hidden-form');
         hideError(loginErrorMessage);
         hideError(signupErrorMessage);
-    }, 100); // A small delay to ensure the class is applied before removing
+    }, 50); 
 }
 
 showSignupBtn.addEventListener('click', (e) => {
@@ -58,44 +58,43 @@ showLoginBtn.addEventListener('click', (e) => {
 });
 
 
-// --- Custom Password Input Element (no changes needed here) ---
+// --- Custom Password Input Element ---
 class PasswordInput extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
     this.shadowRoot.innerHTML = `
       <style>
+        /* NEW: Simplified spacing for better layout */
         .password-group {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem; /* space-y-6 */
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; /* Equivalent to space-y-6 */
         }
+        /* NEW: Styles updated for a white card background */
         input {
           width: 100%;
           padding: 0.75rem;
-          border: 1px solid #d1d5db; /* gray-300 */
-          border-radius: 0.5rem; /* rounded-lg */
+          border-radius: 0.5rem;
           transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+          background-color: #f3f4f6;
+          border: 1px solid #d1d5db;
+          color: #231F20;
         }
+        input::placeholder { color: #9ca3af; }
         input:focus {
-          border-color: #ef4444; /* red-500 */
-          box-shadow: 0 0 0 1px #ef4444; /* ring-1 ring-red-500 */
-          outline: none;
+            border-color: #FFC72C;
+            box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.5);
+            outline: none;
         }
-        .error-message {
-          color: #ef4444; /* red-500 */
-          font-size: 0.875rem; /* text-sm */
-          display: none; /* Hidden by default */
-        }
-        .error-message.visible {
-            display: block;
-        }
+        .error-message { color: #dc2626; font-size: 0.875rem; display: none; margin-top: -1rem; margin-bottom: 0.5rem; }
+        .error-message.visible { display: block; }
       </style>
       <div class="password-group">
         <input type="password" id="password" placeholder="Password" required />
         <input type="password" id="confirm-password" placeholder="Confirm Password" required />
-        <p id="password-error" class="error-message">Passwords do not match.</p>
       </div>
+      <p id="password-error" class="error-message">Passwords do not match.</p>
     `;
     this.passwordInput = this.shadowRoot.getElementById('password');
     this.confirmPasswordInput = this.shadowRoot.getElementById('confirm-password');
@@ -106,7 +105,7 @@ class PasswordInput extends HTMLElement {
   }
 
   validatePasswords() {
-    if (this.passwordInput.value !== this.confirmPasswordInput.value) {
+    if (this.passwordInput.value && this.confirmPasswordInput.value && this.passwordInput.value !== this.confirmPasswordInput.value) {
       this.passwordError.classList.add('visible');
       return false;
     } else {
@@ -115,29 +114,19 @@ class PasswordInput extends HTMLElement {
     }
   }
 
-  get password() {
-    return this.passwordInput.value;
-  }
-
-  checkValidity() {
-    return this.passwordInput.checkValidity() &&
-           this.confirmPasswordInput.checkValidity() &&
-           this.validatePasswords();
-  }
+  get password() { return this.passwordInput.value; }
+  checkValidity() { return this.passwordInput.checkValidity() && this.confirmPasswordInput.checkValidity() && this.validatePasswords(); }
 }
 customElements.define('password-input', PasswordInput);
 
 
 // --- Core Authentication Logic ---
-
 const handleSuccessfulLogin = (user) => {
   console.log('User logged in:', user.uid);
-  // Save user data to Realtime Database on login/signup
   db.ref('users/' + user.uid).update({
       email: user.email,
       lastLogin: new Date().toISOString(),
       name: user.displayName || 'Customer',
-      phone: user.phoneNumber || ''
   });
   window.location.href = 'order-type-selection.html';
 };
@@ -164,28 +153,23 @@ signupForm.addEventListener('submit', async (e) => {
 
   const email = document.getElementById('signup-email').value;
   const passwordInputComponent = signupForm.querySelector('password-input');
-  const password = passwordInputComponent.password;
-  const phone = document.getElementById('signup-phone').value;
-  const name = document.getElementById('signup-name').value;
+  const termsCheckbox = document.getElementById('terms-checkbox'); // Get the checkbox
+
+  // NEW: Check if the terms and conditions box is checked
+  if (!termsCheckbox.checked) {
+    displayError(signupErrorMessage, 'You must agree to the terms and conditions.');
+    return;
+  }
 
   if (!passwordInputComponent.checkValidity()) {
     displayError(signupErrorMessage, 'Passwords do not match or are invalid.');
     return;
   }
+  const password = passwordInputComponent.password;
 
   try {
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-    const user = userCredential.user;
-    // Update profile with name
-    await user.updateProfile({ displayName: name });
-    // Save additional data to Realtime DB
-    await db.ref('users/' + user.uid).set({
-      email: user.email,
-      name: name || 'Customer',
-      phone: phone || '',
-      createdAt: new Date().toISOString()
-    });
-    handleSuccessfulLogin(user);
+    handleSuccessfulLogin(userCredential.user);
   } catch (error) {
     let msg = 'Error signing up. Please try again.';
     if (error.code === 'auth/email-already-in-use') msg = 'This email is already in use.';
@@ -206,30 +190,13 @@ googleBtn.addEventListener('click', async () => {
     }
 });
 
-// Apple Sign-In
-appleBtn.addEventListener('click', async () => {
-    const provider = new firebase.auth.OAuthProvider('apple.com');
-    try {
-        const result = await auth.signInWithPopup(provider);
-        handleSuccessfulLogin(result.user);
-    } catch (error) {
-        console.error("Apple Sign-In Error:", error);
-        displayError(loginErrorMessage, 'Could not sign in with Apple. Please try again.');
-    }
-});
-
-
 // Continue as Guest
 guestBtn.addEventListener('click', async () => {
     try {
-        const userCredential = await auth.signInAnonymously();
-        console.log('Guest user signed in:', userCredential.user.uid);
-        // Set a flag to identify guest users
+        await auth.signInAnonymously();
         localStorage.setItem('isGuest', 'true');
-        // Redirect to order type selection
         window.location.href = 'order-type-selection.html';
     } catch (error) {
-        console.error("Guest Sign-In Error:", error);
         displayError(loginErrorMessage, 'Could not continue as guest. Please try again.');
     }
 });
@@ -239,7 +206,7 @@ forgotPasswordLink.addEventListener('click', (e) => {
     e.preventDefault();
     forgotPasswordModal.classList.remove('hidden');
     hideError(resetErrorMessage);
-    hideError(resetSuccessMessage);
+    resetSuccessMessage.textContent = '';
 });
 
 closeModalBtn.addEventListener('click', () => {
@@ -253,18 +220,17 @@ sendResetLinkBtn.addEventListener('click', async () => {
         return;
     }
     hideError(resetErrorMessage);
-    hideError(resetSuccessMessage);
+    resetSuccessMessage.textContent = '';
 
     try {
         await auth.sendPasswordResetEmail(email);
         resetSuccessMessage.textContent = 'Password reset link sent! Check your inbox.';
-        resetSuccessMessage.classList.remove('hidden');
     } catch (error) {
-        displayError(resetErrorMessage, 'Failed to send reset link. Please check the email and try again.');
+        displayError(resetErrorMessage, 'Failed to send. Please check the email and try again.');
     }
 });
 
-// Redirect if already logged in (but not a guest)
+// Redirect if already logged in
 auth.onAuthStateChanged(user => {
   if (user && !user.isAnonymous) {
     window.location.href = 'order-type-selection.html';
