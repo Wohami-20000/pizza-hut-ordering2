@@ -8,57 +8,25 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
     <link rel="stylesheet" href="style.css" />
     <style>
-        :root {
-            --brand-red: #D71921;
-            --brand-yellow: #FFC72C;
-            --brand-dark: #231F20;
-        }
+        :root { --brand-red: #D71921; --brand-yellow: #FFC72C; --brand-dark: #231F20; }
         body { background-color: #F9FAFB; }
-        
-        /* --- NEW: Page Load Animations --- */
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fadeInUp {
-            animation: fadeInUp 0.5s ease-out forwards;
-        }
-        /* Hide elements to be animated */
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeInUp { animation: fadeInUp 0.5s ease-out forwards; }
         .initial-hidden { opacity: 0; }
-
-        /* --- Drawer Menu Styles --- */
         #drawer-menu { transition: transform 0.3s ease-in-out; }
         #drawer-menu.open { transform: translateX(0); }
         #drawer-overlay { transition: opacity 0.3s ease-in-out; }
         #drawer-menu h3 { color: var(--brand-red); }
         #drawer-menu a:hover { background-color: #FEF2F2; color: var(--brand-red); }
         #drawer-menu a:hover i { color: var(--brand-red); }
-
-        /* --- Category Tabs Styles --- */
         #category-tabs-container { position: sticky; top: 60px; z-index: 20; background-color: #F9FAFB; padding: 0.75rem 0; }
         #category-tabs { -ms-overflow-style: none; scrollbar-width: none; }
         #category-tabs::-webkit-scrollbar { display: none; }
         .category-tab { transition: all 0.2s; border-radius: 9999px; border: 1px solid var(--brand-red); background-color: white; color: var(--brand-red); }
         .category-tab:hover { background-color: #FEF2F2; }
         .category-tab.active-tab { background-color: var(--brand-red); color: white; }
-
-        /* --- Item Card Styles & Animations --- */
-        .menu-item-card {
-            display: grid;
-            grid-template-columns: 1fr 100px;
-            gap: 1rem;
-            background-color: white;
-            border-radius: 1rem;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.07);
-            padding: 1rem;
-            opacity: 0; /* Start hidden for animation */
-            transform: translateY(20px);
-            transition: opacity 0.4s ease-out, transform 0.4s ease-out;
-        }
-        .menu-item-card.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
+        .menu-item-card { display: grid; grid-template-columns: 1fr 100px; gap: 1rem; background-color: white; border-radius: 1rem; box-shadow: 0 4px 16px rgba(0,0,0,0.07); padding: 1rem; opacity: 0; transform: translateY(20px); transition: opacity 0.4s ease-out, transform 0.4s ease-out; }
+        .menu-item-card.visible { opacity: 1; transform: translateY(0); }
         .item-image-right img { width: 100px; height: 100px; object-fit: contain; }
         .fav-icon { color: #D1D5DB; cursor: pointer; transition: all 0.2s; }
         .fav-icon:hover { transform: scale(1.2); }
@@ -68,8 +36,6 @@
         .customize-btn:hover { color: #000; }
         .quantity-btn { width: 28px; height: 28px; border-radius: 50%; background-color: var(--brand-yellow); color: var(--brand-dark); font-weight: 600; transition: background-color 0.2s; }
         .quantity-btn:hover { background-color: #facc15; }
-        
-        /* --- Cart Summary Bar Styles --- */
         #cart-summary-bar .view-cart-btn { background-color: var(--brand-red); color: white; }
         #cart-summary-bar .summary-count-circle { background-color: var(--brand-yellow); color: var(--brand-dark); }
     </style>
@@ -86,58 +52,54 @@
     </header>
 
     <div id="drawer-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden"></div>
-    <div id="drawer-menu" class="fixed top-0 left-0 w-80 h-full bg-white shadow-xl z-50 transform -translate-x-full p-6">
-        <button id="close-drawer-btn" class="absolute top-4 right-4 text-gray-500 text-2xl">&times;</button>
-        <h2 class="text-3xl font-bold mb-8">Pizza Hut</h2>
-        <nav class="space-y-2">
-            <h3 class="text-sm font-semibold text-red-600 px-2 mt-6 uppercase">My Order</h3>
+    <div id="drawer-menu" class="fixed top-0 left-0 w-80 h-full bg-white shadow-xl z-50 transform -translate-x-full flex flex-col">
+        <div class="p-6 border-b">
+            <button id="close-drawer-btn" class="absolute top-4 right-4 text-gray-500 text-2xl">&times;</button>
+            <div id="guest-info-drawer">
+                <h2 class="text-xl font-bold mb-2">Access Your Account</h2>
+                <p class="text-sm text-gray-500 mb-4">Login to manage your orders and addresses.</p>
+                <a href="auth.html" class="w-full text-center block bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition">Login / Sign Up</a>
+            </div>
+            <div id="user-info-drawer" class="hidden flex items-center gap-4">
+                <i class="fas fa-user-circle text-5xl text-gray-400"></i>
+                <div>
+                    <p class="text-sm text-gray-500">Welcome back,</p>
+                    <h2 id="user-name-drawer" class="text-xl font-bold">User Name</h2>
+                </div>
+            </div>
+        </div>
+        
+        <nav id="drawer-nav" class="flex-grow overflow-y-auto p-6 space-y-2">
+            <h3 class="text-sm font-semibold text-red-600 px-2 uppercase">My Order</h3>
             <a href="favorites.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-heart w-6 text-center text-gray-500"></i> My Favorites</a>
-            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-receipt w-6 text-center text-gray-500"></i> Track Order</a>
-            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-box-open w-6 text-center text-gray-500"></i> My Orders</a>
-            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-history w-6 text-center text-gray-500"></i> Order History</a>
-            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-tags w-6 text-center text-gray-500"></i> Offers</a>
-            <h3 class="text-sm font-semibold text-red-600 px-2 pt-4 uppercase">My Account</h3>
-            <a href="profile.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-user-circle w-6 text-center text-gray-500"></i> Account Settings</a>
-            <a href="#" id="logout-btn" class="flex items-center gap-4 text-lg p-2 rounded-lg text-red-600 font-semibold"><i class="fas fa-sign-out-alt w-6 text-center"></i> Log Out</a>
+            <a href="track-order.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-receipt w-6 text-center text-gray-500"></i> Track Order</a>
+            <a href="my-orders.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-box-open w-6 text-center text-gray-500"></i> My Orders</a>
+            <a href="order-history.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-history w-6 text-center text-gray-500"></i> Order History</a>
+            <a href="offers.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-tags w-6 text-center text-gray-500"></i> Offers</a>
+            
+            <div id="account-section-drawer">
+                <h3 class="text-sm font-semibold text-red-600 px-2 pt-4 uppercase">My Account</h3>
+                <a href="profile.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-user-circle w-6 text-center text-gray-500"></i> Account Settings</a>
+                <a href="addresses.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-map-marker-alt w-6 text-center text-gray-500"></i> My Addresses</a>
+                <a href="change-password.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-key w-6 text-center text-gray-500"></i> Change Password</a>
+                <a href="delete-account.html" class="flex items-center gap-4 text-lg p-2 rounded-lg text-red-600"><i class="fas fa-user-slash w-6 text-center"></i> Delete Account</a>
+                <hr class="my-2">
+                <a href="#" id="logout-btn" class="flex items-center gap-4 text-lg p-2 rounded-lg text-red-600 font-semibold"><i class="fas fa-sign-out-alt w-6 text-center"></i> Log Out</a>
+            </div>
+
             <h3 class="text-sm font-semibold text-red-600 px-2 pt-4 uppercase">Help</h3>
-            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-comment-dots w-6 text-center text-gray-500"></i> Feedback</a>
-            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-life-ring w-6 text-center text-gray-500"></i> Support</a>
-            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-question-circle w-6 text-center text-gray-500"></i> FAQ</a>
-            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-file-contract w-6 text-center text-gray-500"></i> Terms & Conditions</a>
+            <a href="feedback.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-comment-dots w-6 text-center text-gray-500"></i> Feedback</a>
+            <a href="support.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-life-ring w-6 text-center text-gray-500"></i> Support</a>
+            <a href="faq.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-question-circle w-6 text-center text-gray-500"></i> FAQ</a>
+            <a href="terms.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-file-contract w-6 text-center text-gray-500"></i> Terms & Conditions</a>
         </nav>
     </div>
     
-    <div id="search-container" class="bg-white p-3 sticky top-[60px] z-20 border-b initial-hidden animate-fadeInUp" style="animation-delay: 100ms;">
-        <div class="relative"><span class="absolute inset-y-0 left-0 flex items-center pl-4"><i class="fas fa-search text-gray-400"></i></span><input type="search" id="search-bar" class="w-full pl-12 pr-4 py-3 border-none bg-gray-100 rounded-full focus:ring-2 focus:ring-red-500" placeholder="Search for your favorite pizza..."></div>
-    </div>
-
-    <div id="category-tabs-container" class="border-b border-gray-200 initial-hidden animate-fadeInUp" style="animation-delay: 200ms;">
-        <nav id="category-tabs" class="flex overflow-x-auto px-4 gap-3"></nav>
-    </div>
-
-    <main id="menu-container" class="flex-1 px-4 py-5 pb-[120px]">
-        <p id="loading-placeholder" class="text-gray-500 col-span-full text-center py-10">Loading menu...</p>
-        <div id="no-results-message" class="hidden text-center py-10">
-            <p class="text-xl font-semibold text-gray-700">No results found</p>
-            <p class="text-gray-500 mt-2">Try searching for something else.</p>
-        </div>
-    </main>
+    <div id="search-container" class="bg-white p-3 sticky top-[60px] z-20 border-b initial-hidden animate-fadeInUp" style="animation-delay: 100ms;"><div class="relative"><span class="absolute inset-y-0 left-0 flex items-center pl-4"><i class="fas fa-search text-gray-400"></i></span><input type="search" id="search-bar" class="w-full pl-12 pr-4 py-3 border-none bg-gray-100 rounded-full focus:ring-2 focus:ring-red-500" placeholder="Search for your favorite pizza..."></div></div>
+    <div id="category-tabs-container" class="border-b border-gray-200 initial-hidden animate-fadeInUp" style="animation-delay: 200ms;"><nav id="category-tabs" class="flex overflow-x-auto px-4 gap-3"></nav></div>
+    <main id="menu-container" class="flex-1 px-4 py-5 pb-[120px]"><p id="loading-placeholder" class="text-gray-500 col-span-full text-center py-10">Loading menu...</p><div id="no-results-message" class="hidden text-center py-10"><p class="text-xl font-semibold text-gray-700">No results found</p><p class="text-gray-500 mt-2">Try searching for something else.</p></div></main>
+    <div id="cart-summary-bar" class="fixed bottom-0 left-0 right-0 p-3 z-20 transform translate-y-full transition-transform"><div class="max-w-screen-xl mx-auto flex justify-between items-center bg-white rounded-lg p-3 shadow-2xl"><div class="flex items-center space-x-3"><span id="summary-cart-count" class="summary-count-circle text-sm font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span><span class="text-lg font-semibold text-gray-800" id="summary-total-price">0.00 MAD</span></div><a href="cart.html" class="view-cart-btn px-5 py-2 rounded-full font-bold text-lg hover:opacity-90 transition-opacity">View Cart</a></div></div>
     
-    <div id="cart-summary-bar" class="fixed bottom-0 left-0 right-0 p-3 z-20 transform translate-y-full transition-transform">
-        <div class="max-w-screen-xl mx-auto flex justify-between items-center bg-white rounded-lg p-3 shadow-2xl">
-            <div class="flex items-center space-x-3">
-                <span id="summary-cart-count" class="summary-count-circle text-sm font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span>
-                <span class="text-lg font-semibold text-gray-800" id="summary-total-price">0.00 MAD</span>
-            </div>
-            <a href="cart.html" class="view-cart-btn px-5 py-2 rounded-full font-bold text-lg hover:opacity-90 transition-opacity">View Cart</a>
-        </div>
-    </div>
-    
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script> 
-    <script src="firebase.js"></script>
-    <script src="lang.js"></script>
-    <script src="menu.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script><script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script><script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script><script src="firebase.js"></script><script src="lang.js"></script><script src="menu.js"></script>
 </body>
 </html>

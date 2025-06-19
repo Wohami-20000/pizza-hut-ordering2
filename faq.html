@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FAQ - Pizza Hut</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+    <style>
+        :root { 
+            --brand-red: #D71921;
+        }
+        body { background-color: #F9FAFB; }
+
+        /* Accordion Styles */
+        .accordion-question {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .accordion-question:hover {
+            background-color: #F3F4F6; /* gray-100 */
+        }
+        .accordion-panel {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+            padding-left: 1.5rem;
+            padding-right: 1.5rem;
+        }
+        .accordion-icon {
+            transition: transform 0.3s ease-out;
+        }
+        .accordion-question.active .accordion-icon {
+            transform: rotate(180deg);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <header class="flex items-center justify-between px-4 py-3 bg-white text-gray-800 shadow-sm sticky top-0 z-30 h-[60px]">
+        <a href="menu.html" class="p-2 text-xl text-gray-600"><i class="fas fa-arrow-left"></i></a>
+        <h1 class="font-bold text-xl tracking-tight">FAQ</h1>
+        <div class="w-8"></div> </header>
+
+    <main class="max-w-3xl mx-auto p-4 mt-6">
+        <div class="bg-white rounded-xl shadow-lg divide-y divide-gray-200">
+            <div class="faq-item">
+                <button class="accordion-question w-full flex justify-between items-center p-6 text-left">
+                    <span class="text-lg font-semibold text-gray-800">How do I track my order?</span>
+                    <i class="fas fa-chevron-down accordion-icon text-gray-500"></i>
+                </button>
+                <div class="accordion-panel">
+                    <p class="pb-6 text-gray-600">
+                        You can track your order in real-time by visiting the "Track Order" page from the main menu and entering your Order ID. You can find your Order ID in the confirmation email we sent you.
+                    </p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="accordion-question w-full flex justify-between items-center p-6 text-left">
+                    <span class="text-lg font-semibold text-gray-800">What are your delivery hours?</span>
+                    <i class="fas fa-chevron-down accordion-icon text-gray-500"></i>
+                </button>
+                <div class="accordion-panel">
+                    <p class="pb-6 text-gray-600">
+                        Our delivery hours are from 11:00 AM to 11:00 PM, seven days a week. Please note that hours may vary slightly on public holidays.
+                    </p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="accordion-question w-full flex justify-between items-center p-6 text-left">
+                    <span class="text-lg font-semibold text-gray-800">Can I customize my pizza?</span>
+                    <i class="fas fa-chevron-down accordion-icon text-gray-500"></i>
+                </button>
+                <div class="accordion-panel">
+                    <p class="pb-6 text-gray-600">
+                        Absolutely! On the menu, click the "Customize" button on any pizza. This will take you to the item details page where you can add or remove toppings to create your perfect pizza.
+                    </p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="accordion-question w-full flex justify-between items-center p-6 text-left">
+                    <span class="text-lg font-semibold text-gray-800">What is your refund policy?</span>
+                    <i class="fas fa-chevron-down accordion-icon text-gray-500"></i>
+                </button>
+                <div class="accordion-panel">
+                    <p class="pb-6 text-gray-600">
+                        Customer satisfaction is our priority. If you are not satisfied with your order, please contact our support team within 60 minutes of receiving your order. We will do our best to resolve the issue, which may include a replacement or a refund depending on the circumstances.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <button class="accordion-question w-full flex justify-between items-center p-6 text-left">
+                    <span class="text-lg font-semibold text-gray-800">How do I use a coupon code?</span>
+                    <i class="fas fa-chevron-down accordion-icon text-gray-500"></i>
+                </button>
+                <div class="accordion-panel">
+                    <p class="pb-6 text-gray-600">
+                        You can apply a coupon code on the checkout page before confirming your payment. Simply enter the code in the "Coupon Code" field and click "Apply".
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const accordionQuestions = document.querySelectorAll('.accordion-question');
+
+            accordionQuestions.forEach(button => {
+                button.addEventListener('click', () => {
+                    const panel = button.nextElementSibling;
+                    const isActive = button.classList.contains('active');
+
+                    // Optional: Close all other accordions
+                    // accordionQuestions.forEach(b => {
+                    //     b.classList.remove('active');
+                    //     b.nextElementSibling.style.maxHeight = null;
+                    // });
+
+                    if (isActive) {
+                        // Close the clicked accordion
+                        button.classList.remove('active');
+                        panel.style.maxHeight = null;
+                    } else {
+                        // Open the clicked accordion
+                        button.classList.add('active');
+                        panel.style.maxHeight = panel.scrollHeight + 'px';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

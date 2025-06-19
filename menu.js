@@ -1,4 +1,4 @@
-// menu.js - Final Version with Animations
+// menu.js - Final Version with Dynamic Drawer
 const dbInstance = firebase.database();
 const authInstance = firebase.auth();
 
@@ -18,7 +18,6 @@ function updateCartUI() {
     const summaryCartCountSpan = document.getElementById('summary-cart-count');
     const summaryTotalPriceSpan = document.getElementById('summary-total-price');
     const cartSummaryBar = document.getElementById('cart-summary-bar');
-
     if(cartCountSpan) cartCountSpan.textContent = totalItems;
     if(summaryCartCountSpan) summaryCartCountSpan.textContent = totalItems;
     if(summaryTotalPriceSpan) summaryTotalPriceSpan.textContent = `${totalPrice.toFixed(2)} MAD`;
@@ -33,7 +32,7 @@ function toggleFavorite(itemId, heartIconEl) {
 
 function createMenuItemCard(item, categoryId, itemId) {
     const card = document.createElement('div');
-    card.className = 'menu-item-card'; // Animation is handled by renderFullMenu
+    card.className = 'menu-item-card';
     card.id = `item-card-${itemId}`;
     card.dataset.categoryId = categoryId;
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
@@ -70,9 +69,7 @@ function renderFullMenu() {
     menuContainer.innerHTML = '';
     loadingPlaceholder.style.display = 'none';
     if (!menuDataCache || Object.keys(menuDataCache).length === 0) return;
-
-    let itemRenderDelay = 0; // Stagger animation delay
-
+    let itemRenderDelay = 0;
     Object.entries(menuDataCache).forEach(([categoryId, categoryData]) => {
         const section = document.createElement('section');
         section.className = 'category-section mb-12';
@@ -80,23 +77,18 @@ function renderFullMenu() {
         const title = document.createElement('h2');
         title.className = 'text-3xl font-extrabold text-gray-800 mb-6 initial-hidden animate-fadeInUp';
         title.style.animationDelay = `${itemRenderDelay}ms`;
-        itemRenderDelay += 100; // Increase delay for next element
+        itemRenderDelay += 100;
         title.textContent = escapeHTML(categoryData.category);
         section.appendChild(title);
-        
         const itemsContainer = document.createElement('div');
         itemsContainer.className = 'space-y-4';
         if (categoryData.items) {
             Object.entries(categoryData.items).forEach(([itemId, itemData]) => {
                 const card = createMenuItemCard(itemData, categoryId, itemId);
-                // Apply staggered animation delay
                 card.style.transitionDelay = `${itemRenderDelay}ms`;
                 itemsContainer.appendChild(card);
-                // Use a short timeout to apply the 'visible' class, triggering the transition
-                setTimeout(() => {
-                    card.classList.add('visible');
-                }, 50);
-                itemRenderDelay += 50; // Each card animates 50ms after the previous one
+                setTimeout(() => card.classList.add('visible'), 50);
+                itemRenderDelay += 50;
             });
         }
         section.appendChild(itemsContainer);
@@ -185,6 +177,33 @@ function updateActiveTabOnScroll() {
     });
 }
 
+// --- NEW: Function to update the drawer UI based on auth state ---
+function updateDrawerUI(user) {
+    const guestInfo = document.getElementById('guest-info-drawer');
+    const userInfo = document.getElementById('user-info-drawer');
+    const userNameSpan = document.getElementById('user-name-drawer');
+    const accountSection = document.getElementById('account-section-drawer');
+
+    if (user && !user.isAnonymous) {
+        // User is logged in
+        guestInfo.classList.add('hidden');
+        userInfo.classList.remove('hidden');
+        accountSection.classList.remove('hidden');
+
+        // Fetch user's name from the database
+        dbInstance.ref(`users/${user.uid}/name`).once('value').then(snapshot => {
+            const name = snapshot.val() || user.email; // Fallback to email if name not set
+            userNameSpan.textContent = name;
+        });
+    } else {
+        // User is a guest or not logged in
+        guestInfo.classList.remove('hidden');
+        userInfo.classList.add('hidden');
+        accountSection.classList.add('hidden');
+    }
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
     updateCartUI();
     const openDrawerBtn = document.getElementById('open-drawer-btn');
@@ -193,6 +212,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const drawerOverlay = document.getElementById('drawer-overlay');
     const logoutBtn = document.getElementById('logout-btn');
     const searchBar = document.getElementById('search-bar');
+    
+    // --- NEW: Listen for auth state changes to update the UI dynamically ---
+    authInstance.onAuthStateChanged(user => {
+        updateDrawerUI(user);
+    });
 
     if (openDrawerBtn && drawerMenu && drawerOverlay) {
         openDrawerBtn.addEventListener('click', () => { drawerMenu.classList.add('open'); drawerOverlay.classList.remove('hidden'); });
@@ -217,7 +241,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateActiveTabOnScroll();
     }, error => console.error("Firebase data error:", error));
 
-    // REMOVED back-to-top button logic from the scroll listener
     window.addEventListener('scroll', () => {
         updateActiveTabOnScroll();
     }, { passive: true });
