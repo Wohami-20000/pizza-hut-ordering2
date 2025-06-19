@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Favorites - Pizza Hut</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        /* Re-using styles from menu.html for consistency */
+        :root { --brand-red: #D71921; }
+        body { background-color: #F9FAFB; }
+        .menu-item-card { display: grid; grid-template-columns: 1fr 100px; gap: 1rem; background-color: white; border-radius: 1rem; box-shadow: 0 4px 16px rgba(0,0,0,0.07); padding: 1rem; }
+        .item-image-right img { width: 100px; height: 100px; object-fit: contain; }
+        .fav-icon { color: #D1D5DB; cursor: pointer; transition: all 0.2s; }
+        .fav-icon:hover { transform: scale(1.2); }
+        .fav-icon.active { color: var(--brand-red); animation: pop 0.4s ease; }
+        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1); } }
+        .customize-btn { font-size: 0.875rem; color: var(--brand-red); transition: color 0.2s; }
+        .customize-btn:hover { color: #000; }
+        .quantity-btn { width: 28px; height: 28px; border-radius: 50%; background-color: #F3F4F6; color: #374151; font-weight: 600; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <header class="flex items-center justify-between px-4 py-3 bg-white text-gray-800 shadow-sm sticky top-0 z-30 h-[60px]">
+        <a href="menu.html" class="p-2 text-xl text-gray-600"><i class="fas fa-arrow-left"></i></a>
+        <h1 class="font-bold text-xl tracking-tight">My Favorites</h1>
+        <a href="cart.html" id="cart-btn" class="relative p-2 text-xl">
+            <i class="fas fa-shopping-cart"></i>
+            <span id="cart-count" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+        </a>
+    </header>
+
+    <main id="favorites-container" class="flex-1 px-4 py-5 pb-[80px]">
+        </main>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="firebase.js"></script>
+    <script>
+        // --- Favorites Page Logic ---
+        const db = firebase.database();
+        const favoritesContainer = document.getElementById('favorites-container');
+        const cartCountSpan = document.getElementById('cart-count');
+
+        // --- Re-usable functions from menu.js ---
+        function escapeHTML(str) {
+            if (typeof str !== 'string') return str;
+            return str.replace(/[&<>"']/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': "&quot;", "'": '&#39;' }[match]));
+        }
+
+        function updateCartCount() {
+            const cart = JSON.parse(localStorage.getItem("cart")) || [];
+            if (cartCountSpan) cartCountSpan.textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
+        }
+
+        function createFavoriteItemCard(item, categoryId, itemId) {
+            // This is the same card creation logic from menu.js
+            const card = document.createElement('div');
+            card.className = 'menu-item-card';
+            const itemPrice = typeof item.price === 'number' ? item.price : 0;
+            card.innerHTML = `
+                <div class="item-content-left flex flex-col">
+                    <h3 class="text-lg font-bold text-gray-800 pr-2">${escapeHTML(item.name || 'Unknown Item')}</h3>
+                    <p class="text-gray-500 text-sm mt-1 mb-3 flex-grow">${escapeHTML(item.description || '')}</p>
+                    <div class="mt-auto flex justify-between items-center">
+                        <span class="text-xl font-extrabold text-gray-900">${itemPrice.toFixed(2)} MAD</span>
+                        <a href="item-details.html?categoryId=${categoryId}&itemId=${itemId}" class="customize-btn font-semibold">View Item</a>
+                    </div>
+                </div>
+                <div class="item-image-right flex flex-col items-center justify-between">
+                    <img src="${escapeHTML(item.image_url || 'https://www.pizzahut.ma/images/Default_pizza.png')}" alt="${escapeHTML(item.name || 'Pizza')}">
+                </div>`;
+            return card;
+        }
+        
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            updateCartCount();
+            const favorites = JSON.parse(localStorage.getItem("favorites")) || [];
+            
+            if (favorites.length === 0) {
+                favoritesContainer.innerHTML = `<p class="text-center text-gray-500 mt-10">You haven't added any favorites yet.</p>`;
+                return;
+            }
+
+            db.ref('menu').once('value', snapshot => {
+                const menuData = snapshot.val();
+                if (!menuData) return;
+
+                const container = document.createElement('div');
+                container.className = 'space-y-4';
+                
+                // Find and render each favorite item
+                favorites.forEach(favId => {
+                    for (const categoryId in menuData) {
+                        if (menuData[categoryId].items && menuData[categoryId].items[favId]) {
+                            const item = menuData[categoryId].items[favId];
+                            container.appendChild(createFavoriteItemCard(item, categoryId, favId));
+                            break; // Move to next favorite once found
+                        }
+                    }
+                });
+                favoritesContainer.appendChild(container);
+            });
+        });
+    </script>
+</body>
+</html>

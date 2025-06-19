@@ -1,126 +1,143 @@
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Pizza Hut - Menu</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
-  <link rel="stylesheet" href="style.css" />
-  <style>
-    #category-tabs::-webkit-scrollbar { height: 8px; }
-    #category-tabs::-webkit-scrollbar-track { background: #f9fafb; }
-    #category-tabs::-webkit-scrollbar-thumb { background: #ef4444; border-radius: 10px; }
-    #category-tabs::-webkit-scrollbar-thumb:hover { background: #dc2626; }
-    .menu-item-card { cursor: pointer; }
-    .category-tab.active-tab { border-color: #ef4444; color: #ef4444; font-weight: 600; }
-    .category-section { scroll-margin-top: 180px; /* Adjusted for header + search + nav */ }
-    /* Style for the back-to-top button */
-    #back-to-top-btn {
-        display: none; /* Hidden by default */
-        position: fixed; /* Fixed position */
-        bottom: 90px; /* Adjust to be above the cart summary bar */
-        right: 20px;
-        z-index: 99; /* Ensure it's on top */
-        background-color: #ef4444; /* red-500 */
-        color: white;
-        border: none;
-        border-radius: 50%; /* Circular button */
-        width: 48px;
-        height: 48px;
-        font-size: 20px;
-        cursor: pointer;
-        opacity: 0.8;
-        transition: opacity 0.3s, background-color 0.3s, transform 0.3s;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        display: flex; /* Use flex to center icon */
-        align-items: center;
-        justify-content: center;
-    }
-    #back-to-top-btn:hover {
-        opacity: 1;
-        background-color: #dc2626; /* red-600 */
-        transform: translateY(-2px);
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Pizza Hut - Menu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        :root {
+            --brand-red: #D71921;
+            --brand-yellow: #FFC72C;
+            --brand-dark: #231F20;
+        }
+        body { background-color: #F9FAFB; }
+        
+        /* --- NEW: Page Load Animations --- */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeInUp {
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+        /* Hide elements to be animated */
+        .initial-hidden { opacity: 0; }
+
+        /* --- Drawer Menu Styles --- */
+        #drawer-menu { transition: transform 0.3s ease-in-out; }
+        #drawer-menu.open { transform: translateX(0); }
+        #drawer-overlay { transition: opacity 0.3s ease-in-out; }
+        #drawer-menu h3 { color: var(--brand-red); }
+        #drawer-menu a:hover { background-color: #FEF2F2; color: var(--brand-red); }
+        #drawer-menu a:hover i { color: var(--brand-red); }
+
+        /* --- Category Tabs Styles --- */
+        #category-tabs-container { position: sticky; top: 60px; z-index: 20; background-color: #F9FAFB; padding: 0.75rem 0; }
+        #category-tabs { -ms-overflow-style: none; scrollbar-width: none; }
+        #category-tabs::-webkit-scrollbar { display: none; }
+        .category-tab { transition: all 0.2s; border-radius: 9999px; border: 1px solid var(--brand-red); background-color: white; color: var(--brand-red); }
+        .category-tab:hover { background-color: #FEF2F2; }
+        .category-tab.active-tab { background-color: var(--brand-red); color: white; }
+
+        /* --- Item Card Styles & Animations --- */
+        .menu-item-card {
+            display: grid;
+            grid-template-columns: 1fr 100px;
+            gap: 1rem;
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+            padding: 1rem;
+            opacity: 0; /* Start hidden for animation */
+            transform: translateY(20px);
+            transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+        }
+        .menu-item-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .item-image-right img { width: 100px; height: 100px; object-fit: contain; }
+        .fav-icon { color: #D1D5DB; cursor: pointer; transition: all 0.2s; }
+        .fav-icon:hover { transform: scale(1.2); }
+        .fav-icon.active { color: var(--brand-red); animation: pop 0.4s ease; }
+        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1); } }
+        .customize-btn { font-size: 0.875rem; color: var(--brand-red); transition: color 0.2s; }
+        .customize-btn:hover { color: #000; }
+        .quantity-btn { width: 28px; height: 28px; border-radius: 50%; background-color: var(--brand-yellow); color: var(--brand-dark); font-weight: 600; transition: background-color 0.2s; }
+        .quantity-btn:hover { background-color: #facc15; }
+        
+        /* --- Cart Summary Bar Styles --- */
+        #cart-summary-bar .view-cart-btn { background-color: var(--brand-red); color: white; }
+        #cart-summary-bar .summary-count-circle { background-color: var(--brand-yellow); color: var(--brand-dark); }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col">
+<body class="min-h-screen">
 
-  <header class="flex items-center justify-between px-4 py-3 bg-red-700 text-white shadow-lg sticky top-0 z-30">
-    <div class="flex items-center space-x-3">
-      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="w-10 h-10 rounded-full shadow-sm bg-white p-0.5" />
-      <span class="font-bold text-xl sm:text-2xl tracking-tight" data-translate="app_title">Pizza Hut</span>
-    </div>
-    <div class="flex items-center space-x-3 sm:space-x-4">
-        <select id="language-switcher" class="bg-red-600 text-white border border-red-500 rounded-md p-1.5 text-xs sm:text-sm focus:ring-2 focus:ring-white focus:outline-none appearance-none">
-          <option value="en">English</option>
-          <option value="fr">Français</option>
-          <option value="ar">العربية</option>
-        </select>
-        <a id="my-orders-btn" href="#" class="relative text-white hover:text-red-200 transition-colors">
-            <i class="fas fa-history text-2xl"></i>
-            <span class="hidden sm:inline ml-1" data-translate="my_orders">My Orders</span>
+    <header class="flex items-center justify-between px-4 py-3 bg-white text-gray-800 shadow-sm sticky top-0 z-30 h-[60px] initial-hidden animate-fadeInUp">
+        <button id="open-drawer-btn" class="p-2 text-xl text-red-600"><i class="fas fa-bars"></i></button>
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="h-8" />
+        <a href="cart.html" id="cart-btn" class="relative p-2 text-xl text-red-600">
+            <i class="fas fa-shopping-cart"></i>
+            <span id="cart-count" class="absolute -top-1 -right-1 bg-yellow-400 text-red-800 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
         </a>
-        <a href="cart.html" id="cart-btn" class="relative text-white hover:text-red-200 transition-colors">
-            <i class="fas fa-shopping-cart text-2xl"></i>
-            <span id="cart-count" class="absolute -top-2.5 -right-2.5 bg-yellow-400 text-red-700 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-md">0</span>
-        </a>
+    </header>
+
+    <div id="drawer-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden"></div>
+    <div id="drawer-menu" class="fixed top-0 left-0 w-80 h-full bg-white shadow-xl z-50 transform -translate-x-full p-6">
+        <button id="close-drawer-btn" class="absolute top-4 right-4 text-gray-500 text-2xl">&times;</button>
+        <h2 class="text-3xl font-bold mb-8">Pizza Hut</h2>
+        <nav class="space-y-2">
+            <h3 class="text-sm font-semibold text-red-600 px-2 mt-6 uppercase">My Order</h3>
+            <a href="favorites.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-heart w-6 text-center text-gray-500"></i> My Favorites</a>
+            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-receipt w-6 text-center text-gray-500"></i> Track Order</a>
+            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-box-open w-6 text-center text-gray-500"></i> My Orders</a>
+            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-history w-6 text-center text-gray-500"></i> Order History</a>
+            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-tags w-6 text-center text-gray-500"></i> Offers</a>
+            <h3 class="text-sm font-semibold text-red-600 px-2 pt-4 uppercase">My Account</h3>
+            <a href="profile.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-user-circle w-6 text-center text-gray-500"></i> Account Settings</a>
+            <a href="#" id="logout-btn" class="flex items-center gap-4 text-lg p-2 rounded-lg text-red-600 font-semibold"><i class="fas fa-sign-out-alt w-6 text-center"></i> Log Out</a>
+            <h3 class="text-sm font-semibold text-red-600 px-2 pt-4 uppercase">Help</h3>
+            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-comment-dots w-6 text-center text-gray-500"></i> Feedback</a>
+            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-life-ring w-6 text-center text-gray-500"></i> Support</a>
+            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-question-circle w-6 text-center text-gray-500"></i> FAQ</a>
+            <a href="#" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-file-contract w-6 text-center text-gray-500"></i> Terms & Conditions</a>
+        </nav>
     </div>
-  </header>
-
-  <div id="search-container" class="bg-white p-3 shadow-md sticky top-[60px] sm:top-[68px] z-20 border-b">
-    <div class="relative">
-        <span class="absolute inset-y-0 left-0 flex items-center pl-3">
-            <i class="fas fa-search text-gray-400"></i>
-        </span>
-        <input type="search" id="search-bar"
-               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:ring-red-500 focus:border-red-500 transition"
-               placeholder="Search for food..." data-translate="search_placeholder" />
+    
+    <div id="search-container" class="bg-white p-3 sticky top-[60px] z-20 border-b initial-hidden animate-fadeInUp" style="animation-delay: 100ms;">
+        <div class="relative"><span class="absolute inset-y-0 left-0 flex items-center pl-4"><i class="fas fa-search text-gray-400"></i></span><input type="search" id="search-bar" class="w-full pl-12 pr-4 py-3 border-none bg-gray-100 rounded-full focus:ring-2 focus:ring-red-500" placeholder="Search for your favorite pizza..."></div>
     </div>
-  </div>
 
-  <nav id="category-tabs" class="flex overflow-x-auto bg-white shadow-md sticky top-[125px] sm:top-[133px] z-20 border-b border-gray-300">
-    <p class="p-4 text-gray-500 italic" data-translate="loading_categories">Loading categories...</p>
-  </nav>
-
-  <main id="menu-container" class="flex-1 px-3 sm:px-4 md:px-6 py-5 pb-[80px]">
-    <p id="loading-placeholder" class="text-gray-500 italic col-span-full text-center py-10" data-translate="menu_loading_placeholder">Loading menu...</p>
-    <div id="no-results-message" class="hidden text-center py-10">
-        <p class="text-xl font-semibold text-gray-700" data-translate="no_results_title">No results found</p>
-        <p class="text-gray-500 mt-2" data-translate="no_results_desc">Try searching for something else.</p>
+    <div id="category-tabs-container" class="border-b border-gray-200 initial-hidden animate-fadeInUp" style="animation-delay: 200ms;">
+        <nav id="category-tabs" class="flex overflow-x-auto px-4 gap-3"></nav>
     </div>
-  </main>
 
-  <div id="cart-summary-bar" class="fixed bottom-0 left-0 right-0 bg-red-700 text-white p-3 shadow-lg z-40 transform translate-y-full transition-transform duration-300 ease-in-out">
-    <div class="max-w-screen-xl mx-auto flex justify-between items-center">
-      <div class="flex items-center space-x-2">
-        <span id="summary-cart-count" class="bg-yellow-400 text-red-700 text-sm font-bold rounded-full h-6 w-6 flex items-center justify-center shadow-md">0</span>
-        <span class="text-lg font-semibold" data-translate="items_in_cart">Items</span>
-      </div>
-      <div class="flex items-center space-x-4">
-        <span id="summary-cart-total" class="text-xl font-bold">0.00 MAD</span>
-        <a href="cart.html" class="bg-yellow-400 text-red-700 px-5 py-2 rounded-full font-bold text-lg hover:bg-yellow-300 transition-colors shadow-md" data-translate="view_cart">View Cart</a>
-      </div>
+    <main id="menu-container" class="flex-1 px-4 py-5 pb-[120px]">
+        <p id="loading-placeholder" class="text-gray-500 col-span-full text-center py-10">Loading menu...</p>
+        <div id="no-results-message" class="hidden text-center py-10">
+            <p class="text-xl font-semibold text-gray-700">No results found</p>
+            <p class="text-gray-500 mt-2">Try searching for something else.</p>
+        </div>
+    </main>
+    
+    <div id="cart-summary-bar" class="fixed bottom-0 left-0 right-0 p-3 z-20 transform translate-y-full transition-transform">
+        <div class="max-w-screen-xl mx-auto flex justify-between items-center bg-white rounded-lg p-3 shadow-2xl">
+            <div class="flex items-center space-x-3">
+                <span id="summary-cart-count" class="summary-count-circle text-sm font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span>
+                <span class="text-lg font-semibold text-gray-800" id="summary-total-price">0.00 MAD</span>
+            </div>
+            <a href="cart.html" class="view-cart-btn px-5 py-2 rounded-full font-bold text-lg hover:opacity-90 transition-opacity">View Cart</a>
+        </div>
     </div>
-  </div>
-
-  <button id="back-to-top-btn" title="Go to top">
-    <i class="fas fa-arrow-up"></i>
-  </button>
-
-  <footer class="text-center p-4 text-gray-600 text-xs border-t border-gray-200 bg-gray-100">
-    &copy; <span id="current-year"></span> Pizza Hut Clone. For educational purposes.
-  </footer>
-
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script> <script src="firebase.js"></script>
-  <script src="lang.js"></script>
-  <script src="menu.js"></script>
-
-  <script>
-    document.getElementById('current-year').textContent = new Date().getFullYear();
-  </script>
-
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script> 
+    <script src="firebase.js"></script>
+    <script src="lang.js"></script>
+    <script src="menu.js"></script>
 </body>
 </html>

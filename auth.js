@@ -65,13 +65,11 @@ class PasswordInput extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this.shadowRoot.innerHTML = `
       <style>
-        /* NEW: Simplified spacing for better layout */
         .password-group {
             display: flex;
             flex-direction: column;
             gap: 1.5rem; /* Equivalent to space-y-6 */
         }
-        /* NEW: Styles updated for a white card background */
         input {
           width: 100%;
           padding: 0.75rem;
@@ -128,6 +126,7 @@ const handleSuccessfulLogin = (user) => {
       lastLogin: new Date().toISOString(),
       name: user.displayName || 'Customer',
   });
+  // For regular users, redirect to order type selection
   window.location.href = 'order-type-selection.html';
 };
 
@@ -153,9 +152,8 @@ signupForm.addEventListener('submit', async (e) => {
 
   const email = document.getElementById('signup-email').value;
   const passwordInputComponent = signupForm.querySelector('password-input');
-  const termsCheckbox = document.getElementById('terms-checkbox'); // Get the checkbox
+  const termsCheckbox = document.getElementById('terms-checkbox'); 
 
-  // NEW: Check if the terms and conditions box is checked
   if (!termsCheckbox.checked) {
     displayError(signupErrorMessage, 'You must agree to the terms and conditions.');
     return;
@@ -190,13 +188,16 @@ googleBtn.addEventListener('click', async () => {
     }
 });
 
+// --- NEW GUEST LOGIC ---
 // Continue as Guest
 guestBtn.addEventListener('click', async () => {
     try {
         await auth.signInAnonymously();
-        localStorage.setItem('isGuest', 'true');
-        window.location.href = 'order-type-selection.html';
+        // For guests, set order type to 'dine-in' and go directly to the menu
+        localStorage.setItem('orderType', 'dine-in');
+        window.location.href = 'menu.html'; // Bypass order type selection
     } catch (error) {
+        console.error("Guest Sign-In Error:", error);
         displayError(loginErrorMessage, 'Could not continue as guest. Please try again.');
     }
 });
@@ -230,9 +231,8 @@ sendResetLinkBtn.addEventListener('click', async () => {
     }
 });
 
-// Redirect if already logged in
+// Redirect if already logged in (but not a guest)
 auth.onAuthStateChanged(user => {
-  if (user && !user.isAnonymous) {
-    window.location.href = 'order-type-selection.html';
-  }
+  // We remove the auto-redirect here because it can interfere with our new guest flow.
+  // The redirection is now handled explicitly after each successful login action.
 });
