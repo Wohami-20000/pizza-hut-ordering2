@@ -33,7 +33,12 @@
         <h1 id="item-name" class="text-3xl font-extrabold text-gray-800 mb-2">Item Name</h1>
         <p id="item-short-desc" class="text-gray-600 mb-5 text-base">Short item description.</p>
         <div class="mb-6 pb-6 border-b border-gray-200"><span id="item-price" class="text-4xl font-bold text-red-600">0.00 MAD</span></div>
-        <div class="detail-section"><h2 class="text-xl font-semibold text-gray-700 mb-3">Customize your order</h2><p class="text-sm text-gray-500">Note: This is a placeholder. Add your real customization inputs here.</p></div>
+        
+        <div id="long-desc-section" class="detail-section">
+            <h2 class="text-xl font-semibold text-gray-700 mb-3">Details</h2>
+            <p id="item-long-desc" class="text-base text-gray-700 leading-relaxed"></p>
+        </div>
+
         <div class="detail-section flex items-center justify-between">
             <h2 class="text-xl font-semibold text-gray-700">Quantity</h2>
             <div class="flex items-center gap-4">
@@ -66,6 +71,8 @@
     const itemImageWrapper = document.getElementById('item-image-wrapper');
     const itemNameH1 = document.getElementById('item-name');
     const itemShortDescP = document.getElementById('item-short-desc');
+    const itemLongDescP = document.getElementById('item-long-desc');
+    const longDescSection = document.getElementById('long-desc-section');
     const itemPriceSpan = document.getElementById('item-price');
     const addToCartBtn = document.getElementById('add-to-cart-details-btn');
     const cartCountSpan = document.getElementById('cart-count');
@@ -87,13 +94,28 @@
         currentItemData = itemData;
         const itemName = itemData.name || 'Item';
         const itemPrice = typeof itemData.price === 'number' ? itemData.price : 0;
+        
         document.title = `${escapeHTML(itemName)} - Pizza Hut`;
-        itemImageWrapper.innerHTML = `<img src="${escapeHTML(itemData.image_url || '')}" alt="${escapeHTML(itemName)}" class="w-full h-full object-contain">`;
+        itemImageWrapper.innerHTML = `<img src="${escapeHTML(itemData.imageURL || itemData.image_url || '')}" alt="${escapeHTML(itemName)}" class="w-full h-full object-contain p-4">`;
         itemNameH1.textContent = escapeHTML(itemName);
-        itemShortDescP.textContent = escapeHTML(itemData.description || '');
+        itemShortDescP.textContent = escapeHTML(itemData.description || itemData.shortDesc || '');
+        
+        // Show long description if it exists
+        if (itemData.longDesc) {
+            itemLongDescP.textContent = escapeHTML(itemData.longDesc);
+            longDescSection.style.display = 'block';
+        } else {
+            longDescSection.style.display = 'none';
+        }
+
         itemPriceSpan.textContent = `${itemPrice.toFixed(2)} MAD`;
         loadingStateDiv.style.display = 'none';
         itemContentArticle.style.display = 'block';
+    }
+
+    function showError() {
+        loadingStateDiv.style.display = 'none';
+        errorStateDiv.style.display = 'block';
     }
 
     // --- Add to Cart & Quantity Logic ---
@@ -116,23 +138,38 @@
     
     addToCartBtn.addEventListener('click', () => {
         if (!currentItemData) return;
-        const cart = JSON.parse(localStorage.getItem("cart")) || [];
-        const selectedOptions = [{ name: "Customized", price: 0 }]; // Placeholder
-        const basePrice = typeof currentItemData.price === 'number' ? currentItemData.price : 0;
-        const optionsPrice = selectedOptions.reduce((sum, opt) => sum + opt.price, 0);
-        const finalPrice = basePrice + optionsPrice;
-
-        const customizedItem = {
-            cartItemId: currentItemData.id + '-' + Date.now(), 
-            id: currentItemData.id, name: currentItemData.name,
-            price: finalPrice, quantity: quantity, // Use the new quantity
-            options: selectedOptions
-        };
-        cart.push(customizedItem);
-        localStorage.setItem("cart", JSON.stringify(cart));
+        let cart = JSON.parse(localStorage.getItem("cart")) || [];
         
-        // Redirect back to menu
-        window.location.href = 'menu.html';
+        // Check if a standard version of this item is already in the cart
+        let existingItem = cart.find(item => item.id === currentItemData.id && !item.options);
+
+        if (existingItem) {
+             existingItem.quantity += quantity;
+        } else {
+             const newItem = {
+                cartItemId: currentItemData.id + '-' + Date.now(), 
+                id: currentItemData.id, 
+                name: currentItemData.name,
+                image: currentItemData.imageURL || currentItemData.image_url,
+                price: currentItemData.price, 
+                quantity: quantity
+            };
+            cart.push(newItem);
+        }
+        
+        localStorage.setItem("cart", JSON.stringify(cart));
+        updateCartCount();
+        
+        // Give feedback to user
+        const btn = document.getElementById('add-to-cart-details-btn');
+        btn.textContent = 'Added!';
+        btn.classList.remove('bg-red-600', 'hover:bg-red-700');
+        btn.classList.add('bg-green-600');
+        setTimeout(() => {
+            btn.innerHTML = '<i class="fas fa-cart-plus mr-2"></i><span>Add to Cart</span>';
+            btn.classList.add('bg-red-600', 'hover:bg-red-700');
+            btn.classList.remove('bg-green-600');
+        }, 1500);
     });
 
     // --- Initialization ---
@@ -142,28 +179,33 @@
         const params = new URLSearchParams(window.location.search);
         const categoryId = params.get('categoryId');
         const itemId = params.get('itemId');
+        const offerId = params.get('offerId'); // NEW: Get offerId
 
-        if (categoryId && itemId) {
-            db.ref(`menu/${categoryId}/items/${itemId}`).once('value')
-                .then(snapshot => {
-                    const itemData = snapshot.val();
-                    if (itemData) {
-                        itemData.id = itemId;
-                        displayItemDetails(itemData);
-                    } else {
-                        loadingStateDiv.style.display = 'none';
-                        errorStateDiv.style.display = 'block';
-                    }
-                })
-                .catch(error => {
-                    console.error("Error fetching item details:", error);
-                    loadingStateDiv.style.display = 'none';
-                    errorStateDiv.style.display = 'block';
-                });
+        let itemRef;
+
+        if (offerId) {
+            itemRef = db.ref(`offers/${offerId}`);
+        } else if (categoryId && itemId) {
+            itemRef = db.ref(`menu/${categoryId}/items/${itemId}`);
         } else {
-            loadingStateDiv.style.display = 'none';
-            errorStateDiv.style.display = 'block';
+            showError();
+            return;
         }
+
+        itemRef.once('value')
+            .then(snapshot => {
+                const itemData = snapshot.val();
+                if (itemData) {
+                    itemData.id = snapshot.key; // Ensure the item has its ID
+                    displayItemDetails(itemData);
+                } else {
+                    showError();
+                }
+            })
+            .catch(error => {
+                console.error("Error fetching item details:", error);
+                showError();
+            });
     });
   </script>
 </body>

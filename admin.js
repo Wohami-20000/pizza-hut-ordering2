@@ -6,6 +6,7 @@ let auth;
 let db;
 let ordersRef;
 let menuRef; // Reference to the 'menu' node
+let offersRef; // NEW: Reference for offers
 
 let currentLang = localStorage.getItem('lang') || 'en';
 
@@ -175,6 +176,15 @@ function showSection(sectionId, title) {
             showMessage("error-message-admin-page", "Menu management features are not loaded. Please check admin-menu.js.", true);
         }
     }
+    // NEW: Initialize offers management view
+    if (sectionId === 'offers-management-section') {
+        if (window.adminOffers && typeof window.adminOffers.initializeView === 'function') {
+            window.adminOffers.initializeView();
+        } else {
+             console.error("admin.js: window.adminOffers.initializeView is not available.");
+             showMessage("error-message-admin-page", "Offers management features are not loaded.", true);
+        }
+    }
 }
 
 function setActiveLink(linkElement) {
@@ -191,7 +201,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     auth = firebase.auth();
     db = firebase.database();
     ordersRef = db.ref('orders');
-    menuRef = db.ref('menu'); // Correctly reference the 'menu' node
+    menuRef = db.ref('menu');
+    offersRef = db.ref('offers'); // NEW
 
     console.log("admin.html: DOMContentLoaded event fired."); //
 
@@ -206,7 +217,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (typeof applyLanguage === 'function') {
                 applyLanguage(currentLang);
                 loadOrders(); // Re-load orders to apply language to status dropdowns
-                // No explicit call to adminMenu.initializeView here, it's called by showSection
             }
         });
     }
@@ -244,7 +254,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             e.preventDefault();
             const sectionId = this.getAttribute('data-section');
             const title = this.getAttribute('data-title');
-            showSection(sectionId, title); // This now triggers adminMenu.initializeView if menu section is active
+            showSection(sectionId, title); 
             setActiveLink(this);
             if (window.innerWidth < 768) {
                 sidebar.classList.remove('translate-x-0');
@@ -272,16 +282,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Handle user authentication state and claims
     auth.onAuthStateChanged(async (user) => {
         if (user) {
-            console.log("admin.html: User " + user.uid + " is logged in."); //
             try {
                 const idTokenResult = await user.getIdTokenResult(true); 
-                console.log("admin.html: User claims:", idTokenResult.claims); //
 
                 if (idTokenResult.claims.admin === true) {
-                    console.log("admin.html: User is an ADMIN. Initializing DB listeners."); //
-                    loadOrders(); // Load orders dashboard first
+                    loadOrders(); 
+                    
+                    // NEW: Initialize offer management logic
+                    if (window.adminOffers) window.adminOffers.initializeEventListeners();
 
-                    // Restore last active section or show dashboard
                     const activeSectionIdStorage = localStorage.getItem('adminActiveSection');
                     const activeTitleStorage = localStorage.getItem('adminActiveTitle');
                     const dashboardLink = document.querySelector('aside .nav-link[data-section="dashboard-section"]'); 
@@ -300,27 +309,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 } else {
                     console.warn("admin.html: User is logged in but NOT an admin. Access denied.");
-                    const adminPageErrorTextContainer = document.getElementById('error-message-admin-page');
-                    if (adminPageErrorTextContainer) {
-                        adminPageErrorTextContainer.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.access_denied_admin) || "Access Denied: You do not have administrator privileges.";
-                        adminPageErrorTextContainer.classList.remove('hidden'); 
-                    }
-                    document.getElementById('ordersTableBody').innerHTML = `<tr><td colspan="7" class="text-center py-4 text-red-500" data-translate="access_denied_admin">Access Denied: You do not have administrator privileges.</td></tr>`;
-                    if (document.getElementById('categories-list')) {
-                        document.getElementById('categories-list').innerHTML = `<p class="text-center py-4 text-red-500" data-translate="access_denied_admin">Access Denied: You do not have administrator privileges.</p>`;
-                    }
-                    if (document.getElementById('item-management-section')) {
-                         document.getElementById('item-management-section').classList.add('hidden');
-                    }
+                    showMessage("error-message-admin-page", "Access Denied: You do not have administrator privileges.", true);
                     setTimeout(() => { window.location.href = "admin-login.html"; }, 3000);
                 }
             } catch (error) {
-                console.error("admin.html: Error fetching ID token claims:", error);
-                const adminPageErrorTextContainer = document.getElementById('error-message-admin-page');
-                if (adminPageErrorTextContainer) {
-                    adminPageErrorTextContainer.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.error_verifying_admin) || `Error verifying admin status: ${error.message}`;
-                    adminPageErrorTextContainer.classList.remove('hidden');
-                }
+                console.error("admin.html: Error verifying admin status:", error);
+                showMessage("error-message-admin-page", `Error verifying admin status: ${error.message}`, true);
                 setTimeout(() => { window.location.href = "admin-login.html"; }, 3000);
             }
         } else {
@@ -329,3 +323,122 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
+
+
+// ---------------------- NEW: OFFERS MANAGEMENT ----------------------
+window.adminOffers = {
+    offersCache: {},
+    editingOfferId: null,
+
+    initializeView: function() {
+        offersRef.on('value', snapshot => {
+            this.offersCache = snapshot.val() || {};
+            this.renderOffers();
+        }, error => {
+            console.error("Error loading offers:", error);
+            showMessage('error-message-admin-page', 'Failed to load offers.', true);
+        });
+    },
+
+    renderOffers: function() {
+        const container = document.getElementById('offers-list-admin');
+        container.innerHTML = '';
+
+        if (Object.keys(this.offersCache).length === 0) {
+            container.innerHTML = '<p class="text-center text-gray-500">No offers found. Add one above.</p>';
+            return;
+        }
+
+        for (const offerId in this.offersCache) {
+            const offer = this.offersCache[offerId];
+            const card = document.createElement('div');
+            card.className = 'item-card flex justify-between items-center';
+            card.innerHTML = `
+                <div class="flex items-center gap-4">
+                    <img src="${escapeHTML(offer.imageURL || 'https://via.placeholder.com/64')}" class="w-16 h-16 rounded-md object-cover">
+                    <div>
+                        <p class="font-bold">${escapeHTML(offer.name)}</p>
+                        <p class="text-sm text-gray-600">${escapeHTML(offer.price)} MAD</p>
+                    </div>
+                </div>
+                <div>
+                    <button class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded" onclick="window.adminOffers.editOffer('${offerId}')">Edit</button>
+                    <button class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded" onclick="window.adminOffers.deleteOffer('${offerId}')">Delete</button>
+                </div>
+            `;
+            container.appendChild(card);
+        }
+    },
+
+    clearForm: function() {
+        this.editingOfferId = null;
+        document.getElementById('offer-form-title').textContent = 'Add New Offer';
+        document.getElementById('offer-name').value = '';
+        document.getElementById('offer-price').value = '';
+        document.getElementById('offer-image-url').value = '';
+        document.getElementById('offer-short-desc').value = '';
+        document.getElementById('offer-long-desc').value = '';
+        document.getElementById('save-offer-btn').textContent = 'Save Offer';
+    },
+
+    populateForm: function(offerId) {
+        this.editingOfferId = offerId;
+        const offer = this.offersCache[offerId];
+        document.getElementById('offer-form-title').textContent = 'Edit Offer';
+        document.getElementById('offer-name').value = offer.name;
+        document.getElementById('offer-price').value = offer.price;
+        document.getElementById('offer-image-url').value = offer.imageURL;
+        document.getElementById('offer-short-desc').value = offer.description;
+        document.getElementById('offer-long-desc').value = offer.longDesc;
+        document.getElementById('save-offer-btn').textContent = 'Update Offer';
+    },
+
+    editOffer: function(offerId) {
+        this.populateForm(offerId);
+        document.getElementById('offer-form-title').scrollIntoView({ behavior: 'smooth' });
+    },
+
+    deleteOffer: function(offerId) {
+        if (confirm('Are you sure you want to delete this offer?')) {
+            offersRef.child(offerId).remove()
+                .then(() => showMessage('error-message-admin-page', 'Offer deleted successfully.'))
+                .catch(err => showMessage('error-message-admin-page', `Error deleting offer: ${err.message}`, true));
+        }
+    },
+
+    saveOffer: function() {
+        const name = document.getElementById('offer-name').value.trim();
+        const price = parseFloat(document.getElementById('offer-price').value);
+        const imageURL = document.getElementById('offer-image-url').value.trim();
+        const shortDesc = document.getElementById('offer-short-desc').value.trim();
+        const longDesc = document.getElementById('offer-long-desc').value.trim();
+
+        if (!name || isNaN(price) || !imageURL) {
+            showMessage('error-message-admin-page', 'Name, price, and image URL are required.', true);
+            return;
+        }
+
+        const offerData = { name, price, imageURL, description: shortDesc, longDesc };
+        let promise;
+
+        if (this.editingOfferId) {
+            // Update existing offer
+            promise = offersRef.child(this.editingOfferId).update(offerData);
+        } else {
+            // Add new offer
+            promise = offersRef.push(offerData);
+        }
+
+        promise.then(() => {
+            showMessage('error-message-admin-page', 'Offer saved successfully.');
+            this.clearForm();
+        }).catch(err => {
+            showMessage('error-message-admin-page', `Error saving offer: ${err.message}`, true);
+        });
+    },
+
+    initializeEventListeners: function() {
+        document.getElementById('save-offer-btn').addEventListener('click', () => this.saveOffer());
+        document.getElementById('clear-offer-form-btn').addEventListener('click', () => this.clearForm());
+    }
+};

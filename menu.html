@@ -38,6 +38,15 @@
         .quantity-btn:hover { background-color: #facc15; }
         #cart-summary-bar .view-cart-btn { background-color: var(--brand-red); color: white; }
         #cart-summary-bar .summary-count-circle { background-color: var(--brand-yellow); color: var(--brand-dark); }
+        /* Slideshow styles */
+        #offers-slideshow-container { background: #fff; border-bottom: 1px solid #e5e7eb; }
+        .offer-slide {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .offer-slide:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        }
     </style>
 </head>
 <body class="min-h-screen">
@@ -96,7 +105,11 @@
     </div>
     
     <div id="search-container" class="bg-white p-3 sticky top-[60px] z-20 border-b initial-hidden animate-fadeInUp" style="animation-delay: 100ms;"><div class="relative"><span class="absolute inset-y-0 left-0 flex items-center pl-4"><i class="fas fa-search text-gray-400"></i></span><input type="search" id="search-bar" class="w-full pl-12 pr-4 py-3 border-none bg-gray-100 rounded-full focus:ring-2 focus:ring-red-500" placeholder="Search for your favorite pizza..."></div></div>
-    <div id="category-tabs-container" class="border-b border-gray-200 initial-hidden animate-fadeInUp" style="animation-delay: 200ms;"><nav id="category-tabs" class="flex overflow-x-auto px-4 gap-3"></nav></div>
+    
+    <div id="offers-slideshow-container" class="initial-hidden animate-fadeInUp" style="animation-delay: 200ms;">
+        </div>
+
+    <div id="category-tabs-container" class="border-b border-gray-200 initial-hidden animate-fadeInUp" style="animation-delay: 300ms;"><nav id="category-tabs" class="flex overflow-x-auto px-4 gap-3"></nav></div>
     <main id="menu-container" class="flex-1 px-4 py-5 pb-[120px]"><p id="loading-placeholder" class="text-gray-500 col-span-full text-center py-10">Loading menu...</p><div id="no-results-message" class="hidden text-center py-10"><p class="text-xl font-semibold text-gray-700">No results found</p><p class="text-gray-500 mt-2">Try searching for something else.</p></div></main>
     <div id="cart-summary-bar" class="fixed bottom-0 left-0 right-0 p-3 z-20 transform translate-y-full transition-transform"><div class="max-w-screen-xl mx-auto flex justify-between items-center bg-white rounded-lg p-3 shadow-2xl"><div class="flex items-center space-x-3"><span id="summary-cart-count" class="summary-count-circle text-sm font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span><span class="text-lg font-semibold text-gray-800" id="summary-total-price">0.00 MAD</span></div><a href="cart.html" class="view-cart-btn px-5 py-2 rounded-full font-bold text-lg hover:opacity-90 transition-opacity">View Cart</a></div></div>
     

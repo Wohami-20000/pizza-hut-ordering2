@@ -114,6 +114,39 @@ function renderCategoriesTabs() {
     }
 }
 
+// NEW: Function to render the offers slideshow
+function renderOffersSlideshow() {
+    const slideshowContainer = document.getElementById('offers-slideshow-container');
+    if (!slideshowContainer) return;
+
+    const offersRef = dbInstance.ref('offers');
+    offersRef.on('value', (snapshot) => {
+        slideshowContainer.innerHTML = ''; // Clear previous offers
+        if (snapshot.exists()) {
+            const offersData = snapshot.val();
+            const offersWrapper = document.createElement('div');
+            offersWrapper.className = 'flex overflow-x-auto gap-4 p-4'; // Make it scrollable
+            
+            for (const offerId in offersData) {
+                const offer = offersData[offerId];
+                const offerElement = document.createElement('a');
+                // Clicking an offer now goes to item-details with an offerId
+                offerElement.href = `item-details.html?offerId=${offerId}`;
+                offerElement.className = 'offer-slide flex-shrink-0 w-80 rounded-lg shadow-lg overflow-hidden';
+                offerElement.innerHTML = `
+                    <img src="${escapeHTML(offer.imageURL || 'https://via.placeholder.com/320x160?text=Offer')}" alt="${escapeHTML(offer.name)}" class="w-full h-40 object-cover">
+                `;
+                offersWrapper.appendChild(offerElement);
+            }
+            slideshowContainer.appendChild(offersWrapper);
+            slideshowContainer.classList.remove('hidden');
+        } else {
+            slideshowContainer.classList.add('hidden'); // Hide if no offers
+        }
+    });
+}
+
+
 window.menuFunctions = {
     updateItemQuantity: (itemId, change, buttonElement) => {
         const card = buttonElement.closest('.menu-item-card');
@@ -138,7 +171,7 @@ window.menuFunctions = {
     },
     scrollToCategory: (categoryId) => {
         const section = document.getElementById(`category-section-${categoryId}`);
-        if (section) window.scrollTo({ top: section.offsetTop - 140, behavior: 'smooth' });
+        if (section) window.scrollTo({ top: section.offsetTop - 220, behavior: 'smooth' }); // Adjusted offset for slideshow
     }
 };
 
@@ -162,7 +195,7 @@ function filterMenu() {
 }
 
 function updateActiveTabOnScroll() {
-    const scrollPosition = window.scrollY + 141;
+    const scrollPosition = window.scrollY + 221; // Adjusted offset for slideshow
     let activeSectionFound = false;
     document.querySelectorAll('.category-section').forEach(section => {
         if (!activeSectionFound && section.style.display !== 'none' && section.offsetTop <= scrollPosition && section.offsetTop + section.offsetHeight > scrollPosition) {
@@ -177,7 +210,7 @@ function updateActiveTabOnScroll() {
     });
 }
 
-// --- NEW: Function to update the drawer UI based on auth state ---
+// --- UPDATED: Function to update the drawer UI based on auth state ---
 function updateDrawerUI(user) {
     const guestInfo = document.getElementById('guest-info-drawer');
     const userInfo = document.getElementById('user-info-drawer');
@@ -188,24 +221,31 @@ function updateDrawerUI(user) {
         // User is logged in
         guestInfo.classList.add('hidden');
         userInfo.classList.remove('hidden');
-        accountSection.classList.remove('hidden');
+        if (accountSection) accountSection.classList.remove('hidden');
 
-        // Fetch user's name from the database
+        // Fetch user's name from the database. Fallback to a generic 'Customer' if no name is set.
         dbInstance.ref(`users/${user.uid}/name`).once('value').then(snapshot => {
-            const name = snapshot.val() || user.email; // Fallback to email if name not set
-            userNameSpan.textContent = name;
+            const name = snapshot.val();
+            // Display name if it exists and is not empty, otherwise show 'Customer'
+            userNameSpan.textContent = (name && name.trim() !== '') ? name : 'Customer';
+        }).catch(() => {
+            // In case of error, just show Customer
+            userNameSpan.textContent = 'Customer';
         });
+
     } else {
         // User is a guest or not logged in
         guestInfo.classList.remove('hidden');
         userInfo.classList.add('hidden');
-        accountSection.classList.add('hidden');
+        if (accountSection) accountSection.classList.add('hidden');
     }
 }
 
 
 document.addEventListener('DOMContentLoaded', () => {
     updateCartUI();
+    renderOffersSlideshow(); // Call the new function to render offers
+    
     const openDrawerBtn = document.getElementById('open-drawer-btn');
     const closeDrawerBtn = document.getElementById('close-drawer-btn');
     const drawerMenu = document.getElementById('drawer-menu');
@@ -213,7 +253,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logout-btn');
     const searchBar = document.getElementById('search-bar');
     
-    // --- NEW: Listen for auth state changes to update the UI dynamically ---
     authInstance.onAuthStateChanged(user => {
         updateDrawerUI(user);
     });
