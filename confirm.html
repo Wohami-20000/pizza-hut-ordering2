@@ -8,172 +8,169 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
   <link rel="stylesheet" href="style.css">
   <style>
-    /* Custom styles for specific elements if needed beyond Tailwind */
-    body {
-        font-family: 'Poppins', sans-serif;
+    :root { --brand-red: #D71921; --brand-yellow: #FFC72C; }
+    body { font-family: 'Poppins', sans-serif; background-color: #F9FAFB; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .fa-spinner { animation: spin 1s linear infinite; }
+    
+    /* New Status Tracker Styles */
+    .status-tracker { display: flex; justify-content: space-between; position: relative; }
+    .status-tracker::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background-color: #e5e7eb; /* gray-200 */
+        transform: translateY(-50%);
+        z-index: 1;
     }
-    .order-item-list li {
-      padding: 0.5rem 0;
-      border-bottom: 1px dotted #e5e7eb; /* gray-200 for subtle separator */
+    .status-step { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 2; width: 80px; }
+    .status-dot {
+        width: 2.5rem; /* w-10 */
+        height: 2.5rem; /* h-10 */
+        border-radius: 9999px;
+        background-color: #fff;
+        border: 2px solid #d1d5db; /* gray-300 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #d1d5db;
+        transition: all 0.4s ease;
     }
-    .order-item-list li:last-child {
-      border-bottom: none;
-    }
-    /* Style for the Save PDF button feedback */
-    #save-pdf-btn.generating {
-        background-color: #facc15; /* yellow-400 */
-        color: #b91c1c; /* red-700 */
-        cursor: not-allowed;
-    }
+    .status-label { font-size: 0.75rem; text-align: center; margin-top: 0.5rem; color: #6b7280; }
 
-    /* Message box for alerts (reused from cart.html structure) */
-    .message-box {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background-color: #fff;
-      padding: 2rem;
-      border-radius: 0.75rem;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-      z-index: 1000;
-      text-align: center;
-      width: 90%;
-      max-width: 400px;
-      display: none; /* Hidden by default */
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1rem;
+    /* Active/Completed Step Styles */
+    .status-step.completed .status-dot {
+        background-color: var(--brand-red);
+        border-color: var(--brand-red);
+        color: white;
     }
-    .message-box h3 {
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: #333;
-    }
-    .message-box p {
-      color: #555;
-      margin-bottom: 1rem;
-    }
-    .message-box button {
-      background-color: #ef4444; /* red-500 */
-      color: white;
-      padding: 0.75rem 1.5rem;
-      border-radius: 0.5rem;
-      font-weight: 600;
-      transition: background-color 0.15s ease-in-out;
-    }
-    .message-box button:hover {
-      background-color: #dc2626; /* red-700 */
-    }
+    .status-step.completed .status-label { color: #111827; font-weight: 600; }
 
-    /* Animation for loading spinner */
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    .fa-spinner {
-      animation: spin 1s linear infinite;
+    /* Connection line progress */
+    #status-progress-bar {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        height: 2px;
+        background-color: var(--brand-red);
+        z-index: 1;
+        transform: translateY(-50%);
+        width: 0%; /* Will be set by JS */
+        transition: width 0.5s ease-out;
     }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
 
-  <header class="bg-red-600 text-white p-4 shadow-md sticky top-0 z-20">
-    <div class="container mx-auto flex justify-between items-center max-w-3xl">
-        <a href="menu.html" class="text-xl sm:text-2xl font-bold hover:opacity-80 transition">Pizza Hut Menu</a>
-        <div class="flex items-center space-x-4">
-            <select id="language-switcher" class="bg-red-700 text-white border border-red-800 rounded p-1.5 text-sm focus:ring-2 focus:ring-white focus:outline-none appearance-none">
-              <option value="en">English</option>
-              <option value="fr">Français</option>
-              <option value="ar">العربية</option>
-            </select>
-            <a href="cart.html" id="cart-btn" class="relative text-lg hover:opacity-80 transition">
-                <i class="fas fa-shopping-cart"></i>
-                Cart (<span id="cart-count-nav">0</span>)
-            </a>
-        </div>
+  <header class="bg-white text-gray-800 p-4 shadow-sm sticky top-0 z-20">
+    <div class="container mx-auto flex justify-between items-center max-w-4xl">
+        <a href="menu.html" class="text-xl sm:text-2xl font-bold hover:opacity-80 transition flex items-center gap-2">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="h-7" />
+        </a>
     </div>
   </header>
 
-  <main class="container mx-auto p-4 sm:p-6 mt-8 flex-grow">
-    <div class="bg-white p-6 sm:p-8 rounded-xl shadow-xl max-w-2xl mx-auto">
-      <h1 class="text-3xl sm:text-4xl font-extrabold text-green-600 mb-4 text-center">
-        <i class="fas fa-check-circle mr-2"></i> <span data-translate="order_confirmed">Order Confirmed!</span>
-      </h1>
-      <p class="text-gray-700 text-center mb-8" data-translate="order_received">Your order has been received and is being prepared.</p>
+  <main class="container mx-auto p-4 sm:p-6 mt-4 flex-grow">
+    <div id="loading-order" class="text-center py-12 text-gray-500">
+      <i class="fas fa-spinner fa-spin text-4xl mb-4 text-red-600"></i>
+      <p class="text-lg" data-translate="loading_order_details">Loading order details...</p>
+    </div>
 
-      <!-- Loading State -->
-      <div id="loading-order" class="text-center py-8 text-gray-500">
-        <i class="fas fa-spinner fa-spin text-4xl mb-4"></i>
-        <p class="text-lg" data-translate="loading_order_details">Loading order details...</p>
-      </div>
+    <div id="error-fetching-order" class="hidden text-center bg-red-50 p-6 rounded-lg max-w-2xl mx-auto">
+      <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-3"></i>
+      <p class="text-red-700 font-semibold" id="error-message-text">Could not load order details.</p>
+    </div>
 
-      <!-- Error State -->
-      <div id="error-fetching-order" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative text-center mb-4" role="alert">
-        <strong class="font-bold" data-translate="error_title">Error!</strong>
-        <span class="block sm:inline" id="error-message-text"></span>
-      </div>
-
-      <!-- Order Summary Section (Initially hidden) -->
-      <section id="order-summary-section" class="hidden">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2" data-translate="order_summary_title">Order Summary</h2>
-        <div id="order-summary-details" class="space-y-3 text-gray-700">
-          <p><strong>Order ID:</strong> <span id="order-id-display"></span></p>
-          <p><strong><span data-translate="order_type_label">Order Type:</span></strong> <span id="order-type-display"></span></p>
-          <p class="hidden"><strong><span data-translate="customer_name_label">Customer Name:</span></strong> <span id="customer-name-display"></span></p>
-          <p class="hidden"><strong><span data-translate="phone_number_label">Phone Number:</span></strong> <span id="customer-phone-display"></span></p>
-          <p class="hidden" id="delivery-address-display-p"><strong><span data-translate="delivery_address_label">Delivery Address:</span></strong> <span id="delivery-address-display"></span></p>
-          <p class="hidden" id="table-number-display-p"><strong><span data-translate="table_number_label">Table Number:</span></strong> <span id="table-number-display"></span></p>
-          
-          <h3 class="text-xl font-semibold mt-6 mb-3 border-b pb-2" data-translate="items_heading">Items</h3>
-          <ul id="items-list" class="order-item-list">
-            <!-- Order items will be dynamically inserted here -->
-          </ul>
-
-          <div class="text-right text-xl font-bold mt-6 pt-4 border-t-2 border-gray-200">
-            <span data-translate="cart_total_label">Total:</span> <span id="total-amount-display">0.00</span> MAD
-          </div>
-
-          <p class="text-gray-600 text-sm text-right">
-            <span data-translate="order_placed_at">Placed at:</span> <span id="order-timestamp-display"></span>
-          </p>
-          <p class="text-gray-800 text-lg font-semibold text-right">
-            <span data-translate="status_label">Status:</span> <span id="order-status-display" class="text-blue-600"></span>
-          </p>
+    <div id="confirmation-content" class="hidden space-y-8 max-w-4xl mx-auto">
+      
+      <div class="bg-white p-6 rounded-xl shadow-lg text-center fade-in">
+        <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5 transform transition hover:scale-110">
+          <i class="fas fa-pizza-slice text-5xl text-green-600"></i>
         </div>
-      </section>
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-800 mb-2" data-translate="order_confirmed">Thank you for your order!</h1>
+        <p class="text-gray-600 text-lg mb-6" data-translate="order_received">Your delicious pizza is on its way.</p>
+      </div>
 
-      <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-8">
-        <button id="save-pdf-btn" class="bg-yellow-400 text-red-700 px-6 py-3 rounded-lg font-semibold hover:bg-yellow-300 transition-colors shadow-md flex items-center justify-center">
+      <div class="bg-white p-6 sm:p-8 rounded-xl shadow-lg fade-in" style="animation-delay: 100ms;">
+        <div class="status-tracker">
+            <div id="status-progress-bar"></div>
+            <div id="status-step-pending" class="status-step">
+                <div class="status-dot"><i class="fas fa-receipt"></i></div>
+                <div class="status-label" data-translate="status_pending">Pending</div>
+            </div>
+            <div id="status-step-preparing" class="status-step">
+                <div class="status-dot"><i class="fas fa-utensils"></i></div>
+                <div class="status-label" data-translate="status_preparing">Preparing</div>
+            </div>
+            <div id="status-step-delivery" class="status-step">
+                <div class="status-dot"><i class="fas fa-biking"></i></div>
+                <div class="status-label" data-translate="status_out_for_delivery">Out for Delivery</div>
+            </div>
+            <div id="status-step-delivered" class="status-step">
+                <div class="status-dot"><i class="fas fa-check-double"></i></div>
+                <div class="status-label" data-translate="status_delivered">Delivered</div>
+            </div>
+        </div>
+      </div>
+      
+      <div class="bg-white p-6 sm:p-8 rounded-xl shadow-lg fade-in" style="animation-delay: 200ms;">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3" data-translate="order_summary_title">Order Summary</h2>
+        <div class="grid md:grid-cols-2 gap-8">
+            <div>
+                <h3 class="text-lg font-semibold mb-3">Your Items</h3>
+                <ul id="items-list" class="space-y-3">
+                    </ul>
+            </div>
+            <div class="space-y-6">
+                 <div>
+                    <h3 class="text-lg font-semibold mb-3">Details</h3>
+                    <div id="order-summary-details" class="space-y-2 text-gray-600">
+                        </div>
+                </div>
+                <div>
+                     <h3 class="text-lg font-semibold mb-3">Totals</h3>
+                     <div id="totals-section" class="space-y-2 text-gray-800">
+                        </div>
+                </div>
+            </div>
+        </div>
+      </div>
+
+      <div id="guest-cta-section" class="hidden p-8 rounded-xl shadow-lg bg-red-600 text-white text-center fade-in flex items-center justify-center flex-col sm:flex-row gap-6">
+          <i class="fas fa-tags text-5xl text-yellow-300"></i>
+          <div class="text-left">
+            <h2 class="text-2xl font-extrabold mb-1" data-translate="cta_guest_title">Get 20% Off Your Next Order!</h2>
+            <p class="opacity-90" data-translate="cta_guest_subtitle">Create an account to save your details and receive exclusive discounts.</p>
+          </div>
+          <a href="auth.html" class="bg-yellow-400 text-red-800 font-bold py-3 px-6 rounded-lg text-lg hover:bg-yellow-300 transition transform hover:scale-105 whitespace-nowrap" data-translate="cta_signup_button">Sign Up</a>
+      </div>
+
+      <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-8 fade-in" style="animation-delay: 300ms;">
+        <button id="save-pdf-btn" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-800 transition shadow-md flex items-center justify-center">
             <i class="fas fa-file-pdf mr-2"></i> <span data-translate="save_pdf_button">Save as PDF</span>
         </button>
-        <a href="menu.html" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-md flex items-center justify-center">
-            <i class="fas fa-pizza-slice mr-2"></i> <span data-translate="back_to_menu">Back to Menu</span>
+        <a href="order-type-selection.html" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold transition shadow-md flex items-center justify-center">
+            <i class="fas fa-redo-alt mr-2"></i> <span data-translate="back_to_menu">New Order</span>
         </a>
       </div>
     </div>
   </main>
 
-  <div id="custom-message-box" class="message-box">
-    <h3 id="message-box-title"></h3>
-    <p id="message-box-text"></p>
-    <button id="message-box-ok-btn" data-translate="message_box_ok">OK</button>
-  </div>
-
-
   <footer class="text-center p-4 text-gray-600 text-sm mt-auto">
-    &copy; <span id="current-year"></span> Pizza Hut Clone. For educational purposes.
-    <script>document.getElementById('current-year').textContent = new Date().getFullYear();</script>
+    &copy; <span id="current-year"></span> Pizza Hut Clone. All Rights Reserved.
   </footer>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <!-- HTML2PDF library for PDF generation -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsIDXPiSPanhYcYjWlpewLHfn0P5At/gZQvQvB5pMdxu6hxDg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  
-  <script src="firebase.js"></script> 
-  <script src="lang.js"></script> 
-  <script src="confirm.js"></script>   
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="firebase.js"></script>
+  <script src="lang.js"></script>
+  <script src="confirm.js"></script>
 </body>
 </html>

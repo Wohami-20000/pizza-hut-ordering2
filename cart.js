@@ -42,9 +42,9 @@ function showMessageBox(titleKey, messageKey, isError = false) {
   messageBox.style.display = 'flex'; 
 }
 
-// NEW: Message box with a redirecting OK button
+// Message box with a redirecting OK button
 function showRedirectMessageBox(titleKey, messageKey, redirectUrl) {
-    showMessageBox(titleKey, messageKey, true); // Show as an error/info style
+    showMessageBox(titleKey, messageKey, true);
     messageBoxOkBtn.onclick = () => {
         window.location.href = redirectUrl;
     };
@@ -226,21 +226,24 @@ function updatePlaceOrderButtonState() {
   }
 }
 
+function updateOrderTypeSelectionUI() {
+    const orderType = localStorage.getItem('orderType');
+    const buttons = document.querySelectorAll('.order-type-button');
+    buttons.forEach(button => {
+        button.classList.remove('selected');
+        if (button.dataset.value === orderType) {
+            button.classList.add('selected');
+        }
+    });
+}
+
 async function renderOrderDetailsInput(user) {
     const orderDetailsInputDiv = document.getElementById('order-details-input'); 
-    if (!orderDetailsInputDiv) {
-        console.error("Order details input div not found!");
-        return;
-    }
+    if (!orderDetailsInputDiv) return;
+
     orderDetailsInputDiv.innerHTML = '';
-
-    const orderType = localStorage.getItem('orderType') || null; 
-
-    const orderTypeChanger = document.getElementById('order-type-changer');
-    if(orderTypeChanger) {
-        orderTypeChanger.value = orderType;
-    }
-    
+    const orderType = localStorage.getItem('orderType') || 'dineIn';
+    updateOrderTypeSelectionUI();
     updateTotalsUI();
 
     if (orderType === 'dineIn') { 
@@ -262,7 +265,6 @@ async function renderOrderDetailsInput(user) {
 
         const userProfileSnapshot = await db.ref('users/' + user.uid).once('value'); 
         const userProfile = userProfileSnapshot.val() || {}; 
-
         const customerName = userProfile.name ? userProfile.name.trim() : '';
         const customerPhone = userProfile.phone ? userProfile.phone.trim() : '';
 
@@ -272,14 +274,8 @@ async function renderOrderDetailsInput(user) {
                 <div class="mt-6 border-t pt-4">
                     <label class="block font-semibold text-gray-700 mb-2" data-translate="pickup_time_label">Pickup Time</label>
                     <div class="flex items-center space-x-6">
-                        <label class="flex items-center cursor-pointer">
-                            <input type="radio" name="pickupTimeOption" value="asap" class="form-radio h-5 w-5 text-red-600" checked>
-                            <span class="ml-2 text-gray-700" data-translate="pickup_time_asap">ASAP</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer">
-                            <input type="radio" name="pickupTimeOption" value="schedule" class="form-radio h-5 w-5 text-red-600">
-                            <span class="ml-2 text-gray-700" data-translate="pickup_time_schedule">Schedule</span>
-                        </label>
+                        <label class="flex items-center cursor-pointer"><input type="radio" name="pickupTimeOption" value="asap" class="form-radio h-5 w-5 text-red-600" checked><span class="ml-2 text-gray-700" data-translate="pickup_time_asap">ASAP</span></label>
+                        <label class="flex items-center cursor-pointer"><input type="radio" name="pickupTimeOption" value="schedule" class="form-radio h-5 w-5 text-red-600"><span class="ml-2 text-gray-700" data-translate="pickup_time_schedule">Schedule</span></label>
                     </div>
                     <div id="schedule-time-div" class="mt-3 hidden">
                          <label for="pickup-time" class="block text-sm font-medium text-gray-600 mb-1" data-translate="pickup_time_select">Select a time:</label>
@@ -332,13 +328,8 @@ async function renderOrderDetailsInput(user) {
                 });
             });
         }
-    } else { 
-        if (!orderType) {
-            // UPDATED: Use the redirecting message box for this error case
-            showRedirectMessageBox('Validation Error', 'Order type is not set. Please select how you want to order.', 'order-type-selection.html');
-        } else {
-            showMessageBox('validation_error_title', 'order_type_missing_error', true);
-        }
+    } else if (!orderType) { 
+        showRedirectMessageBox('Validation Error', 'Order type is not set. Please select how you want to order.', 'order-type-selection.html');
         document.getElementById("place-order").disabled = true; 
     }
 
@@ -568,14 +559,13 @@ document.addEventListener('DOMContentLoaded', () => {
     handlePromoCode(); 
     renderSuggestions();
 
-    const orderTypeChanger = document.getElementById('order-type-changer');
-    if (orderTypeChanger) {
-        orderTypeChanger.addEventListener('change', (e) => {
-            const newOrderType = e.target.value;
+    const orderTypeButtons = document.querySelectorAll('.order-type-button');
+    orderTypeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const newOrderType = button.dataset.value;
             const user = auth.currentUser;
 
             if (user && user.isAnonymous && (newOrderType === 'pickup' || newOrderType === 'delivery')) {
-                e.target.value = 'dineIn';
                 showRedirectMessageBox('Login Required', 'Pickup and Delivery orders require an account. Please log in or create an account to continue.', 'auth.html');
                 return;
             }
@@ -592,27 +582,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             renderOrderDetailsInput(user);
         });
-    }
+    });
 
     const placeOrderBtn = document.getElementById("place-order"); 
 
     auth.onAuthStateChanged(async (user) => {
-        const orderTypeChanger = document.getElementById('order-type-changer');
+        const dineInOption = document.getElementById('dineInOption');
+        const pickupOption = document.getElementById('pickupOption');
+        const deliveryOption = document.getElementById('deliveryOption');
         let orderType = localStorage.getItem('orderType');
 
-        // --- REFINED: Guest user restriction logic ---
         if (user && user.isAnonymous) {
-            if(orderTypeChanger) {
-                orderTypeChanger.querySelector('option[value="pickup"]').disabled = true;
-                orderTypeChanger.querySelector('option[value="delivery"]').disabled = true;
-            }
-            // Silently switch to Dine-In if guest has other types selected
+            pickupOption.disabled = true;
+            pickupOption.classList.add('disabled');
+            deliveryOption.disabled = true;
+            deliveryOption.classList.add('disabled');
+            
             if (orderType === 'pickup' || orderType === 'delivery') {
                 localStorage.setItem('orderType', 'dineIn');
             }
-        } else if (orderTypeChanger) {
-            orderTypeChanger.querySelector('option[value="pickup"]').disabled = false;
-            orderTypeChanger.querySelector('option[value="delivery"]').disabled = false;
+        } else {
+            pickupOption.disabled = false;
+            pickupOption.classList.remove('disabled');
+            deliveryOption.disabled = false;
+            deliveryOption.classList.remove('disabled');
         }
 
 
@@ -671,18 +664,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
 
                         if (currentOrderType === 'pickup') {
-                            const pickupTimeOption = document.querySelector('input[name="pickupTimeOption"]:checked').value;
-                            if (pickupTimeOption === 'schedule') {
-                                const scheduledTime = document.getElementById('pickup-time').value;
-                                if (!scheduledTime) {
-                                    showMessageBox('validation_error_title', 'pickup_time_missing_error', true); 
-                                    validationError = true;
+                             const pickupTimeOption = document.querySelector('input[name="pickupTimeOption"]:checked');
+                             if(pickupTimeOption){
+                                const selectedValue = pickupTimeOption.value;
+                                if (selectedValue === 'schedule') {
+                                    const scheduledTime = document.getElementById('pickup-time').value;
+                                    if (!scheduledTime) {
+                                        showMessageBox('validation_error_title', 'pickup_time_missing_error', true); 
+                                        validationError = true;
+                                    } else {
+                                        orderDetails.pickupTime = scheduledTime;
+                                    }
                                 } else {
-                                    orderDetails.pickupTime = scheduledTime;
+                                    orderDetails.pickupTime = 'ASAP';
                                 }
-                            } else {
-                                orderDetails.pickupTime = 'ASAP';
-                            }
+                             } else {
+                                 showMessageBox('validation_error_title', 'pickup_time_missing_error', true); 
+                                 validationError = true;
+                             }
                         }
                     }
                 } else { 
