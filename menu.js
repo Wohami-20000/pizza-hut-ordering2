@@ -1,10 +1,16 @@
-// menu.js - Final Version with Dynamic Drawer
+// menu.js - Final Version with Dynamic Drawer & Advanced Slideshow
 const dbInstance = firebase.database();
 const authInstance = firebase.auth();
 
 let menuDataCache = {};
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
+
+// --- SLIDESHOW STATE VARIABLES ---
+let slideInterval;
+let currentIndex = 0;
+let slides = [];
+let dots = [];
 
 function escapeHTML(str) {
   if (typeof str !== 'string') return str;
@@ -114,34 +120,92 @@ function renderCategoriesTabs() {
     }
 }
 
-// NEW: Function to render the offers slideshow
+// --- NEW SLIDESHOW LOGIC ---
+function showSlide(index) {
+    const slidesWrapper = document.getElementById('slides-wrapper');
+    if (!slidesWrapper || !slides.length) return;
+
+    slides.forEach(slide => slide.classList.remove('active'));
+    dots.forEach(dot => dot.classList.remove('active'));
+
+    currentIndex = (index + slides.length) % slides.length;
+
+    slides[currentIndex].classList.add('active');
+    dots[currentIndex].classList.add('active');
+
+    slidesWrapper.style.transform = `translateX(-${currentIndex * 100}%)`;
+}
+
+function startSlideshow() {
+    stopSlideshow();
+    slideInterval = setInterval(() => {
+        showSlide(currentIndex + 1);
+    }, 3000); // 3 seconds
+}
+
+function stopSlideshow() {
+    clearInterval(slideInterval);
+}
+
+// --- UPDATED: Function to render the offers slideshow ---
 function renderOffersSlideshow() {
     const slideshowContainer = document.getElementById('offers-slideshow-container');
-    if (!slideshowContainer) return;
+    const slidesWrapper = document.getElementById('slides-wrapper');
+    const dotsContainer = document.getElementById('slides-dots');
+
+    if (!slideshowContainer || !slidesWrapper || !dotsContainer) return;
 
     const offersRef = dbInstance.ref('offers');
     offersRef.on('value', (snapshot) => {
-        slideshowContainer.innerHTML = ''; // Clear previous offers
+        slidesWrapper.innerHTML = '';
+        dotsContainer.innerHTML = '';
+        stopSlideshow();
+
         if (snapshot.exists()) {
             const offersData = snapshot.val();
-            const offersWrapper = document.createElement('div');
-            offersWrapper.className = 'flex overflow-x-auto gap-4 p-4'; // Make it scrollable
-            
+            slides = [];
+            dots = [];
+            let offerIndex = 0;
+
             for (const offerId in offersData) {
                 const offer = offersData[offerId];
-                const offerElement = document.createElement('a');
-                // Clicking an offer now goes to item-details with an offerId
-                offerElement.href = `item-details.html?offerId=${offerId}`;
-                offerElement.className = 'offer-slide flex-shrink-0 w-80 rounded-lg shadow-lg overflow-hidden';
-                offerElement.innerHTML = `
-                    <img src="${escapeHTML(offer.imageURL || 'https://via.placeholder.com/320x160?text=Offer')}" alt="${escapeHTML(offer.name)}" class="w-full h-40 object-cover">
+
+                const slideElement = document.createElement('a');
+                slideElement.href = `item-details.html?offerId=${offerId}`;
+                slideElement.className = 'slide';
+                slideElement.style.backgroundImage = `url('${escapeHTML(offer.imageURL || 'https://via.placeholder.com/800x400?text=Offer')}')`;
+                slideElement.innerHTML = `
+                    <div class="slide-content">
+                        <h3 class="slide-title">${escapeHTML(offer.name)}</h3>
+                    </div>
                 `;
-                offersWrapper.appendChild(offerElement);
+                slidesWrapper.appendChild(slideElement);
+                slides.push(slideElement);
+
+                const dotElement = document.createElement('div');
+                dotElement.className = 'slide-dot';
+                dotElement.addEventListener('click', (e) => {
+                    e.preventDefault(); 
+                    e.stopPropagation();
+                    showSlide(offerIndex);
+                    startSlideshow(); 
+                });
+                dotsContainer.appendChild(dotElement);
+                dots.push(dotElement);
+                offerIndex++;
             }
-            slideshowContainer.appendChild(offersWrapper);
-            slideshowContainer.classList.remove('hidden');
+
+            if (slides.length > 0) {
+                showSlide(0);
+                startSlideshow();
+                slideshowContainer.classList.remove('hidden');
+                slideshowContainer.addEventListener('mouseenter', stopSlideshow);
+                slideshowContainer.addEventListener('mouseleave', startSlideshow);
+            } else {
+                 slideshowContainer.classList.add('hidden');
+            }
         } else {
-            slideshowContainer.classList.add('hidden'); // Hide if no offers
+            slideshowContainer.classList.add('hidden');
         }
     });
 }
@@ -155,8 +219,12 @@ window.menuFunctions = {
         if (!itemData) return;
         let standardItemInCart = cart.find(i => i.id === itemId && !i.options);
         if (change > 0) {
-            if (standardItemInCart) standardItemInCart.quantity++;
-            else cart.push({ cartItemId: itemId + '-standard', id: itemId, name: itemData.name, price: itemData.price, quantity: 1 });
+            if (standardItemInCart) {
+                standardItemInCart.quantity++;
+            } else {
+                // IMPORTANT CHANGE: Added categoryId to the cart item object
+                cart.push({ cartItemId: itemId + '-standard', id: itemId, name: itemData.name, price: itemData.price, quantity: 1, categoryId: categoryId });
+            }
         } else if (standardItemInCart) {
             standardItemInCart.quantity--;
             if (standardItemInCart.quantity <= 0) cart = cart.filter(i => i.cartItemId !== standardItemInCart.cartItemId);
@@ -171,7 +239,7 @@ window.menuFunctions = {
     },
     scrollToCategory: (categoryId) => {
         const section = document.getElementById(`category-section-${categoryId}`);
-        if (section) window.scrollTo({ top: section.offsetTop - 220, behavior: 'smooth' }); // Adjusted offset for slideshow
+        if (section) window.scrollTo({ top: section.offsetTop - 140, behavior: 'smooth' }); // Adjusted offset
     }
 };
 
@@ -195,7 +263,7 @@ function filterMenu() {
 }
 
 function updateActiveTabOnScroll() {
-    const scrollPosition = window.scrollY + 221; // Adjusted offset for slideshow
+    const scrollPosition = window.scrollY + 141; // Adjusted offset
     let activeSectionFound = false;
     document.querySelectorAll('.category-section').forEach(section => {
         if (!activeSectionFound && section.style.display !== 'none' && section.offsetTop <= scrollPosition && section.offsetTop + section.offsetHeight > scrollPosition) {
@@ -210,7 +278,6 @@ function updateActiveTabOnScroll() {
     });
 }
 
-// --- UPDATED: Function to update the drawer UI based on auth state ---
 function updateDrawerUI(user) {
     const guestInfo = document.getElementById('guest-info-drawer');
     const userInfo = document.getElementById('user-info-drawer');
@@ -218,23 +285,16 @@ function updateDrawerUI(user) {
     const accountSection = document.getElementById('account-section-drawer');
 
     if (user && !user.isAnonymous) {
-        // User is logged in
         guestInfo.classList.add('hidden');
         userInfo.classList.remove('hidden');
         if (accountSection) accountSection.classList.remove('hidden');
-
-        // Fetch user's name from the database. Fallback to a generic 'Customer' if no name is set.
         dbInstance.ref(`users/${user.uid}/name`).once('value').then(snapshot => {
             const name = snapshot.val();
-            // Display name if it exists and is not empty, otherwise show 'Customer'
             userNameSpan.textContent = (name && name.trim() !== '') ? name : 'Customer';
         }).catch(() => {
-            // In case of error, just show Customer
             userNameSpan.textContent = 'Customer';
         });
-
     } else {
-        // User is a guest or not logged in
         guestInfo.classList.remove('hidden');
         userInfo.classList.add('hidden');
         if (accountSection) accountSection.classList.add('hidden');
@@ -244,7 +304,7 @@ function updateDrawerUI(user) {
 
 document.addEventListener('DOMContentLoaded', () => {
     updateCartUI();
-    renderOffersSlideshow(); // Call the new function to render offers
+    renderOffersSlideshow();
     
     const openDrawerBtn = document.getElementById('open-drawer-btn');
     const closeDrawerBtn = document.getElementById('close-drawer-btn');

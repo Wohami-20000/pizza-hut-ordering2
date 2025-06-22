@@ -5,8 +5,11 @@ const db = firebase.database();
 const auth = firebase.auth();
 console.log("cart.js: Firebase 'db' and 'auth' objects initialized."); 
 
-// Load cart from localStorage or empty array
+// Load cart and promo from localStorage
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
+let appliedPromo = JSON.parse(localStorage.getItem("appliedPromo")) || null;
+let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
+const DELIVERY_FEE = 20.00; // Define a standard delivery fee
 
 // --- Global variables for message box ---
 const messageBox = document.getElementById('custom-message-box'); 
@@ -25,6 +28,8 @@ function showMessageBox(titleKey, messageKey, isError = false) {
   messageBoxText.textContent = translatedMessage; 
   messageBoxOkBtn.textContent = translatedOk; 
 
+  messageBoxOkBtn.onclick = () => { messageBox.style.display = 'none'; }; // Default close behavior
+
   if (isError) { 
     messageBoxTitle.classList.add('text-red-600'); 
     messageBoxOkBtn.classList.add('bg-red-600'); 
@@ -35,9 +40,14 @@ function showMessageBox(titleKey, messageKey, isError = false) {
   }
 
   messageBox.style.display = 'flex'; 
-  messageBoxOkBtn.onclick = () => { 
-    messageBox.style.display = 'none'; 
-  };
+}
+
+// NEW: Message box with a redirecting OK button
+function showRedirectMessageBox(titleKey, messageKey, redirectUrl) {
+    showMessageBox(titleKey, messageKey, true); // Show as an error/info style
+    messageBoxOkBtn.onclick = () => {
+        window.location.href = redirectUrl;
+    };
 }
 
 
@@ -48,46 +58,100 @@ function escapeHTML(str) {
   }[s]));
 }
 
+
+function updateTotalsUI() {
+    const summarySubtotalEl = document.getElementById('summary-subtotal');
+    const deliveryRowEl = document.getElementById('delivery-row');
+    const deliveryAmountEl = document.getElementById('delivery-amount');
+    const discountRowEl = document.getElementById('discount-row');
+    const discountCodeDisplayEl = document.getElementById('discount-code-display');
+    const discountAmountEl = document.getElementById('discount-amount');
+    const summaryTotalEl = document.getElementById('summary-total');
+    const cartTotalEl = document.getElementById("cart-total");
+
+    const orderType = localStorage.getItem('orderType');
+    const subtotal = cart.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0), 0);
+    let total = subtotal;
+    let currentDeliveryFee = 0;
+
+    if (orderType === 'delivery') {
+        if (appliedPromo && appliedPromo.discountType === 'free_delivery') {
+            currentDeliveryFee = 0;
+            discountRowEl.classList.remove('hidden');
+            discountCodeDisplayEl.textContent = appliedPromo.code;
+            discountAmountEl.textContent = `${DELIVERY_FEE.toFixed(2)}`;
+        } else {
+            currentDeliveryFee = DELIVERY_FEE;
+        }
+        deliveryRowEl.classList.remove('hidden');
+        deliveryAmountEl.textContent = `${currentDeliveryFee.toFixed(2)} MAD`;
+        total += currentDeliveryFee;
+    } else {
+        deliveryRowEl.classList.add('hidden');
+    }
+
+    if (appliedPromo && appliedPromo.discountType !== 'free_delivery' && subtotal > 0) {
+        let discount = 0;
+        if (appliedPromo.discountType === 'percentage') {
+            discount = subtotal * (appliedPromo.discountValue / 100);
+        } else if (appliedPromo.discountType === 'fixed') {
+            discount = appliedPromo.discountValue;
+        }
+        
+        discountRowEl.classList.remove('hidden');
+        discountCodeDisplayEl.textContent = appliedPromo.code;
+        discountAmountEl.textContent = discount.toFixed(2);
+        total -= discount;
+    } else if (!appliedPromo || appliedPromo.discountType === 'free_delivery') {
+         if (!appliedPromo || appliedPromo.discountType !== 'free_delivery'){
+            discountRowEl.classList.add('hidden');
+         }
+    }
+    
+    total = Math.max(0, total);
+
+    summarySubtotalEl.textContent = `${subtotal.toFixed(2)} MAD`;
+    summaryTotalEl.textContent = `${total.toFixed(2)} MAD`;
+    cartTotalEl.textContent = total.toFixed(2);
+}
+
+
 function renderCart() { 
   const container = document.getElementById("cart-items"); 
-  const cartTotalEl = document.getElementById("cart-total"); 
+  const summaryBar = document.getElementById('order-summary-bar');
 
-  if (!container || !cartTotalEl) { 
+  if (!container) { 
     console.error("Cart HTML elements not found!"); 
     return;
   }
 
   container.innerHTML = ""; 
-
   cart = JSON.parse(localStorage.getItem("cart")) || []; 
 
   if (cart.length === 0) { 
-    container.innerHTML = "<p data-translate='cart_empty' class='text-gray-600 text-center py-4'>Your cart is empty.</p>"; 
-    cartTotalEl.textContent = "0.00"; 
-    if (typeof applyLanguage === 'function' && typeof currentLang !== 'undefined') { 
-        applyLanguage(currentLang); 
-    }
-    return;
+    container.innerHTML = "<p data-translate='cart_empty' class='text-gray-500 text-center py-8'>Your cart is empty. Let's add something tasty!</p>"; 
+    summaryBar.classList.remove('visible');
+  } else {
+     summaryBar.classList.add('visible');
   }
-
-  let total = 0; 
 
   cart.forEach((item, index) => { 
     const itemQuantity = parseInt(item.quantity) || 0; 
     const itemPrice = parseFloat(item.price) || 0; 
-    const itemTotalPrice = itemPrice * itemQuantity; 
-    total += itemTotalPrice; 
-
+    
     const itemDiv = document.createElement("div"); 
     itemDiv.className = "cart-item-card"; 
-
+    
     itemDiv.innerHTML = `
       <div class="cart-item-image">
-        <img src="${escapeHTML(item.image || 'https://via.placeholder.com/72x72?text=Item')}" alt="${escapeHTML(item.name || 'Cart Item')}">
+        <img src="${escapeHTML(item.image || 'https://www.pizzahut.ma/images/Default_pizza.png')}" alt="${escapeHTML(item.name || 'Cart Item')}">
       </div>
       <div class="cart-item-details">
-        <div class="cart-item-name">${escapeHTML(item.name)}</div>
-        <div class="cart-item-price-each">${itemPrice.toFixed(2)} <span class="font-semibold">MAD each</span></div>
+        <div class="flex items-center">
+            <div class="cart-item-name">${escapeHTML(item.name)}</div>
+            ${item.categoryId && item.id ? `<a href="item-details.html?categoryId=${item.categoryId}&itemId=${item.id}" class="edit-item-btn" aria-label="Edit ${escapeHTML(item.name)}"><i class="fas fa-pencil-alt"></i></a>` : ''}
+        </div>
+        <div class="cart-item-price-each">${itemPrice.toFixed(2)} <span class="font-semibold">MAD</span></div>
       </div>
       <div class="cart-item-controls">
         <button 
@@ -96,37 +160,31 @@ function renderCart() {
           aria-label="Decrease quantity of ${escapeHTML(item.name)}">
           -
         </button>
-        <span class="font-medium w-6 text-center">${itemQuantity}</span>
+        <span class="font-bold text-lg w-6 text-center">${itemQuantity}</span>
         <button 
           onclick="window.cartFunctions.changeQuantity(${index}, 1)" 
           class="quantity-btn"
           aria-label="Increase quantity of ${escapeHTML(item.name)}">
           +
         </button>
-        <button 
+      </div>
+      <button 
           onclick="window.cartFunctions.removeItem(${index})" 
           class="remove-item-btn"
           aria-label="Remove ${escapeHTML(item.name)} from cart">
-          <i class="fas fa-trash"></i>
+          <i class="fas fa-times-circle text-xl"></i>
         </button>
-      </div>
     `;
     container.appendChild(itemDiv); 
   });
-
-  cartTotalEl.textContent = total.toFixed(2); 
-  const stickyCartTotalEl = document.querySelector('.order-summary-bar-total #cart-total'); 
-  if (stickyCartTotalEl) { 
-    stickyCartTotalEl.textContent = total.toFixed(2); 
-  }
+  
+  updateTotalsUI();
 
   if (typeof applyLanguage === 'function') { 
-    applyLanguage(currentLang, container); 
-    applyLanguage(currentLang, document.querySelector('.order-summary-bar')); 
+    applyLanguage(currentLang, document.body); 
   }
 }
 
-// Expose functions to global scope for onclick handlers
 window.cartFunctions = {
   changeQuantity: (index, delta) => { 
     if (cart[index]) { 
@@ -136,6 +194,7 @@ window.cartFunctions = {
       }
       localStorage.setItem("cart", JSON.stringify(cart)); 
       renderCart(); 
+      renderSuggestions();
       updateCartCountNav(); 
       updatePlaceOrderButtonState(); 
     }
@@ -144,6 +203,7 @@ window.cartFunctions = {
     cart.splice(index, 1); 
     localStorage.setItem("cart", JSON.stringify(cart)); 
     renderCart(); 
+    renderSuggestions();
     updateCartCountNav(); 
     updatePlaceOrderButtonState(); 
   }
@@ -158,24 +218,30 @@ function updateCartCountNav() {
     }
 }
 
-// Function to update the "Place Order" button state (enabled/disabled)
 function updatePlaceOrderButtonState() { 
   const placeOrderBtn = document.getElementById("place-order"); 
   if (placeOrderBtn) { 
-    placeOrderBtn.disabled = cart.length === 0; 
+    const cartIsEmpty = cart.length === 0;
+    placeOrderBtn.disabled = cartIsEmpty; 
   }
 }
 
-// Function to render the dynamic input field based on order type
-async function renderOrderDetailsInput(user) { // user parameter added
+async function renderOrderDetailsInput(user) {
     const orderDetailsInputDiv = document.getElementById('order-details-input'); 
     if (!orderDetailsInputDiv) {
         console.error("Order details input div not found!");
         return;
     }
-    orderDetailsInputDiv.innerHTML = ''; // Clear previous content
+    orderDetailsInputDiv.innerHTML = '';
 
     const orderType = localStorage.getItem('orderType') || null; 
+
+    const orderTypeChanger = document.getElementById('order-type-changer');
+    if(orderTypeChanger) {
+        orderTypeChanger.value = orderType;
+    }
+    
+    updateTotalsUI();
 
     if (orderType === 'dineIn') { 
         const tableNumber = localStorage.getItem('tableNumber') || ''; 
@@ -188,43 +254,90 @@ async function renderOrderDetailsInput(user) { // user parameter added
             tableNumberInputEl.value = tableNumber; 
         }
 
-    } else if (orderType === 'toGo' || orderType === 'delivery') { 
-        if (!user) { // User must be logged in for toGo/delivery orders
-            showMessageBox('validation_error_title', 'no_user_logged_in', true); 
-            document.getElementById("place-order").disabled = true; 
-        } else {
-            const userProfileSnapshot = await db.ref('users/' + user.uid).once('value'); 
-            const userProfile = userProfileSnapshot.val() || {}; 
-
-            const customerName = userProfile.name ? userProfile.name.trim() : '';
-            const customerPhone = userProfile.phone ? userProfile.phone.trim() : '';
-
-            if (!customerName || customerName.toLowerCase() === 'customer' || !customerPhone) {
-                showMessageBox('validation_error_title', 'profile_details_missing_error', true); 
-                document.getElementById("place-order").disabled = true; 
-            } else {
-                let addressInputHtml = '';
-                if (orderType === 'delivery') { 
-                    addressInputHtml = `<label id="address-label" for="delivery-address" class="block mb-2 font-semibold text-gray-700" data-translate="delivery_address_label">Delivery Address</label>
-                                        <input type="text" id="delivery-address" class="w-full border border-gray-300 rounded-lg p-3 text-lg" placeholder="Enter your delivery address" required value="${escapeHTML(userProfile.address || '')}"/>`; 
-                }
-                orderDetailsInputDiv.innerHTML = `
-                    <label id="customer-name-label" for="customer-name" class="block mb-2 font-semibold text-gray-700" data-translate="customer_name_label">Customer Name</label>
-                    <input type="text" id="customer-name" class="w-full border border-gray-300 rounded-lg p-3 text-lg mb-4" value="${escapeHTML(customerName)}" readonly />
-                    <label id="customer-phone-label" for="customer-phone" class="block mb-2 font-semibold text-gray-700" data-translate="phone_number_label">Phone Number</label>
-                    <input type="tel" id="customer-phone" class="w-full border border-gray-300 rounded-lg p-3 text-lg mb-4" value="${escapeHTML(customerPhone)}" readonly />
-                    ${addressInputHtml}
-                    <p class="text-center text-sm mt-4" data-translate="incorrect_info_prompt">Is your information incorrect? <a href="profile.html" class="text-blue-600 hover:underline" data-translate="edit_profile_link">Edit Profile</a></p>
-                `;
-            }
+    } else if (orderType === 'pickup' || orderType === 'delivery') {
+        if (!user || user.isAnonymous) {
+            window.location.href = 'auth.html';
+            return;
         }
-    } else { // This 'else' correctly handles any other cases for orderType (including orderType === null)
-        // If orderType is null (i.e. not set), it correctly redirects to order-type-selection.html
-        if (orderType === null) {
-            window.location.href = 'order-type-selection.html'; // Redirect if no orderType and not a dine-in bypass
+
+        const userProfileSnapshot = await db.ref('users/' + user.uid).once('value'); 
+        const userProfile = userProfileSnapshot.val() || {}; 
+
+        const customerName = userProfile.name ? userProfile.name.trim() : '';
+        const customerPhone = userProfile.phone ? userProfile.phone.trim() : '';
+
+        let pickupOptionsHtml = '';
+        if (orderType === 'pickup') {
+            pickupOptionsHtml = `
+                <div class="mt-6 border-t pt-4">
+                    <label class="block font-semibold text-gray-700 mb-2" data-translate="pickup_time_label">Pickup Time</label>
+                    <div class="flex items-center space-x-6">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="pickupTimeOption" value="asap" class="form-radio h-5 w-5 text-red-600" checked>
+                            <span class="ml-2 text-gray-700" data-translate="pickup_time_asap">ASAP</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="pickupTimeOption" value="schedule" class="form-radio h-5 w-5 text-red-600">
+                            <span class="ml-2 text-gray-700" data-translate="pickup_time_schedule">Schedule</span>
+                        </label>
+                    </div>
+                    <div id="schedule-time-div" class="mt-3 hidden">
+                         <label for="pickup-time" class="block text-sm font-medium text-gray-600 mb-1" data-translate="pickup_time_select">Select a time:</label>
+                         <input type="time" id="pickup-time" name="pickup-time" class="w-full border border-gray-300 rounded-lg p-2 text-lg focus:ring-2 focus:ring-red-500">
+                    </div>
+                </div>
+            `;
+        }
+
+        let addressInputHtml = '';
+        if (orderType === 'delivery') { 
+            addressInputHtml = `
+                <div>
+                    <label id="address-label" for="delivery-address" class="block mb-2 font-semibold text-gray-700" data-translate="delivery_address_label">Delivery Address</label>
+                    <input type="text" id="delivery-address" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500" placeholder="Enter your delivery address" required value="${escapeHTML(userProfile.address || '')}"/>
+                </div>
+                <div class="mt-4">
+                    <label for="delivery-instructions" class="block mb-2 font-semibold text-gray-700" data-translate="delivery_instructions_label">Delivery Instructions (Optional)</label>
+                    <textarea id="delivery-instructions" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500" placeholder="e.g. Leave at front door, call upon arrival..."></textarea>
+                </div>
+            `;
+        }
+        
+        orderDetailsInputDiv.innerHTML = `
+            <div class="space-y-4">
+                <div>
+                    <label id="customer-name-label" for="customer-name" class="block mb-2 font-semibold text-gray-700" data-translate="customer_name_label">Your Name</label>
+                    <input type="text" id="customer-name" class="w-full border bg-gray-100 border-gray-300 rounded-lg p-3 text-lg" value="${escapeHTML(customerName)}" readonly />
+                </div>
+                <div>
+                    <label id="customer-phone-label" for="customer-phone" class="block mb-2 font-semibold text-gray-700" data-translate="phone_number_label">Your Phone</label>
+                    <input type="tel" id="customer-phone" class="w-full border bg-gray-100 border-gray-300 rounded-lg p-3 text-lg" value="${escapeHTML(customerPhone)}" readonly />
+                </div>
+                ${addressInputHtml}
+            </div>
+            ${pickupOptionsHtml}
+            <p class="text-center text-sm mt-6" data-translate="incorrect_info_prompt">Is your information incorrect? <a href="profile.html" class="text-blue-600 hover:underline font-semibold" data-translate="edit_profile_link">Edit Profile</a></p>
+        `;
+
+        if (orderType === 'pickup') {
+            const pickupRadios = document.querySelectorAll('input[name="pickupTimeOption"]');
+            const scheduleDiv = document.getElementById('schedule-time-div');
+            pickupRadios.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    if (e.target.value === 'schedule') {
+                        scheduleDiv.classList.remove('hidden');
+                    } else {
+                        scheduleDiv.classList.add('hidden');
+                    }
+                });
+            });
+        }
+    } else { 
+        if (!orderType) {
+            // UPDATED: Use the redirecting message box for this error case
+            showRedirectMessageBox('Validation Error', 'Order type is not set. Please select how you want to order.', 'order-type-selection.html');
         } else {
-            // Handle unexpected or invalid orderType (e.e.g., localStorage corruption)
-            showMessageBox('validation_error_title', 'order_type_missing_error', true); 
+            showMessageBox('validation_error_title', 'order_type_missing_error', true);
         }
         document.getElementById("place-order").disabled = true; 
     }
@@ -235,18 +348,276 @@ async function renderOrderDetailsInput(user) { // user parameter added
 }
 
 
-// Initial render and setup on DOMContentLoaded
+function handlePromoCode() {
+    const promoInput = document.getElementById('promo-code-input');
+    const applyBtn = document.getElementById('apply-promo-btn');
+    const promoMessageEl = document.getElementById('promo-message');
+
+    if (appliedPromo) {
+        promoInput.value = appliedPromo.code;
+        promoInput.disabled = true;
+        applyBtn.textContent = 'Remove';
+        applyBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+        applyBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
+        promoMessageEl.textContent = `"${appliedPromo.name}" applied!`;
+        promoMessageEl.className = 'text-sm mt-2 font-semibold success';
+    }
+
+    applyBtn.addEventListener('click', async () => {
+        if (appliedPromo) {
+            appliedPromo = null;
+            localStorage.removeItem('appliedPromo');
+            promoInput.value = '';
+            promoInput.disabled = false;
+            applyBtn.textContent = 'Apply';
+            applyBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+            applyBtn.classList.remove('bg-gray-500', 'hover:bg-gray-600');
+            promoMessageEl.textContent = 'Promo code removed.';
+            promoMessageEl.className = 'text-sm mt-2 font-semibold';
+            updateTotalsUI();
+            return;
+        }
+
+        const codeToApply = promoInput.value.trim().toUpperCase();
+        if (!codeToApply) {
+            promoMessageEl.textContent = 'Please enter a promo code.';
+            promoMessageEl.className = 'text-sm mt-2 font-semibold error';
+            return;
+        }
+
+        const promoCodesRef = db.ref('promoCodes');
+        const snapshot = await promoCodesRef.once('value');
+        const promoCodesData = snapshot.val();
+        
+        let foundOffer = null;
+        if (promoCodesData) {
+            for (const offerId in promoCodesData) {
+                const offer = promoCodesData[offerId];
+                if (offer.code && offer.code.toUpperCase() === codeToApply) {
+                    foundOffer = offer;
+                    break;
+                }
+            }
+        }
+
+        if (foundOffer) {
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            if (foundOffer.minOrderValue && subtotal < foundOffer.minOrderValue) {
+                promoMessageEl.textContent = `This code requires a minimum order of ${foundOffer.minOrderValue} MAD.`;
+                promoMessageEl.className = 'text-sm mt-2 font-semibold error';
+                return;
+            }
+            
+            if (foundOffer.discountType === 'free_delivery' && localStorage.getItem('orderType') !== 'delivery') {
+                promoMessageEl.textContent = 'This code is only valid for delivery orders.';
+                promoMessageEl.className = 'text-sm mt-2 font-semibold error';
+                return;
+            }
+
+            appliedPromo = foundOffer;
+            localStorage.setItem('appliedPromo', JSON.stringify(appliedPromo));
+            updateTotalsUI(); 
+            
+            promoInput.disabled = true;
+            applyBtn.textContent = 'Remove';
+            applyBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+            applyBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
+            promoMessageEl.textContent = `Success! "${foundOffer.name}" applied.`;
+            promoMessageEl.className = 'text-sm mt-2 font-semibold success';
+        } else {
+            promoMessageEl.textContent = 'This promo code is not valid.';
+            promoMessageEl.className = 'text-sm mt-2 font-semibold error';
+            appliedPromo = null;
+            localStorage.removeItem('appliedPromo');
+            updateTotalsUI();
+        }
+    });
+}
+
+function createSuggestionCard(item, categoryId, itemId) {
+    const card = document.createElement('div');
+    card.className = 'menu-item-card';
+    card.id = `suggestion-card-${itemId}`;
+    const itemPrice = typeof item.price === 'number' ? item.price : 0;
+    const totalQuantityInCart = cart.filter(ci => ci.id === itemId).reduce((sum, ci) => sum + ci.quantity, 0);
+    const isFavorite = favorites.includes(itemId);
+    
+    card.innerHTML = `
+        <div class="item-content-left flex flex-col">
+            <div class="flex justify-between items-start">
+                <h3 class="text-lg font-bold text-gray-800 pr-2">${escapeHTML(item.name || 'Unknown Item')}</h3>
+                <i class="fas fa-heart fav-icon text-xl ${isFavorite ? 'active' : ''}" onclick="event.stopPropagation(); window.cartFunctions.toggleFavorite('${itemId}', this)"></i>
+            </div>
+            <p class="text-gray-500 text-sm mt-1 mb-3 flex-grow">${escapeHTML(item.description || '')}</p>
+            <div class="mt-auto flex justify-between items-center">
+                <span class="text-xl font-extrabold text-gray-900">${itemPrice.toFixed(2)} MAD</span>
+                <a href="item-details.html?categoryId=${categoryId}&itemId=${itemId}" class="customize-btn font-semibold">Customize</a>
+            </div>
+        </div>
+        <div class="item-image-right flex flex-col items-center justify-between">
+            <img src="${escapeHTML(item.image_url || 'https://www.pizzahut.ma/images/Default_pizza.png')}" alt="${escapeHTML(item.name || 'Pizza')}">
+            <div class="quantity-controls flex items-center gap-3 mt-2">
+                <button class="quantity-btn" onclick="event.stopPropagation(); window.cartFunctions.updateSuggestionItemQuantity('${itemId}', -1, '${categoryId}')">-</button>
+                <span class="font-bold text-lg w-8 text-center">${totalQuantityInCart}</span>
+                <button class="quantity-btn" onclick="event.stopPropagation(); window.cartFunctions.updateSuggestionItemQuantity('${itemId}', 1, '${categoryId}')">+</button>
+            </div>
+        </div>
+    `;
+    return card;
+}
+
+async function renderSuggestions() {
+    const container = document.getElementById('suggestion-section');
+    if (!container) return;
+
+    try {
+        const menuSnapshot = await db.ref('menu').once('value');
+        const menuData = menuSnapshot.val();
+        if (!menuData) {
+            container.classList.add('hidden');
+            return;
+        }
+
+        const cartItemIds = cart.map(item => item.id);
+        let potentialItems = [];
+
+        for (const categoryId in menuData) {
+            const category = menuData[categoryId];
+            if (category.items) {
+                for (const itemId in category.items) {
+                    const item = category.items[itemId];
+                    if (item.price < 30 && !cartItemIds.includes(itemId)) {
+                        potentialItems.push({ ...item, id: itemId, categoryId: categoryId });
+                    }
+                }
+            }
+        }
+
+        const suggestions = potentialItems.sort(() => 0.5 - Math.random()).slice(0, 3);
+
+        container.innerHTML = ''; 
+        if (suggestions.length > 0) {
+            const title = document.createElement('h2');
+            title.className = 'text-2xl font-bold mb-4 text-gray-800';
+            title.textContent = 'You might also like';
+            container.appendChild(title);
+            
+            const itemsContainer = document.createElement('div');
+            itemsContainer.className = 'space-y-4';
+            suggestions.forEach(item => {
+                const card = createSuggestionCard(item, item.categoryId, item.id);
+                itemsContainer.appendChild(card);
+            });
+            container.appendChild(itemsContainer);
+        }
+
+    } catch (error) {
+        console.error("Could not render suggestions:", error);
+        container.classList.add('hidden');
+    }
+}
+
+Object.assign(window.cartFunctions, {
+    toggleFavorite: (itemId, heartIconEl) => {
+        heartIconEl.classList.toggle('active');
+        favorites = favorites.includes(itemId) ? favorites.filter(id => id !== itemId) : [...favorites, itemId];
+        localStorage.setItem("favorites", JSON.stringify(favorites));
+    },
+    updateSuggestionItemQuantity: async (itemId, change, categoryId) => {
+        const menuSnapshot = await db.ref(`menu/${categoryId}/items/${itemId}`).once('value');
+        const itemData = menuSnapshot.val();
+        if (!itemData) return;
+
+        let itemInCart = cart.find(i => i.id === itemId && !i.options);
+        if (change > 0) {
+            if (itemInCart) {
+                itemInCart.quantity++;
+            } else {
+                cart.push({
+                    cartItemId: itemId + '-standard',
+                    id: itemId,
+                    name: itemData.name,
+                    price: itemData.price,
+                    quantity: 1,
+                    categoryId: categoryId,
+                    image: itemData.image_url
+                });
+            }
+        } else if (itemInCart) {
+            itemInCart.quantity--;
+            if (itemInCart.quantity <= 0) {
+                cart = cart.filter(i => i.id !== itemId);
+            }
+        }
+
+        localStorage.setItem("cart", JSON.stringify(cart));
+        renderCart();
+        renderSuggestions();
+        updateCartCountNav();
+        updatePlaceOrderButtonState();
+    }
+});
+
+
 document.addEventListener('DOMContentLoaded', () => {
     currentLang = localStorage.getItem('lang') || 'en'; 
     
     renderCart(); 
     updateCartCountNav(); 
-    updatePlaceOrderButtonState(); 
+    updatePlaceOrderButtonState();
+    handlePromoCode(); 
+    renderSuggestions();
+
+    const orderTypeChanger = document.getElementById('order-type-changer');
+    if (orderTypeChanger) {
+        orderTypeChanger.addEventListener('change', (e) => {
+            const newOrderType = e.target.value;
+            const user = auth.currentUser;
+
+            if (user && user.isAnonymous && (newOrderType === 'pickup' || newOrderType === 'delivery')) {
+                e.target.value = 'dineIn';
+                showRedirectMessageBox('Login Required', 'Pickup and Delivery orders require an account. Please log in or create an account to continue.', 'auth.html');
+                return;
+            }
+
+            localStorage.setItem('orderType', newOrderType);
+            
+            if (newOrderType !== 'delivery' && appliedPromo && appliedPromo.discountType === 'free_delivery') {
+                appliedPromo = null;
+                localStorage.removeItem('appliedPromo');
+                 document.getElementById('promo-code-input').value = '';
+                 document.getElementById('promo-code-input').disabled = false;
+                 document.getElementById('apply-promo-btn').textContent = 'Apply';
+                 document.getElementById('promo-message').textContent = '';
+            }
+            renderOrderDetailsInput(user);
+        });
+    }
 
     const placeOrderBtn = document.getElementById("place-order"); 
 
     auth.onAuthStateChanged(async (user) => {
+        const orderTypeChanger = document.getElementById('order-type-changer');
+        let orderType = localStorage.getItem('orderType');
+
+        // --- REFINED: Guest user restriction logic ---
+        if (user && user.isAnonymous) {
+            if(orderTypeChanger) {
+                orderTypeChanger.querySelector('option[value="pickup"]').disabled = true;
+                orderTypeChanger.querySelector('option[value="delivery"]').disabled = true;
+            }
+            // Silently switch to Dine-In if guest has other types selected
+            if (orderType === 'pickup' || orderType === 'delivery') {
+                localStorage.setItem('orderType', 'dineIn');
+            }
+        } else if (orderTypeChanger) {
+            orderTypeChanger.querySelector('option[value="pickup"]').disabled = false;
+            orderTypeChanger.querySelector('option[value="delivery"]').disabled = false;
+        }
+
+
         await renderOrderDetailsInput(user); 
+        updatePlaceOrderButtonState(); 
 
         if (placeOrderBtn) { 
             const oldClickListener = placeOrderBtn._currentClickListener; 
@@ -254,16 +625,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 placeOrderBtn.removeEventListener("click", oldClickListener);
             }
 
-            // Define newClickListener, ensuring 'user' from onAuthStateChanged is directly used.
             const newClickListener = async () => {
                 if (placeOrderBtn.disabled) return;
                 
                 let orderDetails = {};
                 let validationError = false;
 
-                let orderType = localStorage.getItem("orderType"); 
+                let currentOrderType = localStorage.getItem("orderType"); 
 
-                if (orderType === 'dineIn') { 
+                if (currentOrderType === 'dineIn') { 
                     const localTableNumberInput = document.getElementById('table-number'); 
                     const tableNumber = localTableNumberInput ? localTableNumberInput.value.trim() : '';
                     if (!tableNumber || isNaN(parseInt(tableNumber)) || parseInt(tableNumber) <= 0) {
@@ -272,46 +642,51 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         orderDetails.table = tableNumber;
                     }
-                } else if (orderType === 'toGo' || orderType === 'delivery') { 
-                    if (!user) { // Directly use 'user' from the outer onAuthStateChanged scope
-                        showMessageBox('validation_error_title', 'no_user_logged_in', true); 
+                } else if (currentOrderType === 'pickup' || currentOrderType === 'delivery') {
+                    if (!user || user.isAnonymous) { 
+                        showRedirectMessageBox('Login Required', 'You must be logged in to place this type of order.', 'auth.html');
                         validationError = true;
                     } else {
                         const userProfileSnapshot = await db.ref('users/' + user.uid).once('value'); 
                         const userProfile = userProfileSnapshot.val() || {}; 
 
-                        const customerName = userProfile.name ? userProfile.name.trim() : '';
-                        const customerPhone = userProfile.phone ? userProfile.phone.trim() : '';
+                        orderDetails.userId = user.uid;
+                        orderDetails.customerName = userProfile.name || '';
+                        orderDetails.customerPhone = userProfile.phone || '';
 
-                        if (!customerName || customerName.toLowerCase() === 'customer' || !customerPhone) {
-                            showMessageBox('validation_error_title', 'profile_details_missing_error', true); 
-                            validationError = true;
-                        } else {
-                            orderDetails.userId = user.uid; // Assign UID from 'user'
-                            orderDetails.customerName = customerName;
-                            orderDetails.customerPhone = customerPhone;
+                        if (currentOrderType === 'delivery') { 
+                            const deliveryAddressInput = document.getElementById('delivery-address');
+                            const deliveryAddress = deliveryAddressInput ? deliveryAddressInput.value.trim() : '';
+                            if (!deliveryAddress) {
+                                showMessageBox('validation_error_title', 'delivery_address_missing_error', true); 
+                                validationError = true;
+                            } else {
+                                orderDetails.deliveryAddress = deliveryAddress;
+                            }
 
-                            if (orderType === 'delivery') { 
-                                const deliveryAddressInput = document.getElementById('delivery-address');
-                                const deliveryAddress = deliveryAddressInput ? deliveryAddressInput.value.trim() : '';
-                                if (!deliveryAddress) {
-                                    showMessageBox('validation_error_title', 'delivery_address_missing_error', true); 
+                            const deliveryInstructionsInput = document.getElementById('delivery-instructions');
+                            if (deliveryInstructionsInput) {
+                                orderDetails.deliveryInstructions = deliveryInstructionsInput.value.trim();
+                            }
+                        }
+
+                        if (currentOrderType === 'pickup') {
+                            const pickupTimeOption = document.querySelector('input[name="pickupTimeOption"]:checked').value;
+                            if (pickupTimeOption === 'schedule') {
+                                const scheduledTime = document.getElementById('pickup-time').value;
+                                if (!scheduledTime) {
+                                    showMessageBox('validation_error_title', 'pickup_time_missing_error', true); 
                                     validationError = true;
                                 } else {
-                                    orderDetails.deliveryAddress = deliveryAddress;
+                                    orderDetails.pickupTime = scheduledTime;
                                 }
+                            } else {
+                                orderDetails.pickupTime = 'ASAP';
                             }
                         }
                     }
-                } else { // This 'else' handles cases where orderType is not set or unexpected.
-                    // This case means orderType is null or invalid, or somehow was not set properly.
-                    if (orderType === null) {
-                        window.location.href = 'order-type-selection.html'; // Redirect if no orderType and not a dine-in bypass
-                    } else {
-                        // Handle unexpected or invalid orderType (e.e.g., localStorage corruption)
-                        showMessageBox('validation_error_title', 'order_type_missing_error', true); 
-                    }
-                    document.getElementById("place-order").disabled = true; 
+                } else { 
+                    showMessageBox('validation_error_title', 'order_type_missing_error', true);
                     return;
                 }
 
@@ -327,43 +702,71 @@ document.addEventListener('DOMContentLoaded', () => {
                 placeOrderBtn.disabled = true; 
                 placeOrderBtn.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.placing_order_feedback) || "Placing Order..."; 
 
-                const totalAmount = cart.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0), 0); 
+                const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                let finalTotal = subtotal;
+                let currentDeliveryFee = 0;
+                
                 const orderData = {
-                  orderType: orderType, 
+                  orderType: currentOrderType, 
                   ...orderDetails,     
-                  items: cart, 
-                  total: totalAmount, 
+                  cart: cart,
+                  subtotal: subtotal,
                   timestamp: new Date().toISOString(), 
                   status: "pending" 
                 };
 
-                // LOGGING FOR DEBUGGING WRITE OPERATIONS
-                console.log("cart.js: Preparing order for Firebase write:", orderData);
-                if (user) { // Use the 'user' variable from onAuthStateChanged
-                    console.log("cart.js: Current authenticated user UID for write:", user.uid);
-                } else {
-                    console.warn("cart.js: No authenticated user found during order write for non-dineIn order (this should not happen if user validation passed).");
+                if (currentOrderType === 'delivery') {
+                    currentDeliveryFee = (appliedPromo && appliedPromo.discountType === 'free_delivery') ? 0 : DELIVERY_FEE;
+                    orderData.deliveryFee = currentDeliveryFee;
+                    finalTotal += currentDeliveryFee;
                 }
 
-                localStorage.setItem("lastOrderDataForConfirm", JSON.stringify(orderData)); 
-                if (orderType === 'dineIn') { 
+                if (appliedPromo) {
+                    let discountAmount = 0;
+                    if (appliedPromo.discountType === 'percentage') {
+                        discountAmount = subtotal * (appliedPromo.discountValue / 100);
+                    } else if (appliedPromo.discountType === 'fixed') {
+                        discountAmount = appliedPromo.discountValue;
+                    }
+                    
+                    if(appliedPromo.discountType !== 'free_delivery'){
+                         finalTotal -= discountAmount;
+                    }
+                    
+                    orderData.promoApplied = {
+                        code: appliedPromo.code,
+                        name: appliedPromo.name,
+                        discountType: appliedPromo.discountType,
+                        discountValue: appliedPromo.discountValue,
+                        appliedDiscount: appliedPromo.discountType === 'free_delivery' ? DELIVERY_FEE : discountAmount
+                    };
+                }
+                
+                orderData.totalPrice = Math.max(0, finalTotal);
+                
+                if(user && !user.isAnonymous) {
+                    orderData.userId = user.uid;
+                }
+
+                if (currentOrderType === 'dineIn') { 
                     localStorage.setItem("tableNumber", orderDetails.table); 
-                } else {
-                    localStorage.removeItem("tableNumber"); 
                 }
 
                 try {
-                    console.log("cart.js: Attempting to write order to Firebase with data:", orderData); 
                     let newOrderRef = db.ref("orders").push(); 
                     await newOrderRef.set(orderData); 
-                    console.log("cart.js: Order pushed successfully with key:", newOrderRef.key); 
+                    
+                    if (orderData.userId) {
+                       await db.ref(`users/${orderData.userId}/orders/${newOrderRef.key}`).set(true);
+                    }
                     
                     localStorage.setItem("lastOrderId", newOrderRef.key); 
                     localStorage.removeItem("cart"); 
+                    localStorage.removeItem("appliedPromo");
                     
                     window.location.href = `confirm.html?orderId=${newOrderRef.key}`; 
                 } catch (error) {
-                    console.error("cart.js: Firebase error during order placement (CAUGHT):", error); 
+                    console.error("cart.js: Firebase error during order placement:", error); 
                     showMessageBox('order_error_title', `Order placement failed: ${error.message}`, true); 
                 } finally {
                     placeOrderBtn.disabled = false; 
