@@ -1,12 +1,12 @@
-// menu.js - Final Version with Dynamic Drawer & Advanced Slideshow
+// menu.js - Corrected and Robust Version
 const dbInstance = firebase.database();
 const authInstance = firebase.auth();
 
 let menuDataCache = {};
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
-let favorites = []; // Will be loaded from localStorage or Firebase
+let favorites = [];
 
-// --- SLIDESHOW STATE VARIABLES ---
+// --- SLIDESHOW STATE ---
 let slideInterval;
 let currentIndex = 0;
 let slides = [];
@@ -30,26 +30,20 @@ function updateCartUI() {
     if(cartSummaryBar) cartSummaryBar.classList.toggle('translate-y-full', totalItems === 0);
 }
 
-// --- IMPLEMENTED: Favorites Logic ---
 async function toggleFavorite(itemId, heartIconEl) {
     const user = authInstance.currentUser;
     const isFavorited = heartIconEl.classList.toggle('active');
-
     if (user && !user.isAnonymous) {
-        // Firebase logic for logged-in users
         const favRef = dbInstance.ref(`users/${user.uid}/favorites/${itemId}`);
         if (isFavorited) {
-            await favRef.set(true); // Add to favorites
+            await favRef.set(true);
             if (!favorites.includes(itemId)) favorites.push(itemId);
         } else {
-            await favRef.remove(); // Remove from favorites
+            await favRef.remove();
             favorites = favorites.filter(id => id !== itemId);
         }
     } else {
-        // localStorage logic for guests
-        favorites = isFavorited
-            ? [...favorites, itemId]
-            : favorites.filter(id => id !== itemId);
+        favorites = isFavorited ? [...new Set([...favorites, itemId])] : favorites.filter(id => id !== itemId);
         localStorage.setItem("favorites", JSON.stringify(favorites));
     }
 }
@@ -62,10 +56,8 @@ async function loadFavorites(user) {
     } else {
         favorites = JSON.parse(localStorage.getItem("favorites")) || [];
     }
-    // Re-render the menu to show the correct favorite statuses
     renderFullMenu();
 }
-
 
 function createMenuItemCard(item, categoryId, itemId) {
     const card = document.createElement('div');
@@ -99,26 +91,19 @@ function createMenuItemCard(item, categoryId, itemId) {
     return card;
 }
 
-// --- IMPLEMENTED: Loading Indicator Logic ---
 function renderFullMenu() {
     const menuContainer = document.getElementById("menu-container");
     const loadingPlaceholder = document.getElementById("loading-placeholder");
-    const noResultsMessage = document.getElementById("no-results-message");
-
-    if (!menuContainer || !loadingPlaceholder || !noResultsMessage) {
+    if (!menuContainer || !loadingPlaceholder) {
         console.error("renderFullMenu: Critical elements are missing from the DOM.");
         return;
     }
-
     if (!menuDataCache || Object.keys(menuDataCache).length === 0) {
         loadingPlaceholder.style.display = 'block';
-        menuContainer.innerHTML = '';
         return;
     }
-
     loadingPlaceholder.style.display = 'none';
     menuContainer.innerHTML = '';
-
     let itemRenderDelay = 0;
     Object.entries(menuDataCache).forEach(([categoryId, categoryData]) => {
         const section = document.createElement('section');
@@ -144,30 +129,93 @@ function renderFullMenu() {
         section.appendChild(itemsContainer);
         menuContainer.appendChild(section);
     });
-    menuContainer.appendChild(noResultsMessage);
+    const noResultsMessage = document.getElementById("no-results-message");
+    if (noResultsMessage) menuContainer.appendChild(noResultsMessage);
 }
-
 
 function renderCategoriesTabs() {
     const tabsContainer = document.getElementById('category-tabs');
+    if (!tabsContainer) return;
     tabsContainer.innerHTML = '';
     if (!menuDataCache) return;
     Object.entries(menuDataCache).forEach(([categoryId, categoryData]) => {
-      const tab = document.createElement('a');
-      tab.href = `#category-section-${categoryId}`;
-      tab.className = 'category-tab px-5 py-2 text-sm font-semibold whitespace-nowrap';
-      tab.textContent = escapeHTML(categoryData.category);
-      tab.onclick = (e) => { e.preventDefault(); window.menuFunctions.scrollToCategory(categoryId); };
-      tabsContainer.appendChild(tab);
+        const tab = document.createElement('a');
+        tab.href = `#category-section-${categoryId}`;
+        tab.className = 'category-tab px-5 py-2 text-sm font-semibold whitespace-nowrap';
+        tab.textContent = escapeHTML(categoryData.category);
+        tab.onclick = (e) => { e.preventDefault(); window.menuFunctions.scrollToCategory(categoryId); };
+        tabsContainer.appendChild(tab);
     });
-    if (tabsContainer.firstElementChild) {
-      tabsContainer.firstElementChild.classList.add('active-tab');
-    }
+    if (tabsContainer.firstElementChild) tabsContainer.firstElementChild.classList.add('active-tab');
 }
 
-// --- Slideshow Logic (Unchanged) ---
-// ... (showSlide, startSlideshow, stopSlideshow, renderOffersSlideshow functions are unchanged)
+// --- RESTORED SLIDESHOW LOGIC ---
+function showSlide(index) {
+    const slidesWrapper = document.getElementById('slides-wrapper');
+    if (!slidesWrapper || !slides.length) return;
+    slides.forEach(slide => slide.classList.remove('active'));
+    dots.forEach(dot => dot.classList.remove('active'));
+    currentIndex = (index + slides.length) % slides.length;
+    slides[currentIndex].classList.add('active');
+    dots[currentIndex].classList.add('active');
+    slidesWrapper.style.transform = `translateX(-${currentIndex * 100}%)`;
+}
 
+function startSlideshow() {
+    stopSlideshow();
+    slideInterval = setInterval(() => showSlide(currentIndex + 1), 3000);
+}
+
+function stopSlideshow() {
+    clearInterval(slideInterval);
+}
+
+function renderOffersSlideshow() {
+    const slideshowContainer = document.getElementById('offers-slideshow-container');
+    const slidesWrapper = document.getElementById('slides-wrapper');
+    const dotsContainer = document.getElementById('slides-dots');
+    if (!slideshowContainer || !slidesWrapper || !dotsContainer) return;
+
+    dbInstance.ref('offers').on('value', (snapshot) => {
+        slidesWrapper.innerHTML = '';
+        dotsContainer.innerHTML = '';
+        stopSlideshow();
+        if (snapshot.exists()) {
+            const offersData = snapshot.val();
+            slides = [];
+            dots = [];
+            let offerIndex = 0;
+            for (const offerId in offersData) {
+                const offer = offersData[offerId];
+                const slideElement = document.createElement('a');
+                slideElement.href = `item-details.html?offerId=${offerId}`;
+                slideElement.className = 'slide';
+                slideElement.style.backgroundImage = `url('${escapeHTML(offer.imageURL || '')}')`;
+                slideElement.innerHTML = `<div class="slide-content"><h3 class="slide-title">${escapeHTML(offer.name)}</h3></div>`;
+                slidesWrapper.appendChild(slideElement);
+                slides.push(slideElement);
+
+                const dotElement = document.createElement('div');
+                dotElement.className = 'slide-dot';
+                dotElement.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); showSlide(offerIndex); startSlideshow(); });
+                dotsContainer.appendChild(dotElement);
+                dots.push(dotElement);
+                offerIndex++;
+            }
+            if (slides.length > 0) {
+                showSlide(0);
+                startSlideshow();
+                slideshowContainer.classList.remove('hidden');
+                slideshowContainer.addEventListener('mouseenter', stopSlideshow);
+                slideshowContainer.addEventListener('mouseleave', startSlideshow);
+            } else {
+                slideshowContainer.classList.add('hidden');
+            }
+        } else {
+            slideshowContainer.classList.add('hidden');
+        }
+    });
+}
 
 window.menuFunctions = {
     updateItemQuantity: (itemId, change, buttonElement) => {
@@ -177,11 +225,8 @@ window.menuFunctions = {
         if (!itemData) return;
         let standardItemInCart = cart.find(i => i.id === itemId && !i.options);
         if (change > 0) {
-            if (standardItemInCart) {
-                standardItemInCart.quantity++;
-            } else {
-                cart.push({ cartItemId: itemId + '-standard', id: itemId, name: itemData.name, price: itemData.price, quantity: 1, categoryId: categoryId, image_url: itemData.image_url });
-            }
+            if (standardItemInCart) standardItemInCart.quantity++;
+            else cart.push({ cartItemId: itemId + '-standard', id: itemId, name: itemData.name, price: itemData.price, quantity: 1, categoryId: categoryId, image_url: itemData.image_url });
         } else if (standardItemInCart) {
             standardItemInCart.quantity--;
             if (standardItemInCart.quantity <= 0) cart = cart.filter(i => i.cartItemId !== standardItemInCart.cartItemId);
@@ -191,26 +236,24 @@ window.menuFunctions = {
         const totalQuantity = cart.filter(i => i.id === itemId).reduce((sum, i) => sum + i.quantity, 0);
         card.querySelector('.quantity-controls span').textContent = totalQuantity;
     },
-    navigateToItemDetails: (categoryId, itemId) => {
-        window.location.href = `item-details.html?categoryId=${categoryId}&itemId=${itemId}`;
-    },
+    navigateToItemDetails: (categoryId, itemId) => window.location.href = `item-details.html?categoryId=${categoryId}&itemId=${itemId}`,
     scrollToCategory: (categoryId) => {
         const section = document.getElementById(`category-section-${categoryId}`);
         if (section) window.scrollTo({ top: section.offsetTop - 140, behavior: 'smooth' });
     }
 };
 
-// --- IMPLEMENTED: Search and Filter Logic ---
 function filterMenu() {
     const searchBar = document.getElementById("search-bar");
     const noResultsMessage = document.getElementById("no-results-message");
+    if (!searchBar || !noResultsMessage) return;
     const searchTerm = searchBar.value.toLowerCase().trim();
     let hasResults = false;
     document.querySelectorAll('.menu-item-card').forEach(card => {
         const itemName = card.querySelector('h3').textContent.toLowerCase();
         const matches = itemName.includes(searchTerm);
         card.style.display = matches ? 'grid' : 'none';
-        if(matches) hasResults = true;
+        if (matches) hasResults = true;
     });
     document.querySelectorAll('.category-section').forEach(section => {
         const visibleItems = section.querySelectorAll('.menu-item-card[style*="display: grid"]');
@@ -241,29 +284,41 @@ function updateDrawerUI(user) {
     const userInfo = document.getElementById('user-info-drawer');
     const userNameSpan = document.getElementById('user-name-drawer');
     const accountSection = document.getElementById('account-section-drawer');
-
+    if (!guestInfo || !userInfo || !userNameSpan || !accountSection) return;
     if (user && !user.isAnonymous) {
         guestInfo.classList.add('hidden');
         userInfo.classList.remove('hidden');
-        if (accountSection) accountSection.classList.remove('hidden');
+        accountSection.classList.remove('hidden');
         dbInstance.ref(`users/${user.uid}/name`).once('value').then(snapshot => {
-            const name = snapshot.val();
-            userNameSpan.textContent = (name && name.trim() !== '') ? name : 'Customer';
-        }).catch(() => {
-            userNameSpan.textContent = 'Customer';
-        });
+            userNameSpan.textContent = (snapshot.val() || 'Customer');
+        }).catch(() => userNameSpan.textContent = 'Customer');
     } else {
         guestInfo.classList.remove('hidden');
         userInfo.classList.add('hidden');
-        if (accountSection) accountSection.classList.add('hidden');
+        accountSection.classList.add('hidden');
     }
 }
 
+// --- ROBUST INITIALIZATION LOGIC ---
+let isDomReady = false;
+let isAuthReady = false;
+let initialUser = null;
 
-document.addEventListener('DOMContentLoaded', () => {
-    updateCartUI();
-    // renderOffersSlideshow(); // This will be called once menu data is loaded
+function initializeApp() {
+    // This function will only run when both DOM is ready and Firebase Auth has been checked
+    if (!isDomReady || !isAuthReady) return;
     
+    updateCartUI();
+    updateDrawerUI(initialUser);
+
+    dbInstance.ref('menu').on('value', async (snapshot) => {
+        menuDataCache = snapshot.val() || {};
+        await loadFavorites(initialUser); // Load favorites based on the initial user
+        renderCategoriesTabs();
+        renderOffersSlideshow(); 
+    }, error => console.error("Firebase data error:", error));
+
+    // Setup event listeners for UI elements
     const openDrawerBtn = document.getElementById('open-drawer-btn');
     const closeDrawerBtn = document.getElementById('close-drawer-btn');
     const drawerMenu = document.getElementById('drawer-menu');
@@ -271,35 +326,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logout-btn');
     const searchBar = document.getElementById('search-bar');
     
-    authInstance.onAuthStateChanged(async (user) => {
-        updateDrawerUI(user);
-        await loadFavorites(user);
-    });
-
-    if (openDrawerBtn && drawerMenu && drawerOverlay) {
-        openDrawerBtn.addEventListener('click', () => { drawerMenu.classList.add('open'); drawerOverlay.classList.remove('hidden'); });
-    }
-    if (closeDrawerBtn && drawerMenu && drawerOverlay) {
-        closeDrawerBtn.addEventListener('click', () => { drawerMenu.classList.remove('open'); drawerOverlay.classList.add('hidden'); });
-    }
-    if (drawerOverlay && drawerMenu) {
-        drawerOverlay.addEventListener('click', () => { drawerMenu.classList.remove('open'); drawerOverlay.classList.add('hidden'); });
-    }
-    if(logoutBtn) {
-        logoutBtn.addEventListener('click', () => { authInstance.signOut().then(() => { localStorage.clear(); window.location.href = 'auth.html'; }); });
-    }
-    if(searchBar) {
-        searchBar.addEventListener('input', filterMenu);
-    }
+    if (openDrawerBtn) openDrawerBtn.addEventListener('click', () => { drawerMenu.classList.add('open'); drawerOverlay.classList.remove('hidden'); });
+    if (closeDrawerBtn) closeDrawerBtn.addEventListener('click', () => { drawerMenu.classList.remove('open'); drawerOverlay.classList.add('hidden'); });
+    if (drawerOverlay) drawerOverlay.addEventListener('click', () => { drawerMenu.classList.remove('open'); drawerOverlay.classList.add('hidden'); });
+    if (logoutBtn) logoutBtn.addEventListener('click', () => { authInstance.signOut().then(() => { localStorage.clear(); window.location.href = 'auth.html'; }); });
+    if (searchBar) searchBar.addEventListener('input', filterMenu);
     
-    dbInstance.ref('menu').on('value', async (snapshot) => {
-        menuDataCache = snapshot.val() || {};
-        await loadFavorites(authInstance.currentUser);
-        renderCategoriesTabs();
-        renderOffersSlideshow(); // It's better to render this after menu data is available
-    }, error => console.error("Firebase data error:", error));
+    window.addEventListener('scroll', updateActiveTabOnScroll, { passive: true });
+}
 
-    window.addEventListener('scroll', () => {
-        updateActiveTabOnScroll();
-    }, { passive: true });
+// Listener for DOM Ready
+document.addEventListener('DOMContentLoaded', () => {
+    isDomReady = true;
+    initializeApp(); // Try to initialize
+});
+
+// Listener for Auth Ready
+authInstance.onAuthStateChanged((user) => {
+    isAuthReady = true;
+    initialUser = user;
+    initializeApp(); // Try to initialize
 });
