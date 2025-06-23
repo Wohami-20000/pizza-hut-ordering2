@@ -16,8 +16,13 @@
     "url": "https://github.com/Wohami-2000/pizza-hut-ordering1/issues"
   },
   "homepage": "https://github.com/Wohami-2000/pizza-hut-ordering1#readme",
-  "description": "",
   "dependencies": {
     "firebase-admin": "^13.4.0"
-  }
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.3"
+  },
+  "description": ""
 }

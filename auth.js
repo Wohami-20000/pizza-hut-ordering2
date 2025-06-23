@@ -63,16 +63,25 @@ class PasswordInput extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
-    this.shadowRoot.innerHTML = `
+    const fontAwesomeLink = document.createElement('link');
+    fontAwesomeLink.setAttribute('rel', 'stylesheet');
+    fontAwesomeLink.setAttribute('href', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css');
+    this.shadowRoot.appendChild(fontAwesomeLink);
+
+    this.shadowRoot.innerHTML += `
       <style>
         .password-group {
             display: flex;
             flex-direction: column;
             gap: 1.5rem; /* Equivalent to space-y-6 */
         }
+        .password-wrapper {
+            position: relative;
+        }
         input {
           width: 100%;
           padding: 0.75rem;
+          padding-right: 2.5rem;
           border-radius: 0.5rem;
           transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
           background-color: #f3f4f6;
@@ -85,12 +94,26 @@ class PasswordInput extends HTMLElement {
             box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.5);
             outline: none;
         }
+        .toggle-password {
+            position: absolute;
+            top: 50%;
+            right: 0.75rem;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #9ca3af;
+        }
         .error-message { color: #dc2626; font-size: 0.875rem; display: none; margin-top: -1rem; margin-bottom: 0.5rem; }
         .error-message.visible { display: block; }
       </style>
       <div class="password-group">
-        <input type="password" id="password" placeholder="Password" required />
-        <input type="password" id="confirm-password" placeholder="Confirm Password" required />
+        <div class="password-wrapper">
+            <input type="password" id="password" placeholder="Password" required />
+            <i class="fas fa-eye toggle-password" data-target="password"></i>
+        </div>
+        <div class="password-wrapper">
+            <input type="password" id="confirm-password" placeholder="Confirm Password" required />
+            <i class="fas fa-eye toggle-password" data-target="confirm-password"></i>
+        </div>
       </div>
       <p id="password-error" class="error-message">Passwords do not match.</p>
     `;
@@ -100,6 +123,22 @@ class PasswordInput extends HTMLElement {
 
     this.confirmPasswordInput.addEventListener('input', () => this.validatePasswords());
     this.passwordInput.addEventListener('input', () => this.validatePasswords());
+
+    this.shadowRoot.querySelectorAll('.toggle-password').forEach(toggle => {
+        toggle.addEventListener('click', () => {
+            const targetId = toggle.dataset.target;
+            const targetInput = this.shadowRoot.getElementById(targetId);
+            if (targetInput.type === 'password') {
+                targetInput.type = 'text';
+                toggle.classList.remove('fa-eye');
+                toggle.classList.add('fa-eye-slash');
+            } else {
+                targetInput.type = 'password';
+                toggle.classList.remove('fa-eye-slash');
+                toggle.classList.add('fa-eye');
+            }
+        });
+    });
   }
 
   validatePasswords() {
@@ -116,6 +155,24 @@ class PasswordInput extends HTMLElement {
   checkValidity() { return this.passwordInput.checkValidity() && this.confirmPasswordInput.checkValidity() && this.validatePasswords(); }
 }
 customElements.define('password-input', PasswordInput);
+
+
+// --- Password Visibility Toggle for Login Form ---
+document.querySelectorAll('.toggle-password').forEach(toggle => {
+    toggle.addEventListener('click', () => {
+        const targetId = toggle.dataset.target;
+        const targetInput = document.getElementById(targetId);
+        if (targetInput && targetInput.type === 'password') {
+            targetInput.type = 'text';
+            toggle.classList.remove('fa-eye');
+            toggle.classList.add('fa-eye-slash');
+        } else if (targetInput) {
+            targetInput.type = 'password';
+            toggle.classList.remove('fa-eye-slash');
+            toggle.classList.add('fa-eye');
+        }
+    });
+});
 
 
 // --- Core Authentication Logic ---
