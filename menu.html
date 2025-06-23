@@ -8,10 +8,7 @@
     <link rel="stylesheet" href="style.css" />
     <style>
         :root { --brand-red: #D71921; --brand-yellow: #FFC72C; --brand-dark: #231F20; }
-        body { 
-            background-color: #F9FAFB; 
-            touch-action: manipulation; /* This is the zoom fix */
-        }
+        body { background-color: #F9FAFB; }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fadeInUp { animation: fadeInUp 0.5s ease-out forwards; }
         .initial-hidden { opacity: 0; }
@@ -40,8 +37,65 @@
         .quantity-btn:hover { background-color: #facc15; }
         #cart-summary-bar .view-cart-btn { background-color: var(--brand-red); color: white; }
         #cart-summary-bar .summary-count-circle { background-color: var(--brand-yellow); color: var(--brand-dark); }
-        #loading-placeholder {
-            display: block; /* Ensure it's visible by default */
+
+        /* --- NEW 2025 Slideshow Styles --- */
+        #offers-slideshow-container {
+            height: 50vh; /* Taller for a more immersive feel */
+            max-height: 280px;
+        }
+        .slide {
+            flex-shrink: 0;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            text-decoration: none;
+        }
+        .slide::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0) 100%);
+            z-index: 1;
+        }
+        .slide-content {
+            position: relative;
+            z-index: 2;
+            color: white;
+            text-align: center;
+            padding: 1.5rem;
+            padding-bottom: 3rem; /* Extra space for dots */
+        }
+        .slide-title {
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            transform: translateY(20px);
+            opacity: 0;
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease;
+        }
+        .slide.active .slide-title {
+            transform: translateY(0);
+            opacity: 1;
+            transition-delay: 0.2s;
+        }
+        .slide-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.4);
+            cursor: pointer;
+            transition: all 0.4s ease;
+            transform: scale(0.8);
+        }
+        .slide-dot.active {
+            background-color: white;
+            transform: scale(1.1);
         }
     </style>
 </head>
@@ -63,19 +117,15 @@
     
     <div id="search-container" class="bg-white p-3 sticky top-[60px] z-20 border-b initial-hidden animate-fadeInUp" style="animation-delay: 100ms;"><div class="relative"><span class="absolute inset-y-0 left-0 flex items-center pl-4"><i class="fas fa-search text-gray-400"></i></span><input type="search" id="search-bar" class="w-full pl-12 pr-4 py-3 border-none bg-gray-100 rounded-full focus:ring-2 focus:ring-red-500" placeholder="Search for your favorite pizza..."></div></div>
     
+    <div id="offers-slideshow-container" class="relative w-full bg-gray-900 overflow-hidden initial-hidden animate-fadeInUp hidden" style="animation-delay: 200ms;">
+        <div id="slides-wrapper" class="flex h-full transition-transform duration-700 ease-in-out">
+            </div>
+        <div id="slides-dots" class="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-3 z-10">
+            </div>
+    </div>
+
     <div id="category-tabs-container" class="border-b border-gray-200 initial-hidden animate-fadeInUp" style="animation-delay: 300ms;"><nav id="category-tabs" class="flex overflow-x-auto px-4 gap-3"></nav></div>
-    
-    <main id="menu-container" class="flex-1 px-4 py-5 pb-[120px]">
-        <div id="loading-placeholder" class="text-center py-20">
-            <i class="fas fa-spinner fa-spin text-red-600 text-5xl"></i>
-            <p class="text-gray-600 text-lg mt-4">Loading menu...</p>
-        </div>
-        <div id="no-results-message" class="hidden text-center py-10">
-            <p class="text-xl font-semibold text-gray-700">No results found</p>
-            <p class="text-gray-500 mt-2">Try searching for something else.</p>
-        </div>
-    </main>
-    
+    <main id="menu-container" class="flex-1 px-4 py-5 pb-[120px]"><p id="loading-placeholder" class="text-gray-500 col-span-full text-center py-10">Loading menu...</p><div id="no-results-message" class="hidden text-center py-10"><p class="text-xl font-semibold text-gray-700">No results found</p><p class="text-gray-500 mt-2">Try searching for something else.</p></div></main>
     <div id="cart-summary-bar" class="fixed bottom-0 left-0 right-0 p-3 z-20 transform translate-y-full transition-transform"><div class="max-w-screen-xl mx-auto flex justify-between items-center bg-white rounded-lg p-3 shadow-2xl"><div class="flex items-center space-x-3"><span id="summary-cart-count" class="summary-count-circle text-sm font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span><span class="text-lg font-semibold text-gray-800" id="summary-total-price">0.00 MAD</span></div><a href="cart.html" class="view-cart-btn px-5 py-2 rounded-full font-bold text-lg hover:opacity-90 transition-opacity">View Cart</a></div></div>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script><script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script><script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script><script src="firebase.js"></script><script src="lang.js"></script><script src="menu.js"></script>

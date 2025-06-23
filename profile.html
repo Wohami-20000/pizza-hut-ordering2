@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
   <title>Pizza Hut - Profile</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
   <link rel="stylesheet" href="style.css"> 
@@ -51,10 +51,15 @@
           <label for="profile-phone" class="block text-sm font-medium text-gray-700" data-translate="phone_number_label">Phone Number</label>
           <input type="tel" id="profile-phone" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500" placeholder="Your phone number" />
         </div>
-        <div>
-          <label for="profile-address" class="block text-sm font-medium text-gray-700" data-translate="delivery_address_label">Delivery Address (Optional)</label>
-          <input type="text" id="profile-address" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500" placeholder="Your delivery address" />
+        
+        <div class="pt-2">
+            <label class="block text-sm font-medium text-gray-700" data-translate="delivery_address_label">Default Delivery Address</label>
+            <div class="mt-1 flex items-center justify-between p-3 border border-gray-300 rounded-lg bg-gray-50">
+                <span id="profile-address-display" class="text-gray-600 italic">No default address set.</span>
+                <a href="addresses.html" class="text-sm font-semibold text-red-600 hover:text-red-800">Manage Addresses</a>
+            </div>
         </div>
+
         <button type="submit" id="update-profile-btn" class="w-full bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg px-6 py-3 shadow-md transition" data-translate="update_profile_button">Update Profile</button>
       </form>
     </div>

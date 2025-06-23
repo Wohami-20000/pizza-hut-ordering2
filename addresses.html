@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>My Addresses - Pizza Hut</title>
-<link rel="stylesheet" href="style.css" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>My Addresses - Pizza Hut</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
     <style>
         :root { --brand-red: #D71921; }
         body { background-color: #F9FAFB; }
@@ -14,34 +14,28 @@
             border-radius: 0.75rem;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             border-left: 4px solid transparent;
-            transition: border-color 0.2s;
+            transition: all 0.2s;
+        }
+        .address-card:hover {
+            border-left-color: #f87171; /* red-400 */
         }
         .address-card.default {
             border-left-color: var(--brand-red);
-        }
-        .delete-btn {
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-        .address-card:hover .delete-btn {
-            opacity: 1;
         }
     </style>
 </head>
 <body class="min-h-screen">
 
     <header class="flex items-center justify-between px-4 py-3 bg-white text-gray-800 shadow-sm sticky top-0 z-30 h-[60px]">
-        <a href="menu.html" class="p-2 text-xl text-gray-600"><i class="fas fa-arrow-left"></i></a>
+        <a href="profile.html" class="p-2 text-xl text-gray-600"><i class="fas fa-arrow-left"></i></a>
         <h1 class="font-bold text-xl tracking-tight">My Addresses</h1>
-        <button id="add-new-btn" class="p-2 text-xl text-red-600"><i class="fas fa-plus"></i></button>
+        <button id="add-new-btn" class="p-2 text-xl text-red-600 hover:text-red-800 transition"><i class="fas fa-plus-circle"></i></button>
     </header>
 
     <main class="max-w-3xl mx-auto p-4 mt-6">
         <div id="addresses-list" class="space-y-4">
-            <!-- Addresses will be loaded here -->
-        </div>
+            </div>
 
-        <!-- States: Loading, Logged Out, No Addresses -->
         <div id="loading-state" class="text-center py-10"><i class="fas fa-spinner fa-spin text-red-600 text-4xl"></i></div>
         <div id="logged-out-state" class="hidden text-center bg-white p-8 rounded-lg shadow-md">
             <i class="fas fa-user-lock text-4xl text-gray-400 mb-4"></i>
@@ -56,7 +50,6 @@
         </div>
     </main>
 
-    <!-- Add/Edit Address Modal -->
     <div id="address-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 hidden">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
             <form id="address-form" class="p-6 space-y-4">
@@ -105,6 +98,7 @@
 
         let currentUser = null;
         let addressesRef = null;
+        let editingAddressKey = null;
 
         function createAddressCard(address, key) {
             const card = document.createElement('div');
@@ -115,8 +109,15 @@
                     <p class="text-gray-600 text-sm">${address.street}, ${address.city}</p>
                     <p class="text-gray-500 text-xs mt-1">${address.phone}</p>
                 </div>
-                <button data-key="${key}" class="delete-btn p-2 text-gray-400 hover:text-red-600"><i class="fas fa-trash-alt"></i></button>
+                <div class="flex items-center gap-2">
+                    <button data-key="${key}" class="edit-btn p-2 text-gray-400 hover:text-blue-600"><i class="fas fa-edit"></i></button>
+                    <button data-key="${key}" class="delete-btn p-2 text-gray-400 hover:text-red-600"><i class="fas fa-trash-alt"></i></button>
+                </div>
             `;
+            card.querySelector('.edit-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                openModal(address, key);
+            });
             card.querySelector('.delete-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 if(confirm('Are you sure you want to delete this address?')) {
@@ -127,6 +128,7 @@
         }
 
         function renderAddresses(snapshot) {
+            loadingState.style.display = 'none';
             addressesList.innerHTML = '';
             if (snapshot.exists()) {
                 noAddressesState.style.display = 'none';
@@ -140,9 +142,19 @@
             }
         }
 
-        function openModal() {
+        function openModal(address = null, key = null) {
             addressForm.reset();
-            modalTitle.textContent = "Add New Address";
+            if (address && key) {
+                modalTitle.textContent = "Edit Address";
+                editingAddressKey = key;
+                document.getElementById('address-label').value = address.label || '';
+                document.getElementById('address-street').value = address.street || '';
+                document.getElementById('address-city').value = address.city || '';
+                document.getElementById('address-phone').value = address.phone || '';
+            } else {
+                modalTitle.textContent = "Add New Address";
+                editingAddressKey = null;
+            }
             addressModal.classList.remove('hidden');
         }
 
@@ -150,7 +162,7 @@
             addressModal.classList.add('hidden');
         }
 
-        addNewBtn.addEventListener('click', openModal);
+        addNewBtn.addEventListener('click', () => openModal());
         cancelBtn.addEventListener('click', closeModal);
         addressModal.addEventListener('click', (e) => {
             if (e.target === addressModal) closeModal();
@@ -159,16 +171,23 @@
         addressForm.addEventListener('submit', (e) => {
             e.preventDefault();
             if (!addressesRef) return;
-            const newAddress = {
+
+            const addressData = {
                 label: document.getElementById('address-label').value,
                 street: document.getElementById('address-street').value,
                 city: document.getElementById('address-city').value,
                 phone: document.getElementById('address-phone').value,
-                isDefault: false // Default to false for new addresses
             };
-            addressesRef.push(newAddress).then(() => {
-                closeModal();
-            });
+
+            let promise;
+            if (editingAddressKey) {
+                promise = addressesRef.child(editingAddressKey).update(addressData);
+            } else {
+                addressData.isDefault = false; // New addresses are not default
+                promise = addressesRef.push(addressData);
+            }
+
+            promise.then(closeModal).catch(err => alert(err.message));
         });
 
         auth.onAuthStateChanged(user => {

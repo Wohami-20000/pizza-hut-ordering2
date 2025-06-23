@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Delete Account - Pizza Hut</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
@@ -53,6 +53,7 @@
     <script src="firebase.js"></script>
     <script>
         const auth = firebase.auth();
+        const db = firebase.database();
         const form = document.getElementById('delete-account-form');
         const messageArea = document.getElementById('message-area');
         const mainContent = document.getElementById('main-content');
@@ -65,9 +66,9 @@
             }
         });
 
-        form.addEventListener('submit', (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            if(!confirm('Are you absolutely sure? This action cannot be undone.')) {
+            if(!confirm('This is your final confirmation. This action cannot be undone. Proceed?')) {
                 return;
             }
 
@@ -82,24 +83,31 @@
             const user = auth.currentUser;
             const credential = firebase.auth.EmailAuthProvider.credential(user.email, password);
 
-            user.reauthenticateWithCredential(credential).then(() => {
-                // User re-authenticated. Now delete the account.
-                // You might want to delete their data from the Realtime Database here first.
-                // For example: firebase.database().ref('users/' + user.uid).remove();
+            try {
+                // 1. Re-authenticate the user
+                await user.reauthenticateWithCredential(credential);
+
+                // 2. Delete user data from Realtime Database
+                const userRef = db.ref('users/' + user.uid);
+                await userRef.remove();
                 
-                return user.delete();
-            }).then(() => {
-                alert('Your account has been successfully deleted.');
+                // 3. Delete the user from Authentication
+                await user.delete();
+                
+                alert('Your account and all associated data have been successfully deleted.');
                 localStorage.clear();
                 window.location.href = 'index.html';
-            }).catch((error) => {
-                console.error(error);
+
+            } catch (error) {
+                console.error("Error deleting account:", error);
                 if (error.code === 'auth/wrong-password') {
                     messageArea.textContent = 'Incorrect password. Please try again.';
+                } else if (error.code === 'auth/requires-recent-login') {
+                    messageArea.textContent = 'This operation is sensitive. Please log out and log back in before deleting your account.';
                 } else {
                     messageArea.textContent = 'An error occurred. Please try again.';
                 }
-            });
+            }
         });
     </script>
 </body>

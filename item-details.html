@@ -159,16 +159,17 @@
         localStorage.setItem("cart", JSON.stringify(cart));
         updateCartCount();
         
-        // Give feedback to user
+        // Give feedback and redirect to the menu
         const btn = document.getElementById('add-to-cart-details-btn');
-        btn.textContent = 'Added!';
+        btn.textContent = 'Added! Returning to menu...';
+        btn.disabled = true; // Prevent multiple clicks
         btn.classList.remove('bg-red-600', 'hover:bg-red-700');
         btn.classList.add('bg-green-600');
+        
+        // Redirect back to menu after a short delay
         setTimeout(() => {
-            btn.innerHTML = '<i class="fas fa-cart-plus mr-2"></i><span>Add to Cart</span>';
-            btn.classList.add('bg-red-600', 'hover:bg-red-700');
-            btn.classList.remove('bg-green-600');
-        }, 1500);
+            window.location.href = 'menu.html';
+        }, 1000); // 1-second delay
     });
 
     // --- Initialization ---

@@ -6,15 +6,16 @@ const db = firebase.database();
 const profileEmailInput = document.getElementById('profile-email');
 const profileNameInput = document.getElementById('profile-name');
 const profilePhoneInput = document.getElementById('profile-phone');
-const profileAddressInput = document.getElementById('profile-address');
+// Corrected to target the new SPAN element for displaying the address
+const profileAddressDisplay = document.getElementById('profile-address-display'); 
 const updateProfileBtn = document.getElementById('update-profile-btn');
 const messageContainer = document.getElementById('message-container');
 const messageText = document.getElementById('message-text');
-const profileTitle = document.getElementById('profile-title'); // Added this for translation
+const profileTitle = document.getElementById('profile-title');
 
 let currentLang = localStorage.getItem('lang') || 'en';
 
-// Function to display messages in the message box (reused from cart.js structure)
+// Function to display messages in the message box
 function showMessageBox(titleKey, messageKey, isError = false) {
     let translatedTitle = (typeof translations !== 'undefined' && translations[currentLang]?.[titleKey]) || titleKey;
     let translatedMessage = (typeof translations !== 'undefined' && translations[currentLang]?.[messageKey]) || messageKey;
@@ -45,7 +46,7 @@ function showMessageBox(titleKey, messageKey, isError = false) {
         };
     } else {
         console.error("Profile page: Message box elements not found for showMessageBox.");
-        alert(`${translatedTitle}: ${translatedMessage}`); // Fallback alert
+        alert(`${translatedTitle}: ${translatedMessage}`);
     }
 }
 
@@ -53,30 +54,46 @@ function showMessageBox(titleKey, messageKey, isError = false) {
 function updateCartCountNav() {
     const cartForCount = JSON.parse(localStorage.getItem("cart")) || [];
     const count = cartForCount.reduce((sum, i) => sum + i.quantity, 0);
-    const cartCountSpanNav = document.getElementById('cart-count-nav'); // In profile.html header
+    const cartCountSpanNav = document.getElementById('cart-count-nav');
     if (cartCountSpanNav) {
         cartCountSpanNav.textContent = count;
     }
 }
 
-async function loadProfile(user) { // Accept user parameter from onAuthStateChanged
+async function loadProfile(user) {
     if (user) {
         profileEmailInput.value = user.email;
 
         try {
             const userProfileRef = db.ref('users/' + user.uid);
             const snapshot = await userProfileRef.once('value');
-            const userProfile = snapshot.val() || {}; // Ensure userProfile is an object
+            const userProfile = snapshot.val() || {};
 
             profileNameInput.value = userProfile.name || '';
             profilePhoneInput.value = userProfile.phone || '';
-            profileAddressInput.value = userProfile.address || ''; // Load address if exists
+            
+            // Correctly update the text content of the display span
+            if (profileAddressDisplay) {
+                // Find the default address from the addresses list
+                if (userProfile.addresses) {
+                    const defaultAddress = Object.values(userProfile.addresses).find(addr => addr.isDefault);
+                    if (defaultAddress) {
+                        profileAddressDisplay.textContent = `${defaultAddress.street}, ${defaultAddress.city}`;
+                        profileAddressDisplay.classList.remove('italic');
+                    } else {
+                         profileAddressDisplay.textContent = 'No default address set.';
+                         profileAddressDisplay.classList.add('italic');
+                    }
+                } else {
+                    profileAddressDisplay.textContent = 'No addresses saved.';
+                    profileAddressDisplay.classList.add('italic');
+                }
+            }
         } catch (error) {
             console.error("Error loading user profile:", error);
             showMessageBox('profile_error_title', 'profile_load_error', true);
         }
     } else {
-        // If no user is logged in, redirect to auth page
         window.location.href = 'auth.html';
     }
 }
@@ -97,9 +114,10 @@ async function updateProfile(e) {
 
     const name = profileNameInput.value.trim();
     const phone = profilePhoneInput.value.trim();
-    const address = profileAddressInput.value.trim();
+    
+    // Address is no longer updated from this form, so it's removed from here.
 
-    if (!name) { // Name is required for toGo/delivery orders
+    if (!name) {
         showMessageBox('validation_error_title', 'name_missing_error', true);
         updateProfileBtn.disabled = false;
         updateProfileBtn.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.update_profile_button) || "Update Profile";
@@ -109,10 +127,10 @@ async function updateProfile(e) {
 
     try {
         const userProfileRef = db.ref('users/' + user.uid);
+        // Only update name and phone. Address is managed on addresses.html
         await userProfileRef.update({
             name: name,
-            phone: phone,
-            address: address
+            phone: phone
         });
         showMessageBox('profile_success_title', 'profile_update_success', false);
     }  catch (error) {
@@ -126,7 +144,6 @@ async function updateProfile(e) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Initial load for language switcher (similar to other pages)
     const languageSwitcher = document.getElementById('language-switcher');
     if (languageSwitcher) {
         languageSwitcher.value = currentLang;
@@ -135,30 +152,26 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('lang', currentLang);
             if (typeof applyLanguage === 'function') {
                 applyLanguage(currentLang);
-                applyLanguage(currentLang, document.getElementById('profile-form')); // Re-apply to form as well
-                if (profileTitle) profileTitle.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.profile_title) || "My Profile"; // Update title
+                applyLanguage(currentLang, document.getElementById('profile-form'));
+                if (profileTitle) profileTitle.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.profile_title) || "My Profile";
             }
         });
     }
     if (profileTitle) profileTitle.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.profile_title) || "My Profile";
 
-    updateCartCountNav(); // Update cart count in header
+    updateCartCountNav();
 
-    // CRITICAL: Call loadProfile ONLY after Firebase auth state is confirmed
     auth.onAuthStateChanged(async (user) => {
-        await loadProfile(user); // Load profile data if user is logged in
+        await loadProfile(user); 
         
-        // Attach event listener for form submission only once authentication state is known
         const profileForm = document.getElementById('profile-form');
         if (profileForm) {
-            // Remove any existing listeners to prevent multiple bindings if state changes rapidly
             const oldSubmitListener = profileForm._currentSubmitListener;
             if (oldSubmitListener) {
                 profileForm.removeEventListener('submit', oldSubmitListener);
             }
-            // Bind the new listener
             profileForm.addEventListener('submit', updateProfile);
-            profileForm._currentSubmitListener = updateProfile; // Store reference
+            profileForm._currentSubmitListener = updateProfile;
         }
     });
 });
