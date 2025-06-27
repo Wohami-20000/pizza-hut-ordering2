@@ -3,6 +3,17 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self'; 
+        script-src 'self' 'unsafe-inline' https://www.gstatic.com/firebasejs/ https://cdnjs.cloudflare.com; 
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com/ https://cdnjs.cloudflare.com; 
+        font-src 'self' https://fonts.gstatic.com/ https://cdnjs.cloudflare.com; 
+        img-src 'self' https: data:; 
+        connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://www.googleapis.com;
+        frame-src 'self' https://*.firebaseapp.com;
+    ">
+    
     <title>Pizza Hut - Welcome</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,131 +21,101 @@
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
     <style>
-        :root {
-            --brand-red: #D71921; /* Pizza Hut Red */
-            --brand-yellow: #FFC72C; /* Vibrant Yellow for buttons */
-            --brand-text-dark: #231F20; /* Dark charcoal for text */
-        }
-
-        body {
-            font-family: 'Poppins', sans-serif;
-            background-color: var(--brand-red);
-            touch-action: manipulation;
-        }
-
-        .auth-card {
-            background: #fff;
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-        }
-        
-        .form-input {
-            background-color: #f3f4f6;
-            border: 1px solid #d1d5db;
-            color: var(--brand-text-dark);
-        }
-        .form-input::placeholder { color: #9ca3af; }
-        .form-input:focus {
-            border-color: var(--brand-yellow);
-            box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.5);
-            outline: none;
-        }
-
-        .auth-form {
-            transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
-            opacity: 1;
-            transform: translateX(0);
-        }
-        .auth-form.hidden-form {
-            opacity: 0;
-            transform: translateX(-30px);
-            position: absolute;
-            pointer-events: none;
-        }
-        .form-container {
-            position: relative;
-            min-height: 420px;
-        }
-        .password-wrapper {
-            position: relative;
-        }
-        .password-wrapper .toggle-password {
-            position: absolute;
-            top: 50%;
-            right: 0.75rem;
-            transform: translateY(-50%);
-            cursor: pointer;
-            color: #9ca3af;
-        }
+        body { font-family: 'Poppins', sans-serif; touch-action: manipulation; }
+        .auth-form { transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out; opacity: 1; transform: translateX(0); }
+        .auth-form.hidden-form { opacity: 0; transform: translateX(-30px); position: absolute; pointer-events: none; }
+        .form-container { position: relative; min-height: 450px; }
+        .password-wrapper { position: relative; }
+        .password-wrapper .toggle-password { position: absolute; top: 50%; right: 0.75rem; transform: translateY(-50%); cursor: pointer; color: #9ca3af; }
+        password-input { display: block; width: 100%; }
+        .lang-switcher { display: flex; background-color: #f3f4f6; border-radius: 9999px; padding: 0.25rem; margin-bottom: 1.5rem; border: 1px solid #e5e7eb; }
+        .lang-switcher button { flex: 1; padding: 0.5rem 0.75rem; border-radius: 9999px; font-weight: 600; font-size: 0.875rem; color: #6b7280; border: none; background-color: transparent; cursor: pointer; transition: all 0.2s ease-in-out; }
+        .lang-switcher button.active { background-color: #ffffff; color: #D71921; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
+<body class="bg-brand-red">
 
-    <div class="auth-card p-8 w-full max-w-md mx-auto">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="w-24 mx-auto mb-6" />
-        <h1 id="auth-title" class="text-3xl font-bold text-gray-800 mb-6 text-center tracking-wide">Customer Login</h1>
+    <main class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md mx-auto">
+            
+            <div id="language-switcher" class="lang-switcher">
+                <button data-lang="en" class="active">English</button>
+                <button data-lang="fr">Français</button>
+                <button data-lang="ar">العربية</button>
+            </div>
 
-        <div class="form-container">
-            <form id="login-form" class="auth-form space-y-6">
-                <input type="email" id="login-email" class="w-full p-3 form-input rounded-lg transition" placeholder="Email" required />
-                <div class="password-wrapper">
-                    <input type="password" id="login-password" class="w-full p-3 pr-10 form-input rounded-lg transition" placeholder="Password" required />
-                    <i class="fas fa-eye toggle-password" data-target="login-password"></i>
-                </div>
-                <div class="text-right text-sm">
-                    <a href="#" id="forgot-password-link" class="font-medium text-blue-600 hover:text-blue-800">Forgot password?</a>
-                </div>
-                <button type="submit" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg transform hover:scale-105 transition" id="login-btn" style="background-color: var(--brand-yellow); color: var(--brand-text-dark);">Login</button>
-                <p class="text-center text-sm text-gray-600">
-                    Don't have an account? <a href="#" id="show-signup" class="text-blue-600 hover:underline font-semibold">Sign Up</a>
-                </p>
-                <p id="login-error-message" class="text-red-600 text-sm font-semibold text-center mt-4 h-5"></p>
-            </form>
+            <img 
+                src="images/pizza-hut-logo.png" 
+                alt="Official Pizza Hut Logo"
+                width="128" 
+                height="67"
+                class="w-32 mx-auto mb-4" 
+            />
+            <h1 id="auth-title" class="text-3xl font-bold text-brand-dark mb-2 text-center tracking-wide"></h1>
+            <p id="auth-subtext" class="text-gray-500 text-center mb-6 h-10"></p>
 
-            <form id="signup-form" class="auth-form hidden-form w-full space-y-6">
-                <input type="email" id="signup-email" class="w-full p-3 form-input rounded-lg transition" placeholder="Email" required />
-                <password-input></password-input>
-                <div class="flex items-start">
-                    <div class="flex items-center h-5">
-                        <input id="terms-checkbox" type="checkbox" value="" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300" required>
+            <div class="form-container">
+                <form id="login-form" class="auth-form space-y-6">
+                    <input type="email" id="login-email" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-brand-dark focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/50 transition" required />
+                    <div class="password-wrapper">
+                        <input type="password" id="login-password" class="w-full p-3 pr-10 bg-gray-100 border border-gray-300 rounded-lg text-brand-dark focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/50 transition" required />
+                        <i class="fas fa-eye toggle-password" data-target="login-password"></i>
                     </div>
-                    <label for="terms-checkbox" class="ml-2 text-sm font-normal text-gray-600">I agree to the <a href="terms.html" class="text-blue-600 hover:underline">Terms and Conditions</a> and <a href="terms.html" class="text-blue-600 hover:underline">Privacy Policy</a>.</label>
-                </div>
-                <button type="submit" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg transform hover:scale-105 transition" id="signup-btn" style="background-color: var(--brand-yellow); color: var(--brand-text-dark);">Create Account</button>
-                <p class="text-center text-sm text-gray-600">
-                    Already have an account? <a href="#" id="show-login" class="text-blue-600 hover:underline font-semibold">Login</a>
-                </p>
-                <p id="signup-error-message" class="text-red-600 text-sm font-semibold text-center mt-4 h-5"></p>
-            </form>
-        </div>
+                    <div class="text-right text-sm">
+                        <a href="#" id="forgot-password-link" class="font-medium text-blue-600 hover:text-blue-800"></a>
+                    </div>
+                    <button type="submit" id="login-cta-btn" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg bg-brand-yellow text-brand-dark transform hover:scale-105 transition"></button>
+                    <p class="text-center text-sm text-gray-600">
+                        <span id="login-signup-prompt"></span> <a href="#" id="show-signup" class="text-blue-600 hover:underline font-semibold"></a>
+                    </p>
+                    <p id="login-error-message" class="text-red-600 text-sm font-semibold text-center mt-4 h-5"></p>
+                </form>
 
-        <div class="my-6 flex items-center">
-            <div class="flex-grow border-t border-gray-300"></div>
-            <span class="flex-shrink mx-4 text-gray-500 text-sm">OR</span>
-            <div class="flex-grow border-t border-gray-300"></div>
-        </div>
+                <form id="signup-form" class="auth-form hidden-form w-full space-y-6">
+                    <input type="email" id="signup-email" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-brand-dark focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/50 transition" required />
+                    <password-input></password-input>
+                    <div class="flex items-start">
+                        <div class="flex items-center h-5">
+                            <input id="terms-checkbox" type="checkbox" value="" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300" required>
+                        </div>
+                        <label for="terms-checkbox" id="terms-label" class="ml-2 text-sm font-normal text-gray-600">I agree to the <a href="terms.html" class="text-blue-600 hover:underline">Terms and Conditions</a>.</label>
+                    </div>
+                    <button type="submit" id="signup-cta-btn" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg bg-brand-yellow text-brand-dark transform hover:scale-105 transition"></button>
+                    <p class="text-center text-sm text-gray-600">
+                        <span id="signup-login-prompt"></span> <a href="#" id="show-login" class="text-blue-600 hover:underline font-semibold"></a>
+                    </p>
+                    <p id="signup-error-message" class="text-red-600 text-sm font-semibold text-center mt-4 h-5"></p>
+                </form>
+            </div>
 
-        <div class="space-y-4">
-            <button id="google-signin-btn" class="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-700 hover:bg-gray-50 transform hover:scale-105 transition">
-                <img class="h-6 w-6 mr-3" src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google icon">
-                Sign in with Google
-            </button>
-            <button id="guest-continue-btn" class="w-full py-3 px-4 rounded-lg shadow-md bg-gray-600 text-white hover:bg-gray-700 transform hover:scale-105 transition">
-                Continue as Guest
-            </button>
-        </div>
-    </div>
+            <div class="my-6 flex items-center">
+                <div class="flex-grow border-t border-gray-300"></div>
+                <span id="or-separator" class="flex-shrink mx-4 text-gray-500 text-sm"></span>
+                <div class="flex-grow border-t border-gray-300"></div>
+            </div>
 
-    <div id="forgot-password-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center hidden">
+            <div class="space-y-4">
+                <button id="google-signin-btn" class="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-700 hover:bg-gray-50 transform hover:scale-105 transition">
+                    <img class="h-6 w-6 mr-3" src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google icon">
+                    <span id="google-btn-text"></span>
+                </button>
+                <button id="guest-continue-btn" class="w-full py-3 px-4 rounded-lg shadow-md bg-gray-600 text-white hover:bg-gray-700 transform hover:scale-105 transition">
+                    <span id="guest-btn-text"></span>
+                </button>
+            </div>
+        </div>
+    </main>
+    
+    <div id="forgot-password-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center hidden p-4">
         <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
-            <h3 class="text-lg font-medium text-gray-900 text-center">Reset Password</h3>
-            <p class="text-sm text-gray-500 mt-2 mb-4 text-center">Enter your email and we'll send a reset link.</p>
-            <input type="email" id="reset-email" class="w-full p-3 border border-gray-300 rounded-lg" placeholder="Your email address">
+            <h3 id="reset-modal-title" class="text-lg font-medium text-gray-900 text-center"></h3>
+            <p id="reset-modal-subtext" class="text-sm text-gray-500 mt-2 mb-4 text-center"></p>
+            <input type="email" id="reset-email" class="w-full p-3 border border-gray-300 rounded-lg">
             <p id="reset-error-message" class="text-red-500 text-sm text-center h-4 mt-2"></p>
             <p id="reset-success-message" class="text-green-500 text-sm text-center h-4 mt-2"></p>
             <div class="mt-4 space-y-2">
-                <button id="send-reset-link-btn" class="w-full px-4 py-2 text-white rounded-md" style="background-color: var(--brand-red);">Send Reset Link</button>
-                <button id="close-modal-btn" class="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                <button id="send-reset-link-btn" class="w-full px-4 py-2 text-white bg-brand-red rounded-md"></button>
+                <button id="close-modal-btn" class="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"></button>
             </div>
         </div>
     </div>
