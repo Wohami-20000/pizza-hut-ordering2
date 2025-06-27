@@ -24,13 +24,17 @@
         body { font-family: 'Poppins', sans-serif; touch-action: manipulation; }
         .auth-form { transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out; opacity: 1; transform: translateX(0); }
         .auth-form.hidden-form { opacity: 0; transform: translateX(-30px); position: absolute; pointer-events: none; }
-        .form-container { position: relative; min-height: 450px; }
+        .form-container { position: relative; min-height: 480px; /* Adjusted for new element */ }
         .password-wrapper { position: relative; }
         .password-wrapper .toggle-password { position: absolute; top: 50%; right: 0.75rem; transform: translateY(-50%); cursor: pointer; color: #9ca3af; }
         password-input { display: block; width: 100%; }
         .lang-switcher { display: flex; background-color: #f3f4f6; border-radius: 9999px; padding: 0.25rem; margin-bottom: 1.5rem; border: 1px solid #e5e7eb; }
         .lang-switcher button { flex: 1; padding: 0.5rem 0.75rem; border-radius: 9999px; font-weight: 600; font-size: 0.875rem; color: #6b7280; border: none; background-color: transparent; cursor: pointer; transition: all 0.2s ease-in-out; }
         .lang-switcher button.active { background-color: #ffffff; color: #D71921; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .spinner { display: none; border: 3px solid rgba(0, 0, 0, 0.2); border-top: 3px solid #fff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        button:disabled .spinner { display: inline-block; }
+        button:disabled .btn-text { opacity: 0; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-brand-red">
@@ -64,7 +68,10 @@
                     <div class="text-right text-sm">
                         <a href="#" id="forgot-password-link" class="font-medium text-blue-600 hover:text-blue-800"></a>
                     </div>
-                    <button type="submit" id="login-cta-btn" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg bg-brand-yellow text-brand-dark transform hover:scale-105 transition"></button>
+                    <button type="submit" id="login-cta-btn" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg bg-brand-yellow text-brand-dark transform hover:scale-105 transition flex items-center justify-center">
+                        <span class="btn-text"></span>
+                        <div class="spinner"></div>
+                    </button>
                     <p class="text-center text-sm text-gray-600">
                         <span id="login-signup-prompt"></span> <a href="#" id="show-signup" class="text-blue-600 hover:underline font-semibold"></a>
                     </p>
@@ -80,7 +87,10 @@
                         </div>
                         <label for="terms-checkbox" id="terms-label" class="ml-2 text-sm font-normal text-gray-600">I agree to the <a href="terms.html" class="text-blue-600 hover:underline">Terms and Conditions</a>.</label>
                     </div>
-                    <button type="submit" id="signup-cta-btn" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg bg-brand-yellow text-brand-dark transform hover:scale-105 transition"></button>
+                    <button type="submit" id="signup-cta-btn" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg bg-brand-yellow text-brand-dark transform hover:scale-105 transition flex items-center justify-center">
+                        <span class="btn-text"></span>
+                        <div class="spinner"></div>
+                    </button>
                     <p class="text-center text-sm text-gray-600">
                         <span id="signup-login-prompt"></span> <a href="#" id="show-login" class="text-blue-600 hover:underline font-semibold"></a>
                     </p>
