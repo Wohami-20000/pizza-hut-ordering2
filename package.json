@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "main": "cart.js",
   "scripts": {
-  "dev": "npx tailwindcss -i ./src/input.css -o ./style.css --watch"
-},
+    "dev": "npx tailwindcss -i ./src/input.css -o ./style.css --watch"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Wohami-2000/pizza-hut-ordering1.git"
