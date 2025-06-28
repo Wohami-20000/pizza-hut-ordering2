@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "main": "cart.js",
   "scripts": {
-  "dev": "npx tailwindcss -i ./src/input.css -o ./style.css --watch",
-  "build:css": "npx tailwindcss -i ./src/input.css -o ./style.css"
+  "dev": "npx tailwindcss -i ./src/input.css -o ./style.css --watch"
 },
   "repository": {
     "type": "git",
