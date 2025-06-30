@@ -19,6 +19,50 @@ const messageBoxOkBtn = document.getElementById('message-box-ok-btn');
 
 let currentLang = localStorage.getItem('lang') || 'en';
 
+// --- IMPORTANT: Server-Side Validation ---
+// In a production application, you should NEVER trust the prices sent from the client.
+// The client can be manipulated. A secure application must have a backend (like Firebase Functions)
+// to verify the price of each item in the cart before finalizing an order.
+//
+// Here's a conceptual example of how that would work in a Firebase Function:
+//
+// exports.placeOrder = functions.https.onCall(async (data, context) => {
+//   const cart = data.cart;
+//   const promoCode = data.promoCode;
+//   const uid = context.auth.uid;
+//
+//   if (!uid) {
+//     throw new functions.https.HttpsError('unauthenticated', 'You must be logged in to place an order.');
+//   }
+//
+//   let serverCalculatedSubtotal = 0;
+//
+//   // Loop through cart items sent from the client
+//   for (const clientItem of cart) {
+//     // Fetch the item's true price from the database
+//     const itemRef = db.ref(`menu/${clientItem.categoryId}/items/${clientItem.id}`);
+//     const snapshot = await itemRef.once('value');
+//     const serverItem = snapshot.val();
+//
+//     if (!serverItem) {
+//       throw new functions.https.HttpsError('not-found', `Item with ID ${clientItem.id} not found.`);
+//     }
+//
+//     // Add the verified price to the server-calculated subtotal
+//     serverCalculatedSubtotal += serverItem.price * clientItem.quantity;
+//   }
+//
+//   // Now, calculate the final total with delivery fees and promo codes on the server
+//   const finalTotal = calculateFinalTotal(serverCalculatedSubtotal, promoCode);
+//
+//   // If the server's total matches the client's, save the order to the database.
+//   // Otherwise, reject the order.
+//   // ...
+// });
+//
+// The following code is for the client-side experience and does NOT include this
+// critical server-side validation.
+
 function showMessageBox(titleKey, messageKey, isError = false) {
   let translatedTitle = (typeof translations !== 'undefined' && translations[currentLang]?.[titleKey]) || titleKey; 
   let translatedMessage = (typeof translations !== 'undefined' && translations[currentLang]?.[messageKey]) || messageKey; 

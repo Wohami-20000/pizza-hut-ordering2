@@ -68,6 +68,8 @@ function applyLanguage(lang) {
     loginEmailInput.placeholder = t.emailPlaceholder;
     loginPasswordInput.placeholder = t.passwordPlaceholder;
     document.getElementById('signup-email').placeholder = t.emailPlaceholder;
+    document.getElementById('signup-name').placeholder = "Full Name"; // Add translations if needed
+    document.getElementById('signup-phone').placeholder = "Phone Number"; // Add translations if needed
     resetEmailInput.placeholder = t.emailPlaceholder;
     const passwordInputComponent = document.querySelector('password-input');
     if (passwordInputComponent && passwordInputComponent.shadowRoot) {
@@ -223,10 +225,68 @@ customElements.define('password-input', PasswordInput);
 document.querySelectorAll('.toggle-password').forEach(toggle => { toggle.addEventListener('click', () => { const targetId = toggle.dataset.target; const targetInput = document.getElementById(targetId); if (targetInput && targetInput.type === 'password') { targetInput.type = 'text'; toggle.classList.remove('fa-eye'); toggle.classList.add('fa-eye-slash'); } else if (targetInput) { targetInput.type = 'password'; toggle.classList.remove('fa-eye-slash'); toggle.classList.add('fa-eye'); } }); });
 
 // --- Core Authentication Logic ---
-const handleSuccessfulLogin = (user) => { db.ref('users/' + user.uid).update({ email: user.email, lastLogin: new Date().toISOString(), name: user.displayName || 'Customer', }); window.location.href = 'order-type-selection.html'; };
+const handleSuccessfulLogin = (user) => {
+    const userRef = db.ref('users/' + user.uid);
+    userRef.once('value').then(snapshot => {
+        if (!snapshot.exists()) {
+            // This is a new user, or a Google Sign-In user without a DB entry
+            userRef.update({
+                email: user.email,
+                name: user.displayName || 'Customer',
+                lastLogin: new Date().toISOString()
+            });
+        } else {
+            // Existing user, just update last login
+            userRef.update({
+                lastLogin: new Date().toISOString()
+            });
+        }
+    });
+    window.location.href = 'order-type-selection.html';
+};
 const setLoading = (button, isLoading) => { button.disabled = isLoading; };
 loginForm.addEventListener('submit', async (e) => { e.preventDefault(); hideError(loginErrorMessage); setLoading(loginCtaBtn, true); try { const userCredential = await auth.signInWithEmailAndPassword(loginEmailInput.value, loginPasswordInput.value); handleSuccessfulLogin(userCredential.user); } catch (error) { displayError(loginErrorMessage, 'Invalid email or password.'); } finally { setLoading(loginCtaBtn, false); } });
-signupForm.addEventListener('submit', async (e) => { e.preventDefault(); hideError(signupErrorMessage); const passwordInputComponent = signupForm.querySelector('password-input'); if (!document.getElementById('terms-checkbox').checked) { displayError(signupErrorMessage, 'You must agree to the terms and conditions.'); return; } if (!passwordInputComponent.checkValidity()) { displayError(signupErrorMessage, 'Passwords do not match or are invalid.'); return; } setLoading(signupCtaBtn, true); try { const userCredential = await auth.createUserWithEmailAndPassword(document.getElementById('signup-email').value, passwordInputComponent.password); handleSuccessfulLogin(userCredential.user); } catch (error) { let msg = 'Error signing up. Please try again.'; if (error.code === 'auth/email-already-in-use') msg = 'This email is already in use.'; if (error.code === 'auth/weak-password') msg = 'Password should be at least 6 characters.'; displayError(signupErrorMessage, msg); } finally { setLoading(signupCtaBtn, false); } });
+
+// UPDATED: Signup form logic to save name and phone
+signupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideError(signupErrorMessage);
+    const passwordInputComponent = signupForm.querySelector('password-input');
+    const name = document.getElementById('signup-name').value.trim();
+    const phone = document.getElementById('signup-phone').value.trim();
+    const email = document.getElementById('signup-email').value.trim();
+
+    if (!document.getElementById('terms-checkbox').checked) {
+        displayError(signupErrorMessage, 'You must agree to the terms and conditions.');
+        return;
+    }
+    if (!passwordInputComponent.checkValidity()) {
+        displayError(signupErrorMessage, 'Passwords do not match or are invalid.');
+        return;
+    }
+    setLoading(signupCtaBtn, true);
+    try {
+        const userCredential = await auth.createUserWithEmailAndPassword(email, passwordInputComponent.password);
+
+        // Save additional user info to the database
+        await db.ref('users/' + userCredential.user.uid).set({
+            email: email,
+            name: name,
+            phone: phone,
+            createdAt: new Date().toISOString()
+        });
+
+        handleSuccessfulLogin(userCredential.user);
+    } catch (error) {
+        let msg = 'Error signing up. Please try again.';
+        if (error.code === 'auth/email-already-in-use') msg = 'This email is already in use.';
+        if (error.code === 'auth/weak-password') msg = 'Password should be at least 6 characters.';
+        displayError(signupErrorMessage, msg);
+    } finally {
+        setLoading(signupCtaBtn, false);
+    }
+});
+
 document.getElementById('google-signin-btn').addEventListener('click', async () => { try { const result = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); handleSuccessfulLogin(result.user); } catch (error) { displayError(loginErrorMessage, 'Could not sign in with Google. Please try again.'); } });
 document.getElementById('guest-continue-btn').addEventListener('click', async () => { try { await auth.signInAnonymously(); localStorage.setItem('orderType', 'dineIn'); window.location.href = 'menu.html'; } catch (error) { displayError(loginErrorMessage, 'Could not continue as guest. Please try again.'); } });
 closeModalBtn.addEventListener('click', () => { forgotPasswordModal.classList.add('hidden'); });

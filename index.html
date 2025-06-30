@@ -63,13 +63,14 @@
       applyWelcomeLanguage(e.target.value);
     });
 
-    // Handle NFC scan simulation (if coming from an NFC tag)
-    // A real NFC tag would redirect to something like index.html?table=5
-    // Here, we simulate that to bypass auth for dine-in
+    // --- UPDATED: NFC Scan Logic ---
+    // This logic handles a seamless dine-in experience by checking for a table number in the URL.
     document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const tableNumber = urlParams.get('table');
 
+        // If a table number is found, set the order type and table number in localStorage,
+        // then redirect directly to the menu.
         if (tableNumber) {
             localStorage.setItem('orderType', 'dineIn');
             localStorage.setItem('tableNumber', tableNumber);

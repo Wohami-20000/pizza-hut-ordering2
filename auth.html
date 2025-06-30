@@ -6,11 +6,11 @@
     
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self'; 
-        script-src 'self' 'unsafe-inline' https://www.gstatic.com/firebasejs/ https://cdnjs.cloudflare.com; 
+        script-src 'self' 'unsafe-inline' https://www.gstatic.com/firebasejs/ https://cdnjs.cloudflare.com https://apis.google.com; 
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com/ https://cdnjs.cloudflare.com; 
         font-src 'self' https://fonts.gstatic.com/ https://cdnjs.cloudflare.com; 
         img-src 'self' https: data:; 
-        connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://www.googleapis.com;
+        connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://www.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com;
         frame-src 'self' https://*.firebaseapp.com;
     ">
     
@@ -24,7 +24,7 @@
         body { font-family: 'Poppins', sans-serif; touch-action: manipulation; }
         .auth-form { transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out; opacity: 1; transform: translateX(0); }
         .auth-form.hidden-form { opacity: 0; transform: translateX(-30px); position: absolute; pointer-events: none; }
-        .form-container { position: relative; min-height: 480px; /* Adjusted for new element */ }
+        .form-container { position: relative; min-height: 520px; }
         .password-wrapper { position: relative; }
         .password-wrapper .toggle-password { position: absolute; top: 50%; right: 0.75rem; transform: translateY(-50%); cursor: pointer; color: #9ca3af; }
         password-input { display: block; width: 100%; }
@@ -49,7 +49,7 @@
             </div>
 
             <img 
-                src="images/pizza-hut-logo.png" 
+                src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" 
                 alt="Official Pizza Hut Logo"
                 width="128" 
                 height="67"
@@ -78,8 +78,10 @@
                     <p id="login-error-message" class="text-red-600 text-sm font-semibold text-center mt-4 h-5"></p>
                 </form>
 
-                <form id="signup-form" class="auth-form hidden-form w-full space-y-6">
+                <form id="signup-form" class="auth-form hidden-form w-full space-y-4">
+                    <input type="text" id="signup-name" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-brand-dark focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/50 transition" placeholder="Full Name" required />
                     <input type="email" id="signup-email" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-brand-dark focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/50 transition" required />
+                    <input type="tel" id="signup-phone" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-brand-dark focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/50 transition" placeholder="Phone Number" />
                     <password-input></password-input>
                     <div class="flex items-start">
                         <div class="flex items-center h-5">
