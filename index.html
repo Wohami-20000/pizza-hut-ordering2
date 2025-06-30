@@ -13,10 +13,10 @@
 </head>
 <body class="bg-red-50 min-h-screen flex flex-col items-center justify-center">
   <div class="flex flex-col items-center justify-center flex-1 w-full px-4">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="w-40 mb-8 mt-12 rounded shadow" />
+    <img src="pizza-hut-logo.png" alt="Pizza Hut Logo" class="w-40 mb-8 mt-12 rounded shadow" />
     <h1 id="welcome-title" class="text-4xl font-extrabold text-red-700 mb-6 text-center">Welcome to Pizza Hut</h1>
     
-    <a id="order-now-btn" href="auth.html" class="bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg px-8 py-4 shadow-lg transition mb-10">Order Now</a>
+    <a id="order-now-btn" href="order-type-selection.html" class="bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg px-8 py-4 shadow-lg transition mb-10">Order Now</a>
     
     <select id="language-switcher" class="mt-2 mb-8 p-2 rounded border w-40 text-center">
       <option value="en">English</option>
@@ -63,19 +63,34 @@
       applyWelcomeLanguage(e.target.value);
     });
 
-    // --- UPDATED: NFC Scan Logic ---
-    // This logic handles a seamless dine-in experience by checking for a table number in the URL.
+    // --- UPDATED: NFC Scan Logic with Anonymous Sign-In ---
     document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const tableNumber = urlParams.get('table');
 
-        // If a table number is found, set the order type and table number in localStorage,
-        // then redirect directly to the menu.
+        // If a table number is found in the URL, this was an NFC scan.
         if (tableNumber) {
+            console.log("NFC scan detected for table:", tableNumber);
+
+            // Set the order context in localStorage
             localStorage.setItem('orderType', 'dineIn');
             localStorage.setItem('tableNumber', tableNumber);
-            window.location.href = 'menu.html'; // Direct to menu for dine-in
+
+            // Automatically sign the user in as a guest to create a session
+            firebase.auth().signInAnonymously()
+                .then(() => {
+                    // Once signed in, redirect directly to the menu
+                    console.log("Signed in as guest. Redirecting to menu...");
+                    window.location.href = 'menu.html';
+                })
+                .catch((error) => {
+                    console.error("Anonymous sign-in failed:", error);
+                    // Even if sign-in fails, we can still attempt to redirect.
+                    // The cart page has checks that will handle an unauthenticated user.
+                    window.location.href = 'menu.html';
+                });
         }
+        // If no table number is found, the script does nothing and the normal welcome page is shown.
     });
   </script>
 </body>
