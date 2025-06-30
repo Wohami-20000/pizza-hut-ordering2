@@ -226,23 +226,33 @@ document.querySelectorAll('.toggle-password').forEach(toggle => { toggle.addEven
 
 // --- Core Authentication Logic ---
 const handleSuccessfulLogin = (user) => {
-    const userRef = db.ref('users/' + user.uid);
-    userRef.once('value').then(snapshot => {
-        if (!snapshot.exists()) {
-            // This is a new user, or a Google Sign-In user without a DB entry
-            userRef.update({
-                email: user.email,
-                name: user.displayName || 'Customer',
-                lastLogin: new Date().toISOString()
-            });
+    // UPDATED: Check for admin claim
+    user.getIdTokenResult().then((idTokenResult) => {
+        // Update user's last login time in the database
+        const userRef = db.ref('users/' + user.uid);
+        const userUpdate = {
+            lastLogin: new Date().toISOString()
+        };
+        // If it's a new user, also set their email and name
+        userRef.once('value').then(snapshot => {
+            if (!snapshot.exists()) {
+                userUpdate.email = user.email;
+                userUpdate.name = user.displayName || 'Customer';
+            }
+            userRef.update(userUpdate);
+        });
+
+        // Redirect based on admin claim
+        if (idTokenResult.claims.admin === true) {
+            window.location.href = 'admin.html';
         } else {
-            // Existing user, just update last login
-            userRef.update({
-                lastLogin: new Date().toISOString()
-            });
+            window.location.href = 'order-type-selection.html';
         }
+    }).catch((error) => {
+        console.error("Error getting ID token result:", error);
+        // Fallback for safety, though it should ideally not fail
+        window.location.href = 'order-type-selection.html';
     });
-    window.location.href = 'order-type-selection.html';
 };
 const setLoading = (button, isLoading) => { button.disabled = isLoading; };
 loginForm.addEventListener('submit', async (e) => { e.preventDefault(); hideError(loginErrorMessage); setLoading(loginCtaBtn, true); try { const userCredential = await auth.signInWithEmailAndPassword(loginEmailInput.value, loginPasswordInput.value); handleSuccessfulLogin(userCredential.user); } catch (error) { displayError(loginErrorMessage, 'Invalid email or password.'); } finally { setLoading(loginCtaBtn, false); } });

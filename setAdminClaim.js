@@ -1,7 +1,7 @@
 const admin = require("firebase-admin");
 
-// Replace with your actual path to the service account key file
-const serviceAccount = require("C:/coding/pizza-hut-ordering1-main/serviceAccountKey.json");
+// Corrected: Use a relative path to load the service account key
+const serviceAccount = require("./serviceAccountKey.json");
 
 // Initialize Firebase Admin SDK
 admin.initializeApp({
@@ -9,7 +9,7 @@ admin.initializeApp({
 });
 
 // Replace with the UID of the user to promote to admin
-const uid = "0o8oV1E67PTsmAuQypuWiIawN1v1";
+const uid = "iedrL3dOKkTnt3U8MHWANJhs4jG3";
 
 // Set the admin custom claim
 admin.auth().setCustomUserClaims(uid, { admin: true })

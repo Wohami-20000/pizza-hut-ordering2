@@ -1,40 +1,36 @@
 // admin.js
 
 // Initialize Firebase database and auth objects
-// These are declared here, but actual assignment happens in DOMContentLoaded to ensure Firebase is fully loaded.
 let auth;
 let db;
 let ordersRef;
-let menuRef; // Reference to the 'menu' node
-let offersRef; // NEW: Reference for offers
+let menuRef;
+let offersRef;
 
 let currentLang = localStorage.getItem('lang') || 'en';
 
 // --- Utility Functions ---
-// Function to show messages/errors on the admin page
 function showMessage(containerId, message, isError = false) {
     const container = document.getElementById(containerId);
     if (container) {
-        // Find the span inside the container to put the message text
         const messageTextSpan = container.querySelector('#admin-page-error-text');
         if (messageTextSpan) {
             messageTextSpan.textContent = message;
         } else {
-            container.textContent = message; // Fallback if span not found
+            container.textContent = message;
         }
         
-        container.classList.remove('hidden'); // Show the container
+        container.classList.remove('hidden');
         if (isError) {
             container.classList.remove('bg-green-100', 'text-green-700', 'border-green-400');
             container.classList.add('bg-red-100', 'text-red-700', 'border-red-400');
         } else {
-            container.classList.remove('bg-red-100', 'text-red-700', 'border-red-700'); // Ensure it's not red by default
+            container.classList.remove('bg-red-100', 'text-red-700', 'border-red-700');
             container.classList.add('bg-green-100', 'text-green-700', 'border-green-400');
         }
     }
 }
 
-// Function to hide messages/errors on the admin page
 function hideMessage(containerId) {
     const container = document.getElementById(containerId);
     if (container) {
@@ -48,7 +44,6 @@ function hideMessage(containerId) {
     }
 }
 
-// Function to safely escape HTML to prevent XSS
 function escapeHTML(str) {
   if (typeof str !== 'string') return str !== null && str !== undefined ? String(str) : '';
   return String(str).replace(/[<>&"']/g, s => ({
@@ -56,22 +51,20 @@ function escapeHTML(str) {
   }[s]));
 }
 
-
 // ---------------------- ORDER MANAGEMENT ----------------------
 
 function loadOrders() {
-    ordersRef.off(); // Detach previous listener if any, to prevent duplicates
-    ordersRef.on('value', snapshot => { // Use on('value') for real-time updates
+    ordersRef.off(); 
+    ordersRef.on('value', snapshot => {
         const ordersTable = document.getElementById('ordersTableBody');
         if (!ordersTable) {
             console.error("Dashboard: ordersTableBody not found.");
             return;
         }
-        ordersTable.innerHTML = ''; // Clear existing rows
-        hideMessage('error-message-admin-page'); // Hide any previous error messages related to orders
+        ordersTable.innerHTML = '';
+        hideMessage('error-message-admin-page');
 
         if (!snapshot.exists()) {
-            console.log("Dashboard: No orders found in Firebase.");
             ordersTable.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-gray-500" data-translate="no_orders_found">No orders found.</td></tr>`;
             if (typeof applyLanguage === 'function') applyLanguage(currentLang, ordersTable);
             document.getElementById('total-orders-count').textContent = '0';
@@ -89,7 +82,6 @@ function loadOrders() {
             const order = childSnapshot.val();
             const key = childSnapshot.key;
 
-            // Update counts based on current status
             if (order.status === 'pending') {
                 pendingOrders++;
             } else if (order.status === 'delivered') {
@@ -131,7 +123,6 @@ function loadOrders() {
         document.getElementById('pending-orders-count').textContent = pendingOrders;
         document.getElementById('delivered-orders-count').textContent = deliveredOrders;
 
-        // Apply language after populating the table to ensure dropdown options are translated
         if (typeof applyLanguage === 'function') applyLanguage(currentLang, ordersTable);
 
 
@@ -143,12 +134,10 @@ function loadOrders() {
     });
 }
 
-// Function to update order status in Firebase
 function updateOrderStatus(orderId, newStatus) {
     ordersRef.child(orderId).update({ status: newStatus })
         .then(() => {
             console.log(`Order ${orderId} status updated to ${newStatus}`);
-            // No need to re-load orders explicitly here because the on('value') listener will handle it.
         })
         .catch(error => {
             console.error(`Error updating order ${orderId} status:`, error);
@@ -167,7 +156,6 @@ function showSection(sectionId, title) {
     localStorage.setItem('adminActiveSection', sectionId);
     localStorage.setItem('adminActiveTitle', title);
 
-    // CRITICAL: If menu management section is shown, initialize adminMenu view
     if (sectionId === 'menu-management-section') {
         if (window.adminMenu && typeof window.adminMenu.initializeView === 'function') {
             window.adminMenu.initializeView();
@@ -176,7 +164,6 @@ function showSection(sectionId, title) {
             showMessage("error-message-admin-page", "Menu management features are not loaded. Please check admin-menu.js.", true);
         }
     }
-    // NEW: Initialize offers management view
     if (sectionId === 'offers-management-section') {
         if (window.adminOffers && typeof window.adminOffers.initializeView === 'function') {
             window.adminOffers.initializeView();
@@ -197,16 +184,12 @@ function setActiveLink(linkElement) {
 
 // --- Main Initialization ---
 document.addEventListener('DOMContentLoaded', async () => {
-    // Assign Firebase objects after DOM is loaded and ensure firebase.js has run
     auth = firebase.auth();
     db = firebase.database();
     ordersRef = db.ref('orders');
     menuRef = db.ref('menu');
-    offersRef = db.ref('offers'); // NEW
+    offersRef = db.ref('offers');
 
-    console.log("admin.html: DOMContentLoaded event fired."); //
-
-    // Language switcher setup
     const languageSwitcher = document.getElementById('language-switcher');
     if (languageSwitcher) {
         currentLang = localStorage.getItem("lang") || "en";
@@ -216,12 +199,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             localStorage.setItem('lang', currentLang);
             if (typeof applyLanguage === 'function') {
                 applyLanguage(currentLang);
-                loadOrders(); // Re-load orders to apply language to status dropdowns
+                loadOrders();
             }
         });
     }
 
-    // Sidebar toggle buttons
     const sidebarToggleOpen = document.getElementById('sidebar-toggle-open');
     const sidebarToggleClose = document.getElementById('sidebar-toggle-close');
     const sidebar = document.getElementById('sidebar');
@@ -248,7 +230,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Navigation links (Use event delegation for robustness)
     document.querySelectorAll('aside .nav-link').forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
@@ -263,7 +244,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // Logout functionality
+    // UPDATED: Logout functionality
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async (e) => {
@@ -271,7 +252,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 await auth.signOut();
                 localStorage.clear();
-                window.location.href = 'admin-login.html';
+                window.location.href = 'auth.html'; // Redirect to the main auth page
             } catch (error) {
                 console.error("Logout error:", error);
                 alert("Error logging out. Please try again.");
@@ -279,16 +260,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Handle user authentication state and claims
+    // UPDATED: Handle user authentication state and claims
     auth.onAuthStateChanged(async (user) => {
         if (user) {
             try {
                 const idTokenResult = await user.getIdTokenResult(true); 
 
                 if (idTokenResult.claims.admin === true) {
+                    // User is an admin, allow access and load data
                     loadOrders(); 
-                    
-                    // NEW: Initialize offer management logic
                     if (window.adminOffers) window.adminOffers.initializeEventListeners();
 
                     const activeSectionIdStorage = localStorage.getItem('adminActiveSection');
@@ -308,22 +288,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     }
                 } else {
-                    console.warn("admin.html: User is logged in but NOT an admin. Access denied.");
-                    showMessage("error-message-admin-page", "Access Denied: You do not have administrator privileges.", true);
-                    setTimeout(() => { window.location.href = "admin-login.html"; }, 3000);
+                    // User is logged in but NOT an admin. Redirect to home page.
+                    console.warn("admin.js: Access Denied. User is not an admin. Redirecting.");
+                    window.location.href = "index.html";
                 }
             } catch (error) {
-                console.error("admin.html: Error verifying admin status:", error);
-                showMessage("error-message-admin-page", `Error verifying admin status: ${error.message}`, true);
-                setTimeout(() => { window.location.href = "admin-login.html"; }, 3000);
+                console.error("admin.js: Error verifying admin status. Redirecting.", error);
+                window.location.href = "index.html";
             }
         } else {
-            console.log("admin.html: User is NOT logged in. Redirecting to login.");
-            window.location.href = "admin-login.html";
+            // User is NOT logged in. Redirect to home page.
+            console.log("admin.js: User is not logged in. Redirecting.");
+            window.location.href = "index.html";
         }
     });
 });
-
 
 // ---------------------- NEW: OFFERS MANAGEMENT ----------------------
 window.adminOffers = {
@@ -422,10 +401,8 @@ window.adminOffers = {
         let promise;
 
         if (this.editingOfferId) {
-            // Update existing offer
             promise = offersRef.child(this.editingOfferId).update(offerData);
         } else {
-            // Add new offer
             promise = offersRef.push(offerData);
         }
 
