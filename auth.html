@@ -6,7 +6,7 @@
     
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self'; 
-        script-src 'self' 'unsafe-inline' https://www.gstatic.com/firebasejs/ https://cdnjs.cloudflare.com https://apis.google.com; 
+        script-src 'self' https://www.gstatic.com/firebasejs/ https://cdnjs.cloudflare.com https://apis.google.com; 
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com/ https://cdnjs.cloudflare.com; 
         font-src 'self' https://fonts.gstatic.com/ https://cdnjs.cloudflare.com; 
         img-src 'self' https: data:; 
@@ -31,10 +31,6 @@
         .lang-switcher { display: flex; background-color: #f3f4f6; border-radius: 9999px; padding: 0.25rem; margin-bottom: 1.5rem; border: 1px solid #e5e7eb; }
         .lang-switcher button { flex: 1; padding: 0.5rem 0.75rem; border-radius: 9999px; font-weight: 600; font-size: 0.875rem; color: #6b7280; border: none; background-color: transparent; cursor: pointer; transition: all 0.2s ease-in-out; }
         .lang-switcher button.active { background-color: #ffffff; color: #D71921; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .spinner { display: none; border: 3px solid rgba(0, 0, 0, 0.2); border-top: 3px solid #fff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
-        button:disabled .spinner { display: inline-block; }
-        button:disabled .btn-text { opacity: 0; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-brand-red">
@@ -59,23 +55,27 @@
             <p id="auth-subtext" class="text-gray-500 text-center mb-6 h-10"></p>
 
             <div class="form-container">
-                <form id="login-form" class="auth-form space-y-6">
+                <form id="login-form" class="auth-form space-y-4">
                     <input type="email" id="login-email" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-brand-dark focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/50 transition" required />
                     <div class="password-wrapper">
                         <input type="password" id="login-password" class="w-full p-3 pr-10 bg-gray-100 border border-gray-300 rounded-lg text-brand-dark focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/50 transition" required />
                         <i class="fas fa-eye toggle-password" data-target="login-password"></i>
                     </div>
-                    <div class="text-right text-sm">
+                    <div class="flex justify-between items-center text-sm">
+                        <div class="flex items-center">
+                            <input id="remember-me" type="checkbox" class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
+                            <label for="remember-me" class="ml-2 text-gray-700">Remember me</label>
+                        </div>
                         <a href="#" id="forgot-password-link" class="font-medium text-blue-600 hover:text-blue-800"></a>
                     </div>
-                    <button type="submit" id="login-cta-btn" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg bg-brand-yellow text-brand-dark transform hover:scale-105 transition flex items-center justify-center">
+                    <button type="submit" id="login-cta-btn" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg bg-brand-yellow text-brand-dark transform hover:scale-105 transition flex items-center justify-center relative">
                         <span class="btn-text"></span>
-                        <div class="spinner"></div>
+                        <div class="spinner absolute hidden h-6 w-6 border-4 border-t-transparent border-brand-dark rounded-full animate-spin"></div>
                     </button>
-                    <p class="text-center text-sm text-gray-600">
+                    <p class="text-center text-sm text-gray-600 pt-2">
                         <span id="login-signup-prompt"></span> <a href="#" id="show-signup" class="text-blue-600 hover:underline font-semibold"></a>
                     </p>
-                    <p id="login-error-message" class="text-red-600 text-sm font-semibold text-center mt-4 h-5"></p>
+                    <p id="login-error-message" class="text-red-600 text-sm font-semibold text-center h-5"></p>
                 </form>
 
                 <form id="signup-form" class="auth-form hidden-form w-full space-y-4">
@@ -89,9 +89,9 @@
                         </div>
                         <label for="terms-checkbox" id="terms-label" class="ml-2 text-sm font-normal text-gray-600">I agree to the <a href="terms.html" class="text-blue-600 hover:underline">Terms and Conditions</a>.</label>
                     </div>
-                    <button type="submit" id="signup-cta-btn" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg bg-brand-yellow text-brand-dark transform hover:scale-105 transition flex items-center justify-center">
+                    <button type="submit" id="signup-cta-btn" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg bg-brand-yellow text-brand-dark transform hover:scale-105 transition flex items-center justify-center relative">
                         <span class="btn-text"></span>
-                        <div class="spinner"></div>
+                        <div class="spinner absolute hidden h-6 w-6 border-4 border-t-transparent border-brand-dark rounded-full animate-spin"></div>
                     </button>
                     <p class="text-center text-sm text-gray-600">
                         <span id="signup-login-prompt"></span> <a href="#" id="show-login" class="text-blue-600 hover:underline font-semibold"></a>

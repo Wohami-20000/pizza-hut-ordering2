@@ -16,6 +16,7 @@ const authSubtext = document.getElementById('auth-subtext');
 const loginEmailInput = document.getElementById('login-email');
 const loginPasswordInput = document.getElementById('login-password');
 const forgotPasswordLink = document.getElementById('forgot-password-link');
+const rememberMeCheckbox = document.getElementById('remember-me');
 const loginSignupPrompt = document.getElementById('login-signup-prompt');
 const signupLoginPrompt = document.getElementById('signup-login-prompt');
 const orSeparator = document.getElementById('or-separator');
@@ -33,13 +34,13 @@ const signupErrorMessage = document.getElementById('signup-error-message');
 // --- Translations ---
 const translations = {
     en: {
-        loginTitle: "🍕 Welcome Back!", loginSubtext: "Log in to get your favorites delivered hot & fast.", loginCta: "→ Log In & Order Now", signupTitle: "🎉 Join the Pizza Party!", signupSubtext: "Sign up & get 20% OFF your first order.", signupCta: "→ Create Account", emailPlaceholder: "Email", passwordPlaceholder: "Password", confirmPasswordPlaceholder: "Confirm Password", forgotPassword: "Forgot password?", noAccountPrompt: "Don't have an account?", signupLink: "Sign Up", hasAccountPrompt: "Already have an account?", loginLink: "Login", orSeparator: "OR", googleBtn: "Sign in with Google", guestBtn: "Continue as Guest", terms: 'I agree to the <a href="terms.html" class="text-blue-600 hover:underline">Terms and Conditions</a>.', resetTitle: "Reset Password", resetSubtext: "Enter your email and we'll send a reset link.", sendResetLink: "Send Reset Link", cancel: "Cancel", strength: { weak: "Weak", medium: "Medium", strong: "Strong" }
+        loginTitle: "🍕 Welcome Back!", loginSubtext: "Log in to get your favorites delivered hot & fast.", loginCta: "→ Log In & Order Now", signupTitle: "🎉 Join the Pizza Party!", signupSubtext: "Sign up & get 20% OFF your first order.", signupCta: "→ Create Account", emailPlaceholder: "Email", passwordPlaceholder: "Password", confirmPasswordPlaceholder: "Confirm Password", forgotPassword: "Forgot password?", noAccountPrompt: "Don't have an account?", signupLink: "Sign Up", hasAccountPrompt: "Already have an account?", loginLink: "Login", orSeparator: "OR", googleBtn: "Sign in with Google", guestBtn: "Continue as Guest", terms: 'I agree to the <a href="terms.html" class="text-blue-600 hover:underline">Terms and Conditions</a>.', resetTitle: "Reset Password", resetSubtext: "Enter your email and we'll send a reset link.", sendResetLink: "Send Reset Link", cancel: "Cancel", strength: { weak: "Weak", medium: "Medium", strong: "Strong" }, loadingLogin: "Logging in...", loadingSignup: "Creating Account..."
     },
     fr: {
-        loginTitle: "🍕 Content de te revoir !", loginSubtext: "Connecte-toi pour commander ta pizza préférée.", loginCta: "→ Se connecter et commander", signupTitle: "🎉 Rejoins la famille Pizza !", signupSubtext: "Inscris-toi et reçois 20% de réduction sur ta première commande.", signupCta: "→ Créer un compte", emailPlaceholder: "Adresse e-mail", passwordPlaceholder: "Mot de passe", confirmPasswordPlaceholder: "Confirmer le mot de passe", forgotPassword: "Mot de passe oublié ?", noAccountPrompt: "Pas encore de compte ?", signupLink: "S'inscrire", hasAccountPrompt: "Déjà un compte ?", loginLink: "Se connecter", orSeparator: "OU", googleBtn: "Se connecter avec Google", guestBtn: "Continuer en tant qu'invité", terms: 'J\'accepte les <a href="terms.html" class="text-blue-600 hover:underline">Termes et Conditions</a>.', resetTitle: "Réinitialiser le mot de passe", resetSubtext: "Entrez votre email et nous enverrons un lien.", sendResetLink: "Envoyer le lien", cancel: "Annuler", strength: { weak: "Faible", medium: "Moyen", strong: "Fort" }
+        loginTitle: "🍕 Content de te revoir !", loginSubtext: "Connecte-toi pour commander ta pizza préférée.", loginCta: "→ Se connecter et commander", signupTitle: "🎉 Rejoins la famille Pizza !", signupSubtext: "Inscris-toi et reçois 20% de réduction sur ta première commande.", signupCta: "→ Créer un compte", emailPlaceholder: "Adresse e-mail", passwordPlaceholder: "Mot de passe", confirmPasswordPlaceholder: "Confirmer le mot de passe", forgotPassword: "Mot de passe oublié ?", noAccountPrompt: "Pas encore de compte ?", signupLink: "S'inscrire", hasAccountPrompt: "Déjà un compte ?", loginLink: "Se connecter", orSeparator: "OU", googleBtn: "Se connecter avec Google", guestBtn: "Continuer en tant qu'invité", terms: 'J\'accepte les <a href="terms.html" class="text-blue-600 hover:underline">Termes et Conditions</a>.', resetTitle: "Réinitialiser le mot de passe", resetSubtext: "Entrez votre email et nous enverrons un lien.", sendResetLink: "Envoyer le lien", cancel: "Annuler", strength: { weak: "Faible", medium: "Moyen", strong: "Fort" }, loadingLogin: "Connexion...", loadingSignup: "Création du compte..."
     },
     ar: {
-        loginTitle: "🍕 مرحباً بعودتك!", loginSubtext: "سجّل الدخول واطلب بيتزاك المفضلة الآن.", loginCta: "→ تسجيل الدخول والطلب الآن", signupTitle: "🎉 انضم لعشاق البيتزا!", signupSubtext: "سجّل الآن واحصل على خصم 20٪ لأول طلب.", signupCta: "→ إنشاء حساب", emailPlaceholder: "البريد الإلكتروني", passwordPlaceholder: "كلمة المرور", confirmPasswordPlaceholder: "تأكيد كلمة المرور", forgotPassword: "هل نسيت كلمة المرور؟", noAccountPrompt: "ليس لديك حساب؟", signupLink: "إنشاء حساب", hasAccountPrompt: "لديك حساب بالفعل؟", loginLink: "تسجيل الدخول", orSeparator: "أو", googleBtn: "تسجيل الدخول عبر جوجل", guestBtn: "المتابعة كزائر", terms: 'أوافق على <a href="terms.html" class="text-blue-600 hover:underline">الشروط والأحكام</a>.', resetTitle: "إعادة تعيين كلمة المرور", resetSubtext: "أدخل بريدك الإلكتروني وسنرسل لك رابطًا.", sendResetLink: "إرسال الرابط", cancel: "إلغاء", strength: { weak: "ضعيف", medium: "متوسط", strong: "قوي" }
+        loginTitle: "🍕 مرحباً بعودتك!", loginSubtext: "سجّل الدخول واطلب بيتزاك المفضلة الآن.", loginCta: "→ تسجيل الدخول والطلب الآن", signupTitle: "🎉 انضم لعشاق البيتزا!", signupSubtext: "سجّل الآن واحصل على خصم 20٪ لأول طلب.", signupCta: "→ إنشاء حساب", emailPlaceholder: "البريد الإلكتروني", passwordPlaceholder: "كلمة المرور", confirmPasswordPlaceholder: "تأكيد كلمة المرور", forgotPassword: "هل نسيت كلمة المرور؟", noAccountPrompt: "ليس لديك حساب؟", signupLink: "إنشاء حساب", hasAccountPrompt: "لديك حساب بالفعل؟", loginLink: "تسجيل الدخول", orSeparator: "أو", googleBtn: "تسجيل الدخول عبر جوجل", guestBtn: "المتابعة كزائر", terms: 'أوافق على <a href="terms.html" class="text-blue-600 hover:underline">الشروط والأحكام</a>.', resetTitle: "إعادة تعيين كلمة المرور", resetSubtext: "أدخل بريدك الإلكتروني وسنرسل لك رابطًا.", sendResetLink: "إرسال الرابط", cancel: "إلغاء", strength: { weak: "ضعيف", medium: "متوسط", strong: "قوي" }, loadingLogin: "جاري تسجيل الدخول...", loadingSignup: "جاري إنشاء الحساب..."
     }
 };
 
@@ -226,14 +227,12 @@ document.querySelectorAll('.toggle-password').forEach(toggle => { toggle.addEven
 
 // --- Core Authentication Logic ---
 const handleSuccessfulLogin = (user) => {
-    // UPDATED: Check for admin claim
+    // Analytics: Track successful login
+    // firebase.analytics().logEvent('login', { method: user.providerData[0].providerId });
+    
     user.getIdTokenResult().then((idTokenResult) => {
-        // Update user's last login time in the database
         const userRef = db.ref('users/' + user.uid);
-        const userUpdate = {
-            lastLogin: new Date().toISOString()
-        };
-        // If it's a new user, also set their email and name
+        const userUpdate = { lastLogin: new Date().toISOString() };
         userRef.once('value').then(snapshot => {
             if (!snapshot.exists()) {
                 userUpdate.email = user.email;
@@ -242,7 +241,6 @@ const handleSuccessfulLogin = (user) => {
             userRef.update(userUpdate);
         });
 
-        // Redirect based on admin claim
         if (idTokenResult.claims.admin === true) {
             window.location.href = 'admin.html';
         } else {
@@ -250,14 +248,46 @@ const handleSuccessfulLogin = (user) => {
         }
     }).catch((error) => {
         console.error("Error getting ID token result:", error);
-        // Fallback for safety, though it should ideally not fail
         window.location.href = 'order-type-selection.html';
     });
 };
-const setLoading = (button, isLoading) => { button.disabled = isLoading; };
-loginForm.addEventListener('submit', async (e) => { e.preventDefault(); hideError(loginErrorMessage); setLoading(loginCtaBtn, true); try { const userCredential = await auth.signInWithEmailAndPassword(loginEmailInput.value, loginPasswordInput.value); handleSuccessfulLogin(userCredential.user); } catch (error) { displayError(loginErrorMessage, 'Invalid email or password.'); } finally { setLoading(loginCtaBtn, false); } });
+const setLoading = (button, isLoading, loadingTextKey) => {
+    const lang = localStorage.getItem('lang') || 'en';
+    const t = translations[lang];
+    const originalText = button.id === 'login-cta-btn' ? t.loginCta : t.signupCta;
+    const loadingText = t[loadingTextKey];
 
-// UPDATED: Signup form logic to save name and phone
+    button.disabled = isLoading;
+    const btnText = button.querySelector('.btn-text');
+    const spinner = button.querySelector('.spinner');
+
+    if (isLoading) {
+        btnText.textContent = loadingText;
+        spinner.classList.remove('hidden');
+    } else {
+        btnText.textContent = originalText;
+        spinner.classList.add('hidden');
+    }
+};
+
+loginForm.addEventListener('submit', async (e) => { 
+    e.preventDefault(); 
+    hideError(loginErrorMessage); 
+    setLoading(loginCtaBtn, true, 'loadingLogin'); 
+    try {
+        const persistence = rememberMeCheckbox.checked ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION;
+        await auth.setPersistence(persistence);
+        
+        const userCredential = await auth.signInWithEmailAndPassword(loginEmailInput.value, loginPasswordInput.value); 
+        handleSuccessfulLogin(userCredential.user); 
+    } catch (error) { 
+        // Analytics: Track login failure
+        // firebase.analytics().logEvent('login_failed', { error_code: error.code });
+        displayError(loginErrorMessage, 'Invalid email or password.'); 
+        setLoading(loginCtaBtn, false, 'loadingLogin');
+    }
+});
+
 signupForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     hideError(signupErrorMessage);
@@ -274,18 +304,20 @@ signupForm.addEventListener('submit', async (e) => {
         displayError(signupErrorMessage, 'Passwords do not match or are invalid.');
         return;
     }
-    setLoading(signupCtaBtn, true);
+    setLoading(signupCtaBtn, true, 'loadingSignup');
     try {
         const userCredential = await auth.createUserWithEmailAndPassword(email, passwordInputComponent.password);
-
-        // Save additional user info to the database
+        
         await db.ref('users/' + userCredential.user.uid).set({
             email: email,
             name: name,
             phone: phone,
             createdAt: new Date().toISOString()
         });
-
+        
+        // Analytics: Track successful sign up
+        // firebase.analytics().logEvent('sign_up', { method: 'email' });
+        
         handleSuccessfulLogin(userCredential.user);
     } catch (error) {
         let msg = 'Error signing up. Please try again.';
@@ -293,11 +325,34 @@ signupForm.addEventListener('submit', async (e) => {
         if (error.code === 'auth/weak-password') msg = 'Password should be at least 6 characters.';
         displayError(signupErrorMessage, msg);
     } finally {
-        setLoading(signupCtaBtn, false);
+        setLoading(signupCtaBtn, false, 'loadingSignup');
     }
 });
 
-document.getElementById('google-signin-btn').addEventListener('click', async () => { try { const result = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); handleSuccessfulLogin(result.user); } catch (error) { displayError(loginErrorMessage, 'Could not sign in with Google. Please try again.'); } });
-document.getElementById('guest-continue-btn').addEventListener('click', async () => { try { await auth.signInAnonymously(); localStorage.setItem('orderType', 'dineIn'); window.location.href = 'menu.html'; } catch (error) { displayError(loginErrorMessage, 'Could not continue as guest. Please try again.'); } });
+document.getElementById('google-signin-btn').addEventListener('click', async () => { 
+    try { 
+        const result = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); 
+        // Analytics: Track successful Google sign in
+        // firebase.analytics().logEvent('sign_up', { method: 'google' });
+        handleSuccessfulLogin(result.user); 
+    } catch (error) { 
+        displayError(loginErrorMessage, 'Could not sign in with Google. Please try again.'); 
+    } 
+});
+
+document.getElementById('guest-continue-btn').addEventListener('click', async () => { 
+    if (confirm("Continuing as a guest means you won't be able to track or view your order history. Do you want to continue?")) {
+        try { 
+            await auth.signInAnonymously(); 
+            localStorage.setItem('orderType', 'dineIn'); 
+            // Analytics: Track guest session start
+            // firebase.analytics().logEvent('start_guest_session');
+            window.location.href = 'menu.html'; 
+        } catch (error) { 
+            displayError(loginErrorMessage, 'Could not continue as guest. Please try again.'); 
+        }
+    }
+});
+
 closeModalBtn.addEventListener('click', () => { forgotPasswordModal.classList.add('hidden'); });
 sendResetLinkBtn.addEventListener('click', async () => { const email = resetEmailInput.value; const resetError = document.getElementById('reset-error-message'); const resetSuccess = document.getElementById('reset-success-message'); if (!email) { resetError.textContent = 'Please enter your email address.'; return; } resetError.textContent = ''; resetSuccess.textContent = ''; try { await auth.sendPasswordResetEmail(email); resetSuccess.textContent = 'Password reset link sent! Check your inbox.'; } catch (error) { resetError.textContent = 'Failed to send. Please check the email and try again.'; } });
