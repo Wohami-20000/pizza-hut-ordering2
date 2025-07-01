@@ -7,111 +7,75 @@
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
     <style>
-        :root { 
-            --brand-red: #D71921;
-            --brand-yellow: #FFC72C;
-        }
+        :root { --brand-red: #D71921; --brand-yellow: #FFC72C; }
         body { background-color: #F9FAFB; }
-
-        /* --- NEW: Corrected Star Rating Styles --- */
-        .star-rating .fa-star {
-            color: #D1D5DB; /* gray-300 */
-            cursor: pointer;
-            transition: color 0.2s, transform 0.2s;
-            font-size: 2.5rem; /* text-4xl */
-        }
-        /* A simple class to make a star active/yellow */
-        .star-rating .fa-star.active {
-            color: var(--brand-yellow);
-        }
-        /* A subtle hover effect for individual stars */
-        .star-rating .fa-star:hover {
-            transform: scale(1.15);
-        }
+        .star-rating .fa-star { color: #D1D5DB; cursor: pointer; transition: color 0.2s, transform 0.2s; font-size: 2.5rem; }
+        .star-rating .fa-star.active { color: var(--brand-yellow); }
+        .star-rating .fa-star:hover { transform: scale(1.15); }
     </style>
 </head>
 <body class="min-h-screen">
-
     <header class="flex items-center justify-between px-4 py-3 bg-white text-gray-800 shadow-sm sticky top-0 z-30 h-[60px]">
-        <a href="menu.html" class="p-2 text-xl text-gray-600"><i class="fas fa-arrow-left"></i></a>
+        <a href="my-orders.html" class="p-2 text-xl text-gray-600"><i class="fas fa-arrow-left"></i></a>
         <h1 class="font-bold text-xl tracking-tight">Share Your Feedback</h1>
-        <div class="w-8"></div> </header>
+        <div class="w-8"></div>
+    </header>
 
     <main class="max-w-2xl mx-auto p-4 mt-6">
         <div id="feedback-card" class="bg-white p-6 rounded-xl shadow-lg">
-            <h2 class="text-2xl font-bold text-gray-800 text-center">We value your opinion!</h2>
-            <p class="text-gray-500 text-center mt-2 mb-8">Let us know how we can improve your experience.</p>
-            
+            <h2 class="text-2xl font-bold text-gray-800 text-center">How was your order?</h2>
+            <p id="feedback-order-id" class="text-gray-500 text-center mt-2 mb-8"></p>
             <form id="feedback-form" class="space-y-6">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2 text-center">How would you rate your overall experience?</label>
-                    <div class="star-rating flex justify-center gap-4">
-                        <i class="fas fa-star" data-value="1"></i>
-                        <i class="fas fa-star" data-value="2"></i>
-                        <i class="fas fa-star" data-value="3"></i>
-                        <i class="fas fa-star" data-value="4"></i>
-                        <i class="fas fa-star" data-value="5"></i>
+                <div class="star-rating flex justify-center gap-4">
                     </div>
-                    <input type="hidden" id="rating" name="rating" value="0">
-                </div>
-
-                <div>
-                    <label for="category" class="block text-sm font-medium text-gray-700">Feedback Category</label>
-                    <select id="category" name="category" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md">
-                        <option>Food Quality</option>
-                        <option>Delivery Service</option>
-                        <option>App Experience</option>
-                        <option>General Comment</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label for="comments" class="block text-sm font-medium text-gray-700">Comments</label>
-                    <textarea id="comments" name="comments" rows="4" class="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" placeholder="Tell us more..."></textarea>
-                </div>
-
-                <div>
-                    <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                        Submit Feedback
-                    </button>
-                </div>
+                <input type="hidden" id="rating" name="rating" value="0">
+                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-red-600 hover:bg-red-700">Submit Feedback</button>
             </form>
         </div>
-
         <div id="success-message" class="hidden text-center bg-white p-8 rounded-lg shadow-lg mt-6">
             <i class="fas fa-check-circle text-5xl text-green-500 mb-4"></i>
             <h2 class="text-2xl font-bold text-gray-800">Thank You!</h2>
-            <p class="text-gray-600 mt-2">Your feedback has been received. We appreciate you taking the time to help us improve.</p>
+            <p class="text-gray-600 mt-2">Your feedback has been received.</p>
         </div>
     </main>
-    
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="firebase.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const stars = document.querySelectorAll('.star-rating .fa-star');
             const ratingInput = document.getElementById('rating');
             const feedbackForm = document.getElementById('feedback-form');
             const feedbackCard = document.getElementById('feedback-card');
             const successMessage = document.getElementById('success-message');
+            const feedbackOrderId = document.getElementById('feedback-order-id');
+            const starContainer = document.querySelector('.star-rating');
             
-            let currentRating = 0;
+            const params = new URLSearchParams(window.location.search);
+            const orderId = params.get('orderId');
 
-            function setActiveStars(maxRating) {
-                stars.forEach(star => {
-                    if (star.dataset.value <= maxRating) {
-                        star.classList.add('active');
-                    } else {
-                        star.classList.remove('active');
-                    }
-                });
+            if (orderId) {
+                feedbackOrderId.textContent = `For Order #${orderId.slice(-6).toUpperCase()}`;
             }
 
-            stars.forEach(star => {
-                // Handle hover-in effect
-                star.addEventListener('mouseover', () => {
-                    setActiveStars(star.dataset.value);
-                });
+            for (let i = 1; i <= 5; i++) {
+                const star = document.createElement('i');
+                star.className = 'fas fa-star';
+                star.dataset.value = i;
+                starContainer.appendChild(star);
+            }
 
-                // Handle click to set permanent rating
+            const stars = document.querySelectorAll('.star-rating .fa-star');
+            let currentRating = 0;
+
+            const setActiveStars = (maxRating) => {
+                stars.forEach(star => {
+                    star.classList.toggle('active', star.dataset.value <= maxRating);
+                });
+            };
+
+            stars.forEach(star => {
+                star.addEventListener('mouseover', () => setActiveStars(star.dataset.value));
                 star.addEventListener('click', () => {
                     currentRating = star.dataset.value;
                     ratingInput.value = currentRating;
@@ -119,33 +83,28 @@
                 });
             });
 
-            // Handle hover-out effect for the entire star container
-            document.querySelector('.star-rating').addEventListener('mouseleave', () => {
-                setActiveStars(currentRating); // Revert to the last clicked rating
-            });
+            starContainer.addEventListener('mouseleave', () => setActiveStars(currentRating));
 
             feedbackForm.addEventListener('submit', (e) => {
-                e.preventDefault(); 
-                
-                const formData = {
-                    rating: ratingInput.value,
-                    category: document.getElementById('category').value,
-                    comments: document.getElementById('comments').value,
-                    timestamp: new Date().toISOString()
-                };
-
-                if (formData.rating === '0') {
-                    alert('Please select a star rating.');
+                e.preventDefault();
+                if (!orderId) {
+                    alert('No order specified for feedback.');
                     return;
                 }
-
-                console.log('Feedback Submitted:', formData);
+                if (currentRating === 0) {
+                    alert('Please select a rating.');
+                    return;
+                }
                 
-                // In a real app, you would send `formData` to Firebase here.
-                // Example: firebase.database().ref('feedback').push(formData);
-
-                feedbackCard.style.display = 'none';
-                successMessage.classList.remove('hidden');
+                firebase.database().ref(`orders/${orderId}/rating`).set(parseInt(currentRating))
+                    .then(() => {
+                        feedbackCard.style.display = 'none';
+                        successMessage.classList.remove('hidden');
+                    })
+                    .catch(error => {
+                        console.error("Error submitting feedback:", error);
+                        alert("There was an error submitting your feedback. Please try again.");
+                    });
             });
         });
     </script>

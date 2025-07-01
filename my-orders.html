@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,154 +8,69 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
     <style>
         :root { --brand-red: #D71921; }
-        body { background-color: #F9FAFB; }
-        .order-card {
-            background-color: white;
-            border-radius: 0.75rem;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .order-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.1);
-        }
-        .status-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: capitalize;
-        }
+        html.dark { --brand-red: #F87171; }
+        .tab-button.active { border-color: var(--brand-red); color: var(--brand-red); }
+        .toast-notification { transition: all 0.5s ease-in-out; }
+        .order-card { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="min-h-screen">
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-800 dark:text-gray-200">
 
-    <header class="flex items-center justify-between px-4 py-3 bg-white text-gray-800 shadow-sm sticky top-0 z-30 h-[60px]">
-        <a href="menu.html" class="p-2 text-xl text-gray-600"><i class="fas fa-arrow-left"></i></a>
+    <header class="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-30 h-[60px]">
+        <a href="menu.html" aria-label="Back to Menu" class="p-2 text-xl"><i class="fas fa-arrow-left"></i></a>
         <h1 class="font-bold text-xl tracking-tight">My Orders</h1>
         <div class="w-8"></div>
     </header>
 
-    <main class="max-w-3xl mx-auto p-4 mt-6">
-        <div id="orders-container" class="space-y-4">
-            <div id="loading-state" class="text-center py-10">
-                <i class="fas fa-spinner fa-spin text-red-600 text-4xl"></i>
-                <p class="text-gray-500 mt-4">Loading your orders...</p>
-            </div>
-            <div id="logged-out-state" class="hidden text-center bg-white p-8 rounded-lg shadow-md">
-                <i class="fas fa-user-lock text-4xl text-gray-400 mb-4"></i>
-                <h2 class="text-xl font-bold text-gray-800">Please Log In</h2>
-                <p class="text-gray-600 mt-2 mb-6">You need to be logged in to view your orders.</p>
-                <a href="auth.html" class="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 transition">Log In</a>
-            </div>
-            <div id="no-orders-state" class="hidden text-center bg-white p-8 rounded-lg shadow-md">
-                <i class="fas fa-receipt text-4xl text-gray-400 mb-4"></i>
-                <h2 class="text-xl font-bold text-gray-800">No Orders Yet</h2>
-                <p class="text-gray-600 mt-2 mb-6">You haven't placed any orders with us. Let's change that!</p>
-                <a href="menu.html" class="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 transition">Start Ordering</a>
-            </div>
+    <main class="max-w-4xl mx-auto p-4 mt-6">
+        <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
+            <nav class="flex space-x-4" aria-label="Tabs">
+                <button id="active-orders-tab" type="button" role="tab" aria-controls="active-orders-panel" aria-selected="true" class="tab-button active font-semibold px-4 py-2 border-b-2 border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition">
+                    Active Orders
+                </button>
+                <button id="past-orders-tab" type="button" role="tab" aria-controls="past-orders-panel" aria-selected="false" class="tab-button font-semibold px-4 py-2 border-b-2 border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition">
+                    Past Orders
+                </button>
+            </nav>
         </div>
+
+        <div class="mb-6 flex flex-col md:flex-row gap-4">
+            <div class="relative flex-grow">
+                <input type="search" id="order-search-input" placeholder="Search by Order ID..." class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-red-500">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            </div>
+            <select id="sort-select" aria-label="Sort orders" class="w-full md:w-48 p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-red-500">
+                <option value="date_desc">Newest First</option>
+                <option value="date_asc">Oldest First</option>
+                <option value="price_desc">Price: High to Low</option>
+                <option value="price_asc">Price: Low to High</option>
+            </select>
+        </div>
+
+        <div id="orders-panels">
+            <div id="active-orders-panel" role="tabpanel" class="space-y-4"></div>
+            <div id="past-orders-panel" role="tabpanel" class="space-y-4 hidden"></div>
+        </div>
+        
+        <div id="loading-state" class="text-center py-10">
+            <i class="fas fa-spinner fa-spin text-red-500 text-4xl"></i>
+        </div>
+        <div id="sentinel" class="h-10"></div>
+
+        <div id="logged-out-state" class="hidden text-center bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
+             </div>
+        <div id="no-orders-state" class="hidden text-center bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
+             </div>
     </main>
+
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50"></div>
+    <audio id="notification-sound" src="https://actions.google.com/sounds/v1/alarms/notification_sound.ogg" preload="auto"></audio>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="firebase.js"></script>
-    <script>
-        const db = firebase.database();
-        const auth = firebase.auth();
-
-        const ordersContainer = document.getElementById('orders-container');
-        const loadingState = document.getElementById('loading-state');
-        const loggedOutState = document.getElementById('logged-out-state');
-        const noOrdersState = document.getElementById('no-orders-state');
-
-        function getStatusColor(status) {
-            const s = status ? status.toLowerCase() : '';
-            if (s === 'delivered' || s === 'completed') return 'bg-green-100 text-green-800';
-            if (s === 'cancelled') return 'bg-red-100 text-red-800';
-            if (s === 'delivery') return 'bg-blue-100 text-blue-800';
-            return 'bg-yellow-100 text-yellow-800';
-        }
-
-        function createOrderCard(orderId, orderData) {
-            const card = document.createElement('a');
-            card.href = `track-order.html?orderId=${orderId}`;
-            card.className = 'block p-5 order-card';
-
-            const date = new Date(orderData.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-            const time = new Date(orderData.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-
-            card.innerHTML = `
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="font-bold text-lg text-gray-800">Order #${orderId.slice(-6).toUpperCase()}</p>
-                        <p class="text-sm text-gray-500">${date} at ${time}</p>
-                    </div>
-                    <div class="status-badge ${getStatusColor(orderData.status || 'placed')}">
-                        ${orderData.status || 'placed'}
-                    </div>
-                </div>
-                <div class="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
-                    <p class="text-sm text-gray-600">${orderData.cart.length} item(s)</p>
-                    <p class="font-bold text-xl text-gray-900">${orderData.totalPrice.toFixed(2)} MAD</p>
-                </div>
-            `;
-            return card;
-        }
-
-        async function fetchAndDisplayOrders(userId) {
-            try {
-                const userOrdersRef = db.ref(`users/${userId}/orders`);
-                const snapshot = await userOrdersRef.once('value');
-
-                loadingState.style.display = 'none';
-                ordersContainer.innerHTML = '';
-
-                if (!snapshot.exists()) {
-                    ordersContainer.appendChild(noOrdersState);
-                    noOrdersState.style.display = 'block';
-                    return;
-                }
-
-                const orderIds = Object.keys(snapshot.val());
-                const orderPromises = orderIds.map(orderId => db.ref(`orders/${orderId}`).once('value'));
-                
-                const orderSnapshots = await Promise.all(orderPromises);
-                
-                const orders = [];
-                orderSnapshots.forEach(snap => {
-                    if (snap.exists()) {
-                        orders.push({ id: snap.key, ...snap.val() });
-                    }
-                });
-
-                // Sort by most recent first
-                orders.sort((a, b) => b.timestamp - a.timestamp);
-                
-                orders.forEach(order => {
-                    ordersContainer.appendChild(createOrderCard(order.id, order));
-                });
-
-            } catch (error) {
-                console.error("Error fetching user orders:", error);
-                loadingState.style.display = 'none';
-                ordersContainer.innerHTML = `<p class="text-center text-red-500">Could not load your orders. Please try again later.</p>`;
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            auth.onAuthStateChanged(user => {
-                if (user && !user.isAnonymous) {
-                    loadingState.style.display = 'block';
-                    loggedOutState.style.display = 'none';
-                    fetchAndDisplayOrders(user.uid);
-                } else {
-                    loadingState.style.display = 'none';
-                    loggedOutState.style.display = 'block';
-                }
-            });
-        });
-    </script>
+    <script src="my-orders.js"></script>
 </body>
 </html>

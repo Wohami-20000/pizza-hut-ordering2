@@ -71,7 +71,6 @@ const translations = {
     status_preparing: "Preparing",
     status_out_for_delivery: "Out for Delivery",
     status_delivered: "Delivered",
-    // New keys for the redesigned profile page
     profile_title_main: "My Account",
     tab_personal_info: "Personal Info",
     tab_my_addresses: "My Addresses",
@@ -96,7 +95,17 @@ const translations = {
     password_update_success: "Password updated successfully!",
     password_update_error: "An error occurred. Please try again.",
     password_update_wrong_current: "Incorrect current password.",
-    password_update_mismatch: "New passwords do not match."
+    password_update_mismatch: "New passwords do not match.",
+    active_orders_tab: "Active Orders",
+    past_orders_tab: "Past Orders",
+    search_placeholder: "Search by Order ID...",
+    filter_by_status: "Filter by status",
+    all_statuses: "All Statuses",
+    reorder_button: "Reorder",
+    cancel_button: "Cancel",
+    rate_order_button: "Rate Your Order",
+    cancel_confirm_message: "Are you sure you want to cancel this order? This action cannot be undone.",
+    toast_status_update: "Order #{{orderId}} is now {{status}}!"
   },
 
   fr: {
@@ -195,7 +204,17 @@ const translations = {
     password_update_success: "Mot de passe mis à jour avec succès !",
     password_update_error: "Une erreur est survenue. Veuillez réessayer.",
     password_update_wrong_current: "Mot de passe actuel incorrect.",
-    password_update_mismatch: "Les nouveaux mots de passe ne correspondent pas."
+    password_update_mismatch: "Les nouveaux mots de passe ne correspondent pas.",
+    active_orders_tab: "Commandes Actives",
+    past_orders_tab: "Commandes Passées",
+    search_placeholder: "Rechercher par ID de commande...",
+    filter_by_status: "Filtrer par statut",
+    all_statuses: "Tous les statuts",
+    reorder_button: "Recommander",
+    cancel_button: "Annuler",
+    rate_order_button: "Évaluer votre commande",
+    cancel_confirm_message: "Êtes-vous sûr de vouloir annuler cette commande ? Cette action est irréversible.",
+    toast_status_update: "La commande n°{{orderId}} est maintenant {{status}} !"
   },
 
   ar: {
@@ -294,6 +313,16 @@ const translations = {
     password_update_success: "تم تحديث كلمة المرور بنجاح!",
     password_update_error: "حدث خطأ. الرجاء المحاولة مرة أخرى.",
     password_update_wrong_current: "كلمة المرور الحالية غير صحيحة.",
-    password_update_mismatch: "كلمات المرور الجديدة غير متطابقة."
+    password_update_mismatch: "كلمات المرور الجديدة غير متطابقة.",
+    active_orders_tab: "الطلبات الحالية",
+    past_orders_tab: "الطلبات السابقة",
+    search_placeholder: "البحث عن طريق معرف الطلب...",
+    filter_by_status: "تصفية حسب الحالة",
+    all_statuses: "جميع الحالات",
+    reorder_button: "إعادة الطلب",
+    cancel_button: "إلغاء",
+    rate_order_button: "قيم طلبك",
+    cancel_confirm_message: "هل أنت متأكد أنك تريد إلغاء هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.",
+    toast_status_update: "الطلب رقم {{orderId}} الآن {{status}}!"
   }
 };
