@@ -86,6 +86,7 @@
                     <div>
                         <label for="profile-name" class="block text-sm font-medium text-gray-700" data-translate="customer_name_label">Full Name</label>
                         <input type="text" id="profile-name" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg" required />
+                        <p class="error-message text-red-500 text-sm mt-1"></p>
                     </div>
                     <div>
                         <label for="profile-phone" class="block text-sm font-medium text-gray-700" data-translate="phone_number_label">Phone Number</label>
@@ -149,6 +150,24 @@
     </div>
   </main>
 
+  <template id="address-card-template">
+    <div class="address-card p-4 flex justify-between items-start gap-4">
+        <div class="flex-grow">
+            <p class="font-bold text-lg flex items-center gap-2">
+                <span class="address-label"></span> 
+                <span class="default-badge text-xs bg-red-100 text-red-700 font-medium px-2 py-0.5 rounded-full">Default</span>
+            </p>
+            <p class="text-gray-600 text-sm"><span class="address-street"></span>, <span class="address-city"></span></p>
+            <p class="text-gray-500 text-xs mt-1 address-phone"></p>
+            <button class="set-default-btn text-sm text-blue-600 hover:underline mt-2">Set as Default</button>
+        </div>
+        <div class="flex-shrink-0 flex flex-col sm:flex-row items-center gap-2">
+            <button class="edit-btn p-2 text-gray-500 hover:text-blue-600"><i class="fas fa-edit"></i></button>
+            <button class="delete-btn p-2 text-gray-500 hover:text-red-600"><i class="fas fa-trash-alt"></i></button>
+        </div>
+    </div>
+  </template>
+
   <div id="address-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-md" id="address-modal-content">
         <form id="address-form" class="p-6 space-y-4">
@@ -185,6 +204,18 @@
     <p id="message-box-text"></p>
     <button id="message-box-ok-btn">OK</button>
   </div>
+  
+  <div id="custom-confirm-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+        <h3 id="confirm-modal-title" class="text-lg font-bold text-gray-900">Confirmation</h3>
+        <p id="confirm-modal-text" class="text-sm text-gray-600 my-4"></p>
+        <div class="flex justify-end gap-3">
+            <button id="confirm-modal-cancel-btn" class="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300">Cancel</button>
+            <button id="confirm-modal-confirm-btn" class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">Confirm</button>
+        </div>
+    </div>
+  </div>
+
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>

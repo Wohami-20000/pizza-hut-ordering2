@@ -107,7 +107,6 @@ const translations = {
     cancel_confirm_message: "Are you sure you want to cancel this order? This action cannot be undone.",
     toast_status_update: "Order #{{orderId}} is now {{status}}!"
   },
-
   fr: {
     validation_error_title: "Erreur de Validation",
     table_number_missing_error: "Veuillez entrer un numéro de table valide.",

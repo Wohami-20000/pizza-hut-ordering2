@@ -28,6 +28,11 @@ const elements = {
     messageBoxOkBtn: document.getElementById('message-box-ok-btn'),
     changePasswordForm: document.getElementById('change-password-form'),
     updatePasswordBtn: document.getElementById('update-password-btn'),
+    customConfirmModal: document.getElementById('custom-confirm-modal'),
+    confirmModalTitle: document.getElementById('confirm-modal-title'),
+    confirmModalText: document.getElementById('confirm-modal-text'),
+    confirmModalCancelBtn: document.getElementById('confirm-modal-cancel-btn'),
+    confirmModalConfirmBtn: document.getElementById('confirm-modal-confirm-btn'),
 };
 
 // --- State ---
@@ -44,6 +49,30 @@ const showMessageBox = (titleKey, messageKey, isError = false) => {
     elements.messageBoxOkBtn.textContent = t.message_box_ok || "OK";
     elements.messageBox.style.display = 'flex';
     elements.messageBoxOkBtn.onclick = () => { elements.messageBox.style.display = 'none'; };
+};
+
+const showConfirmModal = (title, message, onConfirm) => {
+    elements.confirmModalTitle.textContent = title;
+    elements.confirmModalText.textContent = message;
+    elements.customConfirmModal.classList.remove('hidden');
+
+    const confirmHandler = () => {
+        onConfirm();
+        closeConfirmModal();
+    };
+
+    const cancelHandler = () => {
+        closeConfirmModal();
+    };
+
+    const closeConfirmModal = () => {
+        elements.customConfirmModal.classList.add('hidden');
+        elements.confirmModalConfirmBtn.removeEventListener('click', confirmHandler);
+        elements.confirmModalCancelBtn.removeEventListener('click', cancelHandler);
+    };
+
+    elements.confirmModalConfirmBtn.addEventListener('click', confirmHandler);
+    elements.confirmModalCancelBtn.addEventListener('click', cancelHandler);
 };
 
 const setLoadingState = (button, isLoading) => {
@@ -90,6 +119,15 @@ const loadProfileInfo = async (user) => {
 
 const handleUpdateProfile = async (e) => {
     e.preventDefault();
+    const nameField = elements.profileName;
+    const nameError = nameField.nextElementSibling;
+    nameError.textContent = '';
+    
+    if (!nameField.value.trim()) {
+        nameError.textContent = 'Full Name cannot be empty.';
+        return;
+    }
+
     try {
         const phoneNumber = new libphonenumber.parsePhoneNumber(elements.profilePhone.value, 'MA');
         if (!phoneNumber.isValid()) {
@@ -167,34 +205,34 @@ const deleteAddress = (key, isDefault) => {
         showMessageBox('Action Required', 'Cannot delete default address. Please set another address as default first.', true);
         return;
     }
-    if (confirm('Are you sure you want to delete this address?')) {
+    showConfirmModal('Delete Address', 'Are you sure you want to delete this address?', () => {
         addressesRef.child(key).remove();
-    }
+    });
 };
 
 const createAddressCard = (address, key) => {
-    const card = document.createElement('div');
-    card.className = `address-card p-4 flex justify-between items-start gap-4 ${address.isDefault ? 'default' : ''}`;
-    card.innerHTML = `
-        <div class="flex-grow">
-            <p class="font-bold text-lg flex items-center gap-2">
-                ${escapeHTML(address.label)} 
-                <span class="default-badge text-xs bg-red-100 text-red-700 font-medium px-2 py-0.5 rounded-full">Default</span>
-            </p>
-            <p class="text-gray-600 text-sm">${escapeHTML(address.street)}, ${escapeHTML(address.city)}</p>
-            <p class="text-gray-500 text-xs mt-1">${escapeHTML(address.phone)}</p>
-            ${!address.isDefault ? `<button data-key="${key}" class="set-default-btn text-sm text-blue-600 hover:underline mt-2">Set as Default</button>` : ''}
-        </div>
-        <div class="flex-shrink-0 flex flex-col sm:flex-row items-center gap-2">
-            <button data-key="${key}" class="edit-btn p-2 text-gray-500 hover:text-blue-600"><i class="fas fa-edit"></i></button>
-            <button data-key="${key}" class="delete-btn p-2 text-gray-500 hover:text-red-600"><i class="fas fa-trash-alt"></i></button>
-        </div>
-    `;
-    card.querySelector('.edit-btn')?.addEventListener('click', () => openAddressModal(address, key));
-    card.querySelector('.delete-btn')?.addEventListener('click', () => deleteAddress(key, address.isDefault));
-    card.querySelector('.set-default-btn')?.addEventListener('click', () => setDefaultAddress(key));
+    const template = document.getElementById('address-card-template');
+    const card = template.content.cloneNode(true);
+    
+    card.querySelector('.address-label').textContent = escapeHTML(address.label);
+    card.querySelector('.address-street').textContent = escapeHTML(address.street);
+    card.querySelector('.address-city').textContent = escapeHTML(address.city);
+    card.querySelector('.address-phone').textContent = escapeHTML(address.phone);
+    
+    if (address.isDefault) {
+        card.querySelector('.address-card').classList.add('default');
+        const setDefaultBtn = card.querySelector('.set-default-btn');
+        if (setDefaultBtn) setDefaultBtn.remove();
+    }
+
+    card.querySelector('.edit-btn').addEventListener('click', () => openAddressModal(address, key));
+    card.querySelector('.delete-btn').addEventListener('click', () => deleteAddress(key, address.isDefault));
+    const setDefaultBtn = card.querySelector('.set-default-btn');
+    if (setDefaultBtn) setDefaultBtn.addEventListener('click', () => setDefaultAddress(key));
+    
     return card;
 };
+
 
 const renderAddresses = (snapshot) => {
     elements.loadingState.classList.add('hidden');
