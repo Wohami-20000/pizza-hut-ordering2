@@ -4,16 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     
-    <meta http-equiv="Content-Security-Policy" content="
-        default-src 'self'; 
-        script-src 'self' https://www.gstatic.com/firebasejs/ https://cdnjs.cloudflare.com https://apis.google.com; 
-        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com/ https://cdnjs.cloudflare.com; 
-        font-src 'self' https://fonts.gstatic.com/ https://cdnjs.cloudflare.com; 
-        img-src 'self' https: data:; 
-        connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://www.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com;
-        frame-src 'self' https://*.firebaseapp.com;
-    ">
-    
     <title>Pizza Hut - Welcome</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,12 +21,15 @@
         .lang-switcher { display: flex; background-color: #f3f4f6; border-radius: 9999px; padding: 0.25rem; margin-bottom: 1.5rem; border: 1px solid #e5e7eb; }
         .lang-switcher button { flex: 1; padding: 0.5rem 0.75rem; border-radius: 9999px; font-weight: 600; font-size: 0.875rem; color: #6b7280; border: none; background-color: transparent; cursor: pointer; transition: all 0.2s ease-in-out; }
         .lang-switcher button.active { background-color: #ffffff; color: #D71921; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .error-message { color: #dc2626; font-size: 0.875rem; margin-top: 0.25rem; min-height: 1.25rem; }
+        .spinner { border: 3px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; width: 1.25rem; height: 1.25rem; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-brand-red">
 
     <main class="min-h-screen flex items-center justify-center p-4">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md mx-auto">
+        <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-2xl w-full max-w-md mx-auto">
             
             <div id="language-switcher" class="lang-switcher">
                 <button data-lang="en" class="active">English</button>
@@ -44,38 +37,38 @@
                 <button data-lang="ar">العربية</button>
             </div>
 
-            <img 
-                src="pizza-hut-logo.png" 
-                alt="Official Pizza Hut Logo"
-                width="128" 
-                height="67"
-                class="w-32 mx-auto mb-4" 
-            />
+            <img src="pizza-hut-logo.png" alt="Official Pizza Hut Logo" width="128" height="67" class="w-32 mx-auto mb-4" />
             <h1 id="auth-title" class="text-3xl font-bold text-brand-dark mb-2 text-center tracking-wide"></h1>
             <p id="auth-subtext" class="text-gray-500 text-center mb-6 h-10"></p>
 
             <div class="form-container">
                 <form id="login-form" class="auth-form space-y-4">
-                    <input type="email" id="login-email" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-brand-dark focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/50 transition" required />
-                    <div class="password-wrapper">
-                        <input type="password" id="login-password" class="w-full p-3 pr-10 bg-gray-100 border border-gray-300 rounded-lg text-brand-dark focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/50 transition" required />
-                        <i class="fas fa-eye toggle-password" data-target="login-password"></i>
+                    <div>
+                        <input type="email" id="login-email" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-brand-dark focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/50 transition" required />
+                        <p id="login-email-error" class="error-message"></p>
+                    </div>
+                    <div>
+                        <div class="password-wrapper">
+                            <input type="password" id="login-password" class="w-full p-3 pr-10 bg-gray-100 border border-gray-300 rounded-lg text-brand-dark focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/50 transition" required />
+                            <i class="fas fa-eye toggle-password" data-target="login-password"></i>
+                        </div>
+                        <p id="login-password-error" class="error-message"></p>
                     </div>
                     <div class="flex justify-between items-center text-sm">
                         <div class="flex items-center">
                             <input id="remember-me" type="checkbox" class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
                             <label for="remember-me" class="ml-2 text-gray-700">Remember me</label>
                         </div>
-                        <a href="#" id="forgot-password-link" class="font-medium text-blue-600 hover:text-blue-800"></a>
+                        <button type="button" id="forgot-password-link" class="font-medium text-blue-600 hover:text-blue-800"></button>
                     </div>
-                    <button type="submit" id="login-cta-btn" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg bg-brand-yellow text-brand-dark transform hover:scale-105 transition flex items-center justify-center relative">
+                    <button type="submit" id="login-cta-btn" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg bg-brand-yellow text-brand-dark transform hover:scale-105 transition flex items-center justify-center relative min-h-[52px]">
                         <span class="btn-text"></span>
-                        <div class="spinner absolute hidden h-6 w-6 border-4 border-t-transparent border-brand-dark rounded-full animate-spin"></div>
+                        <div class="spinner hidden"></div>
                     </button>
                     <p class="text-center text-sm text-gray-600 pt-2">
-                        <span id="login-signup-prompt"></span> <a href="#" id="show-signup" class="text-blue-600 hover:underline font-semibold"></a>
+                        <span id="login-signup-prompt"></span> <button type="button" id="show-signup" class="text-blue-600 hover:underline font-semibold"></button>
                     </p>
-                    <p id="login-error-message" class="text-red-600 text-sm font-semibold text-center h-5"></p>
+                    <p id="login-error-message" class="error-message text-center"></p>
                 </form>
 
                 <form id="signup-form" class="auth-form hidden-form w-full space-y-4">
@@ -85,18 +78,18 @@
                     <password-input></password-input>
                     <div class="flex items-start">
                         <div class="flex items-center h-5">
-                            <input id="terms-checkbox" type="checkbox" value="" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300" required>
+                            <input id="terms-checkbox" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300" required>
                         </div>
                         <label for="terms-checkbox" id="terms-label" class="ml-2 text-sm font-normal text-gray-600">I agree to the <a href="terms.html" class="text-blue-600 hover:underline">Terms and Conditions</a>.</label>
                     </div>
-                    <button type="submit" id="signup-cta-btn" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg bg-brand-yellow text-brand-dark transform hover:scale-105 transition flex items-center justify-center relative">
+                    <button type="submit" id="signup-cta-btn" class="w-full text-lg font-semibold rounded-lg px-6 py-3 shadow-lg bg-brand-yellow text-brand-dark transform hover:scale-105 transition flex items-center justify-center relative min-h-[52px]">
                         <span class="btn-text"></span>
-                        <div class="spinner absolute hidden h-6 w-6 border-4 border-t-transparent border-brand-dark rounded-full animate-spin"></div>
+                        <div class="spinner hidden"></div>
                     </button>
                     <p class="text-center text-sm text-gray-600">
-                        <span id="signup-login-prompt"></span> <a href="#" id="show-login" class="text-blue-600 hover:underline font-semibold"></a>
+                        <span id="signup-login-prompt"></span> <button type="button" id="show-login" class="text-blue-600 hover:underline font-semibold"></button>
                     </p>
-                    <p id="signup-error-message" class="text-red-600 text-sm font-semibold text-center mt-4 h-5"></p>
+                    <p id="signup-error-message" class="error-message text-center"></p>
                 </form>
             </div>
 
@@ -123,11 +116,11 @@
             <h3 id="reset-modal-title" class="text-lg font-medium text-gray-900 text-center"></h3>
             <p id="reset-modal-subtext" class="text-sm text-gray-500 mt-2 mb-4 text-center"></p>
             <input type="email" id="reset-email" class="w-full p-3 border border-gray-300 rounded-lg">
-            <p id="reset-error-message" class="text-red-500 text-sm text-center h-4 mt-2"></p>
-            <p id="reset-success-message" class="text-green-500 text-sm text-center h-4 mt-2"></p>
+            <p id="reset-error-message" class="error-message"></p>
+            <p id="reset-success-message" class="text-green-600 text-sm text-center min-h-[1.25rem] mt-2"></p>
             <div class="mt-4 space-y-2">
-                <button id="send-reset-link-btn" class="w-full px-4 py-2 text-white bg-brand-red rounded-md"></button>
-                <button id="close-modal-btn" class="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"></button>
+                <button type="button" id="send-reset-link-btn" class="w-full px-4 py-2 text-white bg-brand-red rounded-md"></button>
+                <button type="button" id="close-modal-btn" class="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"></button>
             </div>
         </div>
     </div>
