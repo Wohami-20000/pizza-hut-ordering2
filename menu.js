@@ -12,11 +12,6 @@ let currentIndex = 0;
 let slides = [];
 let dots = [];
 
-function escapeHTML(str) {
-  if (typeof str !== 'string') return str;
-  return str.replace(/[&<>"']/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': "&quot;", "'": '&#39;' }[match]));
-}
-
 function updateCartUI() {
     const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
     const totalPrice = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -30,24 +25,6 @@ function updateCartUI() {
     if(cartSummaryBar) cartSummaryBar.classList.toggle('translate-y-full', totalItems === 0);
 }
 
-async function toggleFavorite(itemId, heartIconEl) {
-    const user = authInstance.currentUser;
-    const isFavorited = heartIconEl.classList.toggle('active');
-    if (user && !user.isAnonymous) {
-        const favRef = dbInstance.ref(`users/${user.uid}/favorites/${itemId}`);
-        if (isFavorited) {
-            await favRef.set(true);
-            if (!favorites.includes(itemId)) favorites.push(itemId);
-        } else {
-            await favRef.remove();
-            favorites = favorites.filter(id => id !== itemId);
-        }
-    } else {
-        favorites = isFavorited ? [...new Set([...favorites, itemId])] : favorites.filter(id => id !== itemId);
-        localStorage.setItem("favorites", JSON.stringify(favorites));
-    }
-}
-
 async function loadFavorites(user) {
     if (user && !user.isAnonymous) {
         const favRef = dbInstance.ref(`users/${user.uid}/favorites`);
@@ -57,38 +34,6 @@ async function loadFavorites(user) {
         favorites = JSON.parse(localStorage.getItem("favorites")) || [];
     }
     renderFullMenu();
-}
-
-function createMenuItemCard(item, categoryId, itemId) {
-    const card = document.createElement('div');
-    card.className = 'menu-item-card';
-    card.id = `item-card-${itemId}`;
-    card.dataset.categoryId = categoryId;
-    const itemPrice = typeof item.price === 'number' ? item.price : 0;
-    const totalQuantityInCart = cart.filter(ci => ci.id === itemId).reduce((sum, ci) => sum + ci.quantity, 0);
-    const isFavorite = favorites.includes(itemId);
-    card.innerHTML = `
-        <div class="item-content-left flex flex-col">
-            <div class="flex justify-between items-start">
-                <h3 class="text-lg font-bold text-gray-800 pr-2">${escapeHTML(item.name || 'Unknown Item')}</h3>
-                <i class="fas fa-heart fav-icon text-xl ${isFavorite ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite('${itemId}', this)"></i>
-            </div>
-            <p class="text-gray-500 text-sm mt-1 mb-3 flex-grow">${escapeHTML(item.description || '')}</p>
-            <div class="mt-auto flex justify-between items-center">
-                <span class="text-xl font-extrabold text-gray-900">${itemPrice.toFixed(2)} MAD</span>
-                <button class="customize-btn font-semibold" onclick="event.stopPropagation(); window.menuFunctions.navigateToItemDetails('${categoryId}', '${itemId}')">Customize</button>
-            </div>
-        </div>
-        <div class="item-image-right flex flex-col items-center justify-between">
-            <img src="${escapeHTML(item.image_url || 'https://www.pizzahut.ma/images/Default_pizza.png')}" alt="${escapeHTML(item.name || 'Pizza')}">
-            <div class="quantity-controls flex items-center gap-3 mt-2">
-                <button class="quantity-btn" onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', -1, this)">-</button>
-                <span class="font-bold text-lg w-8 text-center">${totalQuantityInCart}</span>
-                <button class="quantity-btn" onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', 1, this)">+</button>
-            </div>
-        </div>
-    `;
-    return card;
 }
 
 function renderFullMenu() {
@@ -149,7 +94,7 @@ function renderCategoriesTabs() {
     if (tabsContainer.firstElementChild) tabsContainer.firstElementChild.classList.add('active-tab');
 }
 
-// --- RESTORED SLIDESHOW LOGIC ---
+// --- SLIDESHOW LOGIC ---
 function showSlide(index) {
     const slidesWrapper = document.getElementById('slides-wrapper');
     if (!slidesWrapper || !slides.length) return;
@@ -223,23 +168,46 @@ window.menuFunctions = {
         const categoryId = card.dataset.categoryId;
         const itemData = menuDataCache[categoryId]?.items?.[itemId];
         if (!itemData) return;
-        let standardItemInCart = cart.find(i => i.id === itemId && !i.options);
+
+        let itemInCart = cart.find(i => i.id === itemId && !i.options);
+
         if (change > 0) {
-            if (standardItemInCart) standardItemInCart.quantity++;
-            else cart.push({ cartItemId: itemId + '-standard', id: itemId, name: itemData.name, price: itemData.price, quantity: 1, categoryId: categoryId, image_url: itemData.image_url });
-        } else if (standardItemInCart) {
-            standardItemInCart.quantity--;
-            if (standardItemInCart.quantity <= 0) cart = cart.filter(i => i.cartItemId !== standardItemInCart.cartItemId);
+            if (itemInCart) {
+                itemInCart.quantity++;
+            } else {
+                cart.push({
+                    cartItemId: itemId + '-standard',
+                    id: itemId,
+                    name: itemData.name,
+                    price: itemData.price,
+                    quantity: 1,
+                    categoryId: categoryId,
+                    image_url: itemData.image_url
+                });
+            }
+        } else if (itemInCart) {
+            itemInCart.quantity--;
+            if (itemInCart.quantity <= 0) {
+                cart = cart.filter(i => i.cartItemId !== standardItemInCart.cartItemId);
+            }
         }
+
         localStorage.setItem("cart", JSON.stringify(cart));
         updateCartUI();
         const totalQuantity = cart.filter(i => i.id === itemId).reduce((sum, i) => sum + i.quantity, 0);
         card.querySelector('.quantity-controls span').textContent = totalQuantity;
     },
-    navigateToItemDetails: (categoryId, itemId) => window.location.href = `item-details.html?categoryId=${categoryId}&itemId=${itemId}`,
+    navigateToItemDetails: (categoryId, itemId) => {
+        window.location.href = `item-details.html?categoryId=${categoryId}&itemId=${itemId}`;
+    },
     scrollToCategory: (categoryId) => {
         const section = document.getElementById(`category-section-${categoryId}`);
-        if (section) window.scrollTo({ top: section.offsetTop - 140, behavior: 'smooth' });
+        if (section) {
+            window.scrollTo({
+                top: section.offsetTop - 140,
+                behavior: 'smooth'
+            });
+        }
     }
 };
 
@@ -247,25 +215,32 @@ function filterMenu() {
     const searchBar = document.getElementById("search-bar");
     const noResultsMessage = document.getElementById("no-results-message");
     if (!searchBar || !noResultsMessage) return;
+
     const searchTerm = searchBar.value.toLowerCase().trim();
     let hasResults = false;
+
     document.querySelectorAll('.menu-item-card').forEach(card => {
         const itemName = card.querySelector('h3').textContent.toLowerCase();
         const matches = itemName.includes(searchTerm);
         card.style.display = matches ? 'grid' : 'none';
-        if (matches) hasResults = true;
+        if (matches) {
+            hasResults = true;
+        }
     });
+
     document.querySelectorAll('.category-section').forEach(section => {
         const visibleItems = section.querySelectorAll('.menu-item-card[style*="display: grid"]');
         section.style.display = visibleItems.length > 0 ? 'block' : 'none';
     });
+
     noResultsMessage.style.display = hasResults ? 'none' : 'block';
     updateActiveTabOnScroll();
 }
 
 function updateActiveTabOnScroll() {
-    const scrollPosition = window.scrollY + 141;
+    const scrollPosition = window.scrollY + 141; // Offset for sticky header and tabs
     let activeSectionFound = false;
+
     document.querySelectorAll('.category-section').forEach(section => {
         if (!activeSectionFound && section.style.display !== 'none' && section.offsetTop <= scrollPosition && section.offsetTop + section.offsetHeight > scrollPosition) {
             document.querySelectorAll('.category-tab').forEach(tab => tab.classList.remove('active-tab'));
@@ -285,13 +260,16 @@ function updateDrawerUI(user) {
     const userNameSpan = document.getElementById('user-name-drawer');
     const accountSection = document.getElementById('account-section-drawer');
     if (!guestInfo || !userInfo || !userNameSpan || !accountSection) return;
+
     if (user && !user.isAnonymous) {
         guestInfo.classList.add('hidden');
         userInfo.classList.remove('hidden');
         accountSection.classList.remove('hidden');
         dbInstance.ref(`users/${user.uid}/name`).once('value').then(snapshot => {
             userNameSpan.textContent = (snapshot.val() || 'Customer');
-        }).catch(() => userNameSpan.textContent = 'Customer');
+        }).catch(() => {
+            userNameSpan.textContent = 'Customer';
+        });
     } else {
         guestInfo.classList.remove('hidden');
         userInfo.classList.add('hidden');
