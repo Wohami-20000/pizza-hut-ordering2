@@ -3,95 +3,42 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Pizza hut - Welcome</title>
+  <title>Pizza Hut - Welcome</title>
   <link rel="stylesheet" href="style.css" />
   <style>
+    /* A simple loader style to provide feedback to the user during redirection */
     body {
-      touch-action: manipulation;
+      background-color: #FEE2E2; /* A light red background, similar to Pizza Hut's branding */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .loader {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #D71921; /* Pizza Hut Red */
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
 </head>
-<body class="bg-red-50 min-h-screen flex flex-col items-center justify-center">
-  <div class="flex flex-col items-center justify-center flex-1 w-full px-4">
-    <img src="pizza-hut-logo.png" alt="Pizza Hut Logo" class="w-40 mb-8 mt-12 rounded shadow" />
-    <h1 id="welcome-title" class="text-4xl font-extrabold text-red-700 mb-6 text-center">Welcome to Pizza Hut</h1>
-    
-    <a id="order-now-btn" href="order-type-selection.html" class="bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg px-8 py-4 shadow-lg transition mb-10">Order Now</a>
-    
-    <select id="language-switcher" class="mt-2 mb-8 p-2 rounded border w-40 text-center">
-      <option value="en">English</option>
-      <option value="fr">Français</option>
-      <option value="ar">العربية</option>
-    </select>
-  </div>
+<body>
+
+  <div class="loader"></div>
+
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  
   <script src="firebase.js"></script>
-  <script src="lang.js"></script>
-  <script>
-    // Add translations for the welcome page
-    const welcomeTranslations = {
-      en: {
-        title: "Welcome to Pizza Hut",
-        orderNow: "Order Now"
-      },
-      fr: {
-        title: "Bienvenue chez Pizza Hut",
-        orderNow: "Commander"
-      },
-      ar: {
-        title: "مرحبًا بكم في بيتزا هت",
-        orderNow: "اطلب الآن"
-      }
-    };
+  
+  <script src="index.js"></script>
 
-    function applyWelcomeLanguage(lang) {
-      const t = welcomeTranslations[lang] || welcomeTranslations["en"];
-      document.getElementById("welcome-title").textContent = t.title;
-      document.getElementById("order-now-btn").textContent = t.orderNow;
-      document.documentElement.lang = lang;
-    }
-
-    // Sync language switcher across pages via localStorage
-    const switcher = document.getElementById("language-switcher");
-    let currentLang = localStorage.getItem("lang") || "en";
-    switcher.value = currentLang;
-    applyWelcomeLanguage(currentLang);
-
-    switcher.addEventListener("change", (e) => {
-      localStorage.setItem("lang", e.target.value);
-      applyWelcomeLanguage(e.target.value);
-    });
-
-    // --- UPDATED: NFC Scan Logic with Anonymous Sign-In ---
-    document.addEventListener('DOMContentLoaded', () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const tableNumber = urlParams.get('table');
-
-        // If a table number is found in the URL, this was an NFC scan.
-        if (tableNumber) {
-            console.log("NFC scan detected for table:", tableNumber);
-
-            // Set the order context in localStorage
-            localStorage.setItem('orderType', 'dineIn');
-            localStorage.setItem('tableNumber', tableNumber);
-
-            // Automatically sign the user in as a guest to create a session
-            firebase.auth().signInAnonymously()
-                .then(() => {
-                    // Once signed in, redirect directly to the menu
-                    console.log("Signed in as guest. Redirecting to menu...");
-                    window.location.href = 'menu.html';
-                })
-                .catch((error) => {
-                    console.error("Anonymous sign-in failed:", error);
-                    // Even if sign-in fails, we can still attempt to redirect.
-                    // The cart page has checks that will handle an unauthenticated user.
-                    window.location.href = 'menu.html';
-                });
-        }
-        // If no table number is found, the script does nothing and the normal welcome page is shown.
-    });
-  </script>
 </body>
 </html>
