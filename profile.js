@@ -25,12 +25,22 @@ const elements = {
     profileEmailError: document.getElementById('profile-email-error'),
     addressesTab: document.querySelector('[data-tab="addresses"]'),
     addressesContent: document.getElementById('addresses'),
+    addressModal: document.getElementById('address-modal'),
+    addressModalTitle: document.getElementById('address-modal-title'),
+    addressForm: document.getElementById('address-form'),
+    addressIdInput: document.getElementById('address-id'),
+    addressLabelInput: document.getElementById('address-label'),
+    addressStreetInput: document.getElementById('address-street'),
+    addressCityInput: document.getElementById('address-city'),
+    addressPhoneInput: document.getElementById('address-phone'),
+    cancelAddressModalBtn: document.getElementById('cancel-address-modal'),
 };
 
 // --- State ---
 let currentUser = null;
 let phoneInputInstance = null; // To hold the intl-tel-input instance
 let originalEmail = '';
+let userAddresses = {};
 
 // --- Utility & UI Functions ---
 const showMessageBox = (title, message) => {
@@ -102,7 +112,8 @@ const loadProfileInfo = async (user) => {
     if (userProfile.phone && phoneInputInstance) {
         phoneInputInstance.setNumber(userProfile.phone);
     }
-    renderAddresses(userProfile.addresses);
+    userAddresses = userProfile.addresses || {};
+    renderAddresses();
 };
 
 const handleUpdateProfile = async (e) => {
@@ -214,46 +225,44 @@ const handleForgotPassword = () => {
 };
 
 // --- Address Functions ---
-const renderAddresses = (addresses) => {
+const renderAddresses = () => {
     const addressesContent = elements.addressesContent;
-    addressesContent.innerHTML = ''; 
-
-    if (!addresses || Object.keys(addresses).length === 0) {
-        addressesContent.innerHTML = `
-            <div class="text-center">
-                <p>No addresses found.</p>
-                <button id="add-address-btn" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded">Add Address</button>
-            </div>
-        `;
-        document.getElementById('add-address-btn').addEventListener('click', () => {
-            showAddressModal();
-        });
-        return;
-    }
+    addressesContent.innerHTML = '';
 
     const addressesList = document.createElement('div');
     addressesList.className = 'space-y-4';
 
-    for (const addressId in addresses) {
-        const address = addresses[addressId];
-        const addressCard = document.createElement('div');
-        addressCard.className = 'p-4 border rounded-lg';
-        addressCard.innerHTML = `
-            <p><strong>Label:</strong> ${address.label}</p>
-            <p><strong>Street:</strong> ${address.street}</p>
-            <p><strong>City:</strong> ${address.city}</p>
-            <p><strong>Phone:</strong> ${address.phone}</p>
-            <button class="edit-address-btn" data-id="${addressId}">Edit</button>
-            <button class="remove-address-btn" data-id="${addressId}">Remove</button>
+    if (Object.keys(userAddresses).length === 0) {
+        addressesList.innerHTML = `
+            <div class="text-center p-8 border-2 border-dashed rounded-lg">
+                <p class="text-gray-500">You haven't saved any addresses yet.</p>
+            </div>
         `;
-        addressesList.appendChild(addressCard);
+    } else {
+        for (const addressId in userAddresses) {
+            const address = userAddresses[addressId];
+            const addressCard = document.createElement('div');
+            addressCard.className = 'p-4 border rounded-lg flex justify-between items-center';
+            addressCard.innerHTML = `
+                <div>
+                    <p class="font-bold text-lg">${address.label}</p>
+                    <p>${address.street}, ${address.city}</p>
+                    <p class="text-sm text-gray-500">${address.phone}</p>
+                </div>
+                <div>
+                    <button class="edit-address-btn text-blue-500 hover:text-blue-700 p-2" data-id="${addressId}"><i class="fas fa-edit"></i></button>
+                    <button class="remove-address-btn text-red-500 hover:text-red-700 p-2" data-id="${addressId}"><i class="fas fa-trash"></i></button>
+                </div>
+            `;
+            addressesList.appendChild(addressCard);
+        }
     }
     addressesContent.appendChild(addressesList);
 
     const addAddressButton = document.createElement('button');
     addAddressButton.id = 'add-address-btn';
-    addAddressButton.textContent = 'Add Address';
-    addAddressButton.className = 'mt-4 bg-blue-500 text-white px-4 py-2 rounded';
+    addAddressButton.innerHTML = '<i class="fas fa-plus mr-2"></i> Add New Address';
+    addAddressButton.className = 'mt-4 w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700';
     addressesContent.appendChild(addAddressButton);
 
     document.getElementById('add-address-btn').addEventListener('click', () => {
@@ -262,15 +271,15 @@ const renderAddresses = (addresses) => {
 
     document.querySelectorAll('.edit-address-btn').forEach(button => {
         button.addEventListener('click', (e) => {
-            const addressId = e.target.dataset.id;
-            const address = addresses[addressId];
+            const addressId = e.currentTarget.dataset.id;
+            const address = userAddresses[addressId];
             showAddressModal(addressId, address);
         });
     });
 
     document.querySelectorAll('.remove-address-btn').forEach(button => {
         button.addEventListener('click', (e) => {
-            const addressId = e.target.dataset.id;
+            const addressId = e.currentTarget.dataset.id;
             if (confirm('Are you sure you want to remove this address?')) {
                 removeAddress(addressId);
             }
@@ -279,52 +288,37 @@ const renderAddresses = (addresses) => {
 };
 
 const showAddressModal = (addressId = null, address = {}) => {
-    const modal = document.createElement('div');
-    modal.className = 'message-box';
-    modal.style.display = 'flex';
-    modal.innerHTML = `
-        <div class="message-box-content">
-            <h3>${addressId ? 'Edit Address' : 'Add Address'}</h3>
-            <form id="address-form" class="space-y-4">
-                <input type="text" id="address-label" placeholder="Label (e.g., Home, Work)" value="${address.label || ''}" required class="w-full p-2 border rounded">
-                <input type="text" id="address-street" placeholder="Street" value="${address.street || ''}" required class="w-full p-2 border rounded">
-                <input type="text" id="address-city" placeholder="City" value="Oujda" required class="w-full p-2 border rounded" readonly>
-                <input type="tel" id="address-phone" placeholder="Phone Number" value="${address.phone || ''}" required class="w-full p-2 border rounded">
-                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Save</button>
-                <button type="button" id="cancel-address-modal" class="bg-gray-500 text-white px-4 py-2 rounded">Cancel</button>
-            </form>
-        </div>
-    `;
-    document.body.appendChild(modal);
-
-    document.getElementById('address-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const newAddress = {
-            label: document.getElementById('address-label').value,
-            street: document.getElementById('address-street').value,
-            city: document.getElementById('address-city').value,
-            phone: document.getElementById('address-phone').value,
-        };
-        saveAddress(addressId, newAddress);
-        modal.remove();
-    });
-
-    document.getElementById('cancel-address-modal').addEventListener('click', () => {
-        modal.remove();
-    });
+    elements.addressModalTitle.textContent = addressId ? 'Edit Address' : 'Add Address';
+    elements.addressIdInput.value = addressId || '';
+    elements.addressLabelInput.value = address.label || '';
+    elements.addressStreetInput.value = address.street || '';
+    elements.addressPhoneInput.value = address.phone || '';
+    elements.addressModal.style.display = 'block';
 };
 
-const saveAddress = async (addressId, address) => {
+const closeAddressModal = () => {
+    elements.addressModal.style.display = 'none';
+};
+
+const saveAddress = async (e) => {
+    e.preventDefault();
     const user = auth.currentUser;
     if (!user) return;
 
-    if (addressId) {
-        // Update existing address
-        await db.ref(`users/${user.uid}/addresses/${addressId}`).update(address);
-    } else {
-        // Add new address
-        await db.ref(`users/${user.uid}/addresses`).push(address);
-    }
+    const addressId = elements.addressIdInput.value;
+    const addressData = {
+        label: elements.addressLabelInput.value,
+        street: elements.addressStreetInput.value,
+        city: elements.addressCityInput.value,
+        phone: elements.addressPhoneInput.value,
+    };
+
+    const addressRef = addressId 
+        ? db.ref(`users/${user.uid}/addresses/${addressId}`) 
+        : db.ref(`users/${user.uid}/addresses`).push();
+
+    await addressRef.set(addressData);
+    closeAddressModal();
     loadProfileInfo(user);
 };
 
@@ -361,6 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (elements.forgotPasswordLink) {
         elements.forgotPasswordLink.addEventListener('click', handleForgotPassword);
     }
+    
+    elements.addressForm.addEventListener('submit', saveAddress);
+    elements.cancelAddressModalBtn.addEventListener('click', closeAddressModal);
     
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
