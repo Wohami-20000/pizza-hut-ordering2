@@ -1,11 +1,10 @@
-// profile.js - Enhanced with Address Management
+// profile.js - Enhanced with new features and feedback messages
 
 const auth = firebase.auth();
 const db = firebase.database();
 
-// --- Element Cache (Now includes Address elements) ---
+// --- Element Cache ---
 const elements = {
-    // Personal Info
     profileEmail: document.getElementById('profile-email'),
     profileName: document.getElementById('profile-name'),
     profilePhone: document.getElementById('profile-phone'),
@@ -15,6 +14,7 @@ const elements = {
     messageBoxTitle: document.getElementById('message-box-title'),
     messageBoxText: document.getElementById('message-box-text'),
     messageBoxOkBtn: document.getElementById('message-box-ok-btn'),
+    forgotPasswordLink: document.getElementById('forgot-password-link'),
     emailVerificationStatus: document.getElementById('email-verification-status'),
     verifyEmailBtn: document.getElementById('verify-email-btn'),
     changeEmailBtn: document.getElementById('change-email-btn'),
@@ -22,178 +22,192 @@ const elements = {
     cancelEmailBtn: document.getElementById('cancel-email-btn'),
     profileNameError: document.getElementById('profile-name-error'),
     profilePhoneError: document.getElementById('profile-phone-error'),
-    // Settings
-    forgotPasswordLink: document.getElementById('forgot-password-link'),
-    // Addresses
-    tabButtons: document.querySelectorAll('.tab-button'),
-    tabContents: document.querySelectorAll('.tab-content'),
-    addressesList: document.getElementById('addresses-list'),
-    loadingState: document.getElementById('loading-state'),
-    noAddressesState: document.getElementById('no-addresses-state'),
-    addNewAddressBtn: document.getElementById('add-new-btn'),
-    addressModal: document.getElementById('address-modal'),
-    addressForm: document.getElementById('address-form'),
-    cancelBtn: document.getElementById('cancel-btn'),
-    modalTitle: document.getElementById('modal-title'),
-    saveAddressBtn: document.getElementById('save-address-btn'),
-    customConfirmModal: document.getElementById('custom-confirm-modal'),
-    confirmModalTitle: document.getElementById('confirm-modal-title'),
-    confirmModalText: document.getElementById('confirm-modal-text'),
-    confirmModalCancelBtn: document.getElementById('confirm-modal-cancel-btn'),
-    confirmModalConfirmBtn: document.getElementById('confirm-modal-confirm-btn'),
+    profileEmailError: document.getElementById('profile-email-error'),
 };
 
 // --- State ---
 let currentUser = null;
-let addressesRef = null;
-let editingAddressKey = null;
-let phoneInputInstance = null;
+let phoneInputInstance = null; // To hold the intl-tel-input instance
 let originalEmail = '';
 
 // --- Utility & UI Functions ---
-const showMessageBox = (title, message) => { /* ... remains the same */ };
-const hideMessageBox = () => { /* ... remains the same */ };
-const setLoadingState = (button, isLoading, originalText) => { /* ... remains the same */ };
-const clearErrorMessages = () => { /* ... remains the same */ };
-
-const showConfirmModal = (title, message, onConfirm) => {
-    elements.confirmModalTitle.textContent = title;
-    elements.confirmModalText.textContent = message;
-    elements.customConfirmModal.classList.remove('hidden');
-
-    const confirmHandler = () => {
-        onConfirm();
-        closeConfirmModal();
-    };
-    const cancelHandler = () => closeConfirmModal();
-
-    const closeConfirmModal = () => {
-        elements.customConfirmModal.classList.add('hidden');
-        elements.confirmModalConfirmBtn.removeEventListener('click', confirmHandler);
-        elements.confirmModalCancelBtn.removeEventListener('click', cancelHandler);
-    };
-
-    elements.confirmModalConfirmBtn.addEventListener('click', confirmHandler);
-    elements.confirmModalCancelBtn.addEventListener('click', cancelHandler);
+const showMessageBox = (title, message) => {
+    elements.messageBoxTitle.textContent = title;
+    elements.messageBoxText.textContent = message;
+    elements.messageBox.style.display = 'flex';
 };
 
-// --- Main Application Logic (Personal Info) ---
-const initializePhoneInput = () => { /* ... remains the same */ };
-const loadProfileInfo = async (user) => { /* ... remains the same */ };
-const handleUpdateProfile = async (e) => { /* ... remains the same */ };
-const toggleEmailEditMode = (isEditing) => { /* ... remains the same */ };
-const handleSaveEmail = () => { /* ... remains the same */ };
-const handleSendVerificationEmail = () => { /* ... remains the same */ };
-const handleForgotPassword = () => { /* ... remains the same */ };
+const hideMessageBox = () => {
+    elements.messageBox.style.display = 'none';
+};
 
-// --- NEW: Address Management Logic ---
-const openAddressModal = (address = null, key = null) => {
-    elements.addressForm.reset();
-    editingAddressKey = key;
-    elements.modalTitle.textContent = key ? 'Edit Address' : 'Add New Address';
-    if (address) {
-        elements.addressForm.querySelector('#address-label').value = address.label || '';
-        elements.addressForm.querySelector('#address-street').value = address.street || '';
-        elements.addressForm.querySelector('#address-city').value = address.city || '';
-        elements.addressForm.querySelector('#address-phone').value = address.phone || '';
+const setLoadingState = (button, isLoading, originalText) => {
+    if (!button) return;
+    button.disabled = isLoading;
+    const btnText = button.querySelector('.btn-text');
+    const spinner = button.querySelector('.spinner');
+    if (isLoading) {
+        if (btnText) btnText.style.visibility = 'hidden';
+        if (spinner) spinner.style.display = 'inline-block';
+    } else {
+        if (btnText) {
+            btnText.style.visibility = 'visible';
+            if(originalText) btnText.textContent = originalText;
+        }
+        if (spinner) spinner.style.display = 'none';
     }
-    elements.addressModal.classList.remove('hidden');
-    elements.addressForm.querySelector('input').focus();
 };
 
-const closeAddressModal = () => elements.addressModal.classList.add('hidden');
+const clearErrorMessages = () => {
+    elements.profileNameError.textContent = '';
+    elements.profilePhoneError.textContent = '';
+    elements.profileEmailError.textContent = '';
+};
 
-const handleSaveAddress = async (e) => {
+// --- Phone Input Initialization ---
+const initializePhoneInput = () => {
+    if (!elements.profilePhone) return;
+    phoneInputInstance = window.intlTelInput(elements.profilePhone, {
+        initialCountry: "auto",
+        geoIpLookup: callback => {
+            fetch("https://ipapi.co/json")
+                .then(res => res.json())
+                .then(data => callback(data.country_code))
+                .catch(() => callback("us"));
+        },
+        utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js",
+    });
+};
+
+// --- Main Application Logic ---
+const loadProfileInfo = async (user) => {
+    originalEmail = user.email;
+    elements.profileEmail.value = user.email;
+
+    if (user.emailVerified) {
+        elements.emailVerificationStatus.textContent = 'Verified';
+        elements.emailVerificationStatus.className = 'email-status verified';
+        elements.verifyEmailBtn.classList.add('hidden');
+    } else {
+        elements.emailVerificationStatus.textContent = 'Not Verified';
+        elements.emailVerificationStatus.className = 'email-status unverified';
+        elements.verifyEmailBtn.classList.remove('hidden');
+    }
+
+    const snapshot = await db.ref(`users/${user.uid}`).once('value');
+    const userProfile = snapshot.val() || {};
+    elements.profileName.value = userProfile.name || '';
+    if (userProfile.phone && phoneInputInstance) {
+        phoneInputInstance.setNumber(userProfile.phone);
+    }
+};
+
+const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    setLoadingState(elements.saveAddressBtn, true, 'Save');
-    const addressData = {
-        label: elements.addressForm.querySelector('#address-label').value.trim(),
-        street: elements.addressForm.querySelector('#address-street').value.trim(),
-        city: elements.addressForm.querySelector('#address-city').value.trim(),
-        phone: elements.addressForm.querySelector('#address-phone').value.trim(),
-    };
+    clearErrorMessages();
+    setLoadingState(elements.updateProfileBtn, true, 'Update Profile');
 
-    if (!addressData.street || !addressData.city) {
-        showMessageBox('Validation Error', 'Street Address and City are required.');
-        setLoadingState(elements.saveAddressBtn, false, 'Save');
+    const name = elements.profileName.value.trim();
+    if (!name) {
+        elements.profileNameError.textContent = 'Full Name cannot be empty.';
+        setLoadingState(elements.updateProfileBtn, false, 'Update Profile');
         return;
     }
+
+    if (!phoneInputInstance.isValidNumber()) {
+        elements.profilePhoneError.textContent = 'The phone number is not valid for the selected country.';
+        setLoadingState(elements.updateProfileBtn, false, 'Update Profile');
+        return;
+    }
+
+    const fullPhoneNumber = phoneInputInstance.getNumber(); // Gets number in E.164 format
 
     try {
-        if (editingAddressKey) {
-            await addressesRef.child(editingAddressKey).update(addressData);
-        } else {
-            const snapshot = await addressesRef.once('value');
-            // Make the very first address the default one
-            if (!snapshot.exists()) {
-                addressData.isDefault = true;
-            }
-            await addressesRef.push(addressData);
-        }
-        closeAddressModal();
-    } catch (err) {
-        showMessageBox('Error', 'Could not save the address. Please try again.');
-        console.error("Address save error:", err);
+        await db.ref(`users/${currentUser.uid}`).update({
+            name: name,
+            phone: fullPhoneNumber
+        });
+        showMessageBox('Success!', 'Your profile has been updated successfully.');
+    } catch (error) {
+        showMessageBox('Error', 'An error occurred while updating your profile.');
+        console.error("Profile update error:", error);
     } finally {
-        setLoadingState(elements.saveAddressBtn, false, 'Save');
+        setLoadingState(elements.updateProfileBtn, false, 'Update Profile');
     }
 };
 
-const setDefaultAddress = async (keyToSetDefault) => {
-    const snapshot = await addressesRef.once('value');
-    const updates = {};
-    snapshot.forEach(childSnapshot => {
-        updates[`${childSnapshot.key}/isDefault`] = childSnapshot.key === keyToSetDefault;
-    });
-    await addressesRef.update(updates);
-    showMessageBox('Success', 'Default address has been updated.');
-};
-
-const deleteAddress = (key, isDefault) => {
-    if (isDefault) {
-        showMessageBox('Action Required', 'You cannot delete your default address. Please set another address as default first.');
-        return;
-    }
-    showConfirmModal('Delete Address', 'Are you sure you want to delete this address forever?', () => {
-        addressesRef.child(key).remove()
-            .then(() => showMessageBox('Success', 'Address deleted.'))
-            .catch(err => showMessageBox('Error', 'Could not delete address.'));
-    });
-};
-
-const createAddressCard = (address, key) => {
-    const template = document.getElementById('address-card-template');
-    const card = template.content.cloneNode(true).firstElementChild;
-
-    card.querySelector('.address-label').textContent = address.label;
-    card.querySelector('.address-street').textContent = address.street;
-    card.querySelector('.address-city').textContent = address.city;
-    card.querySelector('.address-phone').textContent = address.phone;
-
-    if (address.isDefault) {
-        card.classList.add('default');
+// --- Email Functions ---
+const toggleEmailEditMode = (isEditing) => {
+    elements.profileEmail.readOnly = !isEditing;
+    elements.changeEmailBtn.classList.toggle('hidden', isEditing);
+    elements.saveEmailBtn.classList.toggle('hidden', !isEditing);
+    elements.cancelEmailBtn.classList.toggle('hidden', !isEditing);
+    if (isEditing) {
+        elements.profileEmail.classList.remove('bg-gray-100');
+        elements.profileEmail.focus();
     } else {
-        card.querySelector('.set-default-btn').addEventListener('click', () => setDefaultAddress(key));
+        elements.profileEmail.classList.add('bg-gray-100');
+        elements.profileEmail.value = originalEmail; // Revert on cancel
     }
-
-    card.querySelector('.edit-btn').addEventListener('click', () => openAddressModal(address, key));
-    card.querySelector('.delete-btn').addEventListener('click', () => deleteAddress(key, address.isDefault));
-    
-    return card;
 };
 
-const renderAddresses = (snapshot) => {
-    elements.loadingState.classList.add('hidden');
-    elements.addressesList.innerHTML = '';
-    if (!snapshot.exists()) {
-        elements.noAddressesState.classList.remove('hidden');
+const handleSaveEmail = () => {
+    const newEmail = elements.profileEmail.value.trim();
+    if (newEmail === originalEmail) {
+        toggleEmailEditMode(false);
         return;
     }
-    elements.noAddressesState.classList.add('hidden');
-    snapshot.forEach(childSnapshot => {
-        const card = createAddressCard(childSnapshot.val(), childSnapshot.key);
-        elements.addressesList.appendChild(card);
+
+    const password = prompt("For your security, please enter your current password to change your email:");
+    if (!password) return;
+
+    const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, password);
+    
+    setLoadingState(elements.saveEmailBtn, true, 'Save');
+    currentUser.reauthenticateWithCredential(credential).then(() => {
+        return currentUser.updateEmail(newEmail);
+    }).then(() => {
+        return db.ref(`users/${currentUser.uid}`).update({ email: newEmail });
+    }).then(() => {
+        showMessageBox('Success!', 'Your email has been updated. A verification link has been sent to your new address.');
+        originalEmail = newEmail;
+        toggleEmailEditMode(false);
+        loadProfileInfo(auth.currentUser); // Refresh info on page
+    }).catch(error => {
+        showMessageBox('Error', `Failed to update email. ${error.message}`);
+        toggleEmailEditMode(false); // Revert on error
+    }).finally(() => {
+        setLoadingState(elements.saveEmailBtn, false, 'Save');
     });
+};
+
+const handleSendVerificationEmail = () => {
+    elements.verifyEmailBtn.disabled = true;
+    elements.verifyEmailBtn.textContent = 'Sending...';
+
+    currentUser.sendEmailVerification()
+        .then(() => {
+            showMessageBox('Email Sent', 'A verification link has been sent to your email address. Please check your inbox (and spam folder).');
+        })
+        .catch(error => {
+            showMessageBox('Error', `Failed to send verification email: ${error.message}`);
+        })
+        .finally(() => {
+            elements.verifyEmailBtn.disabled = false;
+            elements.verifyEmailBtn.textContent = 'Send verification email';
+        });
+};
+
+const handleForgotPassword = () => {
+    if (confirm("Are you sure you want to send a password reset link to your email?")) {
+        auth.sendPasswordResetEmail(currentUser.email)
+            .then(() => {
+                showMessageBox('Link Sent', 'A password reset link has been sent to your email.');
+            })
+            .catch(error => {
+                showMessageBox('Error', `Failed to send reset link: ${error.message}`);
+            });
+    }
 };
 
 // --- Initialization ---
@@ -207,37 +221,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         currentUser = user;
         loadProfileInfo(user);
-
-        // Set up listener for the addresses tab
-        addressesRef = db.ref(`users/${user.uid}/addresses`);
-        elements.loadingState.classList.remove('hidden');
-        addressesRef.on('value', renderAddresses, (error) => {
-            elements.loadingState.classList.add('hidden');
-            showMessageBox('Error', 'Could not load addresses.');
-        });
     });
 
-    // Event Listeners for Personal Info
+    // Event Listeners
     elements.profileForm.addEventListener('submit', handleUpdateProfile);
     elements.messageBoxOkBtn.addEventListener('click', hideMessageBox);
+    
     elements.verifyEmailBtn.addEventListener('click', handleSendVerificationEmail);
     elements.changeEmailBtn.addEventListener('click', () => toggleEmailEditMode(true));
     elements.cancelEmailBtn.addEventListener('click', () => toggleEmailEditMode(false));
     elements.saveEmailBtn.addEventListener('click', handleSaveEmail);
+
     if (elements.forgotPasswordLink) {
         elements.forgotPasswordLink.addEventListener('click', handleForgotPassword);
     }
     
-    // Event Listeners for Addresses
-    elements.addNewAddressBtn.addEventListener('click', () => openAddressModal());
-    elements.cancelBtn.addEventListener('click', closeAddressModal);
-    elements.addressForm.addEventListener('submit', handleSaveAddress);
-
-    // Tab switching logic
-    elements.tabButtons.forEach(button => {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabButtons.forEach(button => {
         button.addEventListener('click', () => {
-            elements.tabButtons.forEach(btn => btn.classList.remove('active'));
-            elements.tabContents.forEach(content => content.classList.remove('active'));
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
             button.classList.add('active');
             document.getElementById(button.dataset.tab).classList.add('active');
         });
