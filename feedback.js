@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const successMessage = document.getElementById('success-message');
     const feedbackOrderId = document.getElementById('feedback-order-id');
     const starRatings = document.querySelectorAll('.star-rating');
+    const auth = firebase.auth();
 
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('orderId');
@@ -11,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (orderId) {
         feedbackOrderId.textContent = `For Order #${orderId.slice(-6).toUpperCase()}`;
     } else {
-        feedbackContainer.innerHTML = '<p class="text-center text-red-500">No order specified. Please go back to "My Orders" and select an order to rate.</p>';
+        feedbackOrderId.textContent = "Tell us about your recent experience.";
     }
 
     const ratingLabels = {
@@ -62,8 +63,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     feedbackForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        if (!orderId) {
-            alert('No order specified for feedback.');
+        const user = auth.currentUser;
+
+        if (!user || user.isAnonymous) {
+            alert("You must be logged in to submit feedback.");
+            window.location.href = 'auth.html';
             return;
         }
         
@@ -78,6 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const feedbackData = {
+            userId: user.uid,
+            userEmail: user.email,
             ratings: {
                 food: parseInt(foodRating),
                 delivery: parseInt(deliveryRating),
@@ -87,12 +93,21 @@ document.addEventListener('DOMContentLoaded', () => {
             timestamp: new Date().toISOString()
         };
         
-        // **MODIFIED LINE: Changed path from feedback/${orderId} to orders/${orderId}/feedback**
-        firebase.database().ref(`orders/${orderId}/feedback`).set(feedbackData)
-            .then(() => {
-                // Also update the order itself to show it has been rated
-                return firebase.database().ref(`orders/${orderId}/rated`).set(true);
-            })
+        let feedbackPromise;
+
+        if (orderId) {
+            // Specific feedback for an order, saved within the order object
+            feedbackPromise = firebase.database().ref(`orders/${orderId}/feedback`).set(feedbackData)
+                .then(() => {
+                    // Also update the order itself to show it has been rated
+                    return firebase.database().ref(`orders/${orderId}/rated`).set(true);
+                });
+        } else {
+            // General feedback, saved to a new top-level collection
+            feedbackPromise = firebase.database().ref('general_feedback').push(feedbackData);
+        }
+
+        feedbackPromise
             .then(() => {
                 feedbackContainer.style.opacity = '0';
                 setTimeout(() => {
