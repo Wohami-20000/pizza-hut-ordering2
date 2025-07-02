@@ -122,7 +122,8 @@ function renderOrderDetails(orderData) {
 
     loadingState.style.display = 'none';
     contentDiv.classList.remove('hidden');
-    actionButtonsDiv.classList.add('flex'); // Show the button container
+    // *** THIS IS THE CORRECTED LINE ***
+    actionButtonsDiv.classList.remove('hidden'); 
     
     updateStatusTracker(status, orderType);
 }
@@ -133,7 +134,6 @@ function showError(message) {
     errorState.classList.remove('hidden');
 }
 
-// --- NEW FUNCTION TO HANDLE PDF SAVING ---
 function setupPdfButton(orderId) {
     const btn = document.getElementById('save-pdf-btn');
     if (!btn) return;
@@ -143,6 +143,7 @@ function setupPdfButton(orderId) {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Generating...';
         btn.disabled = true;
 
+        // The element to capture is the content div, not the button container
         const elementToCapture = document.getElementById('order-details-content');
         
         const options = {
