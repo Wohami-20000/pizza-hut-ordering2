@@ -20,109 +20,107 @@
     .email-status { font-size: 0.75rem; font-weight: 600; padding: 0.125rem 0.5rem; border-radius: 9999px; }
     .email-status.verified { background-color: #dcfce7; color: #166534; }
     .email-status.unverified { background-color: #fee2e2; color: #991b1b; }
-    /* NEW: Styles to make the pop-up message box visible and centered */
-    .message-box {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: rgba(0, 0, 0, 0.5);
-      display: none; /* Initially hidden */
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-    .message-box-content {
-        background-color: white;
-        padding: 2rem;
-        border-radius: 0.75rem;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-        text-align: center;
-        width: 90%;
-        max-width: 400px;
-    }
+    .message-box { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .message-box-content { background-color: white; padding: 2rem; border-radius: 0.75rem; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); text-align: center; width: 90%; max-width: 400px; }
     .message-box-content h3 { font-size: 1.5rem; font-weight: bold; color: #333; }
     .message-box-content p { color: #555; margin-top: 0.5rem; margin-bottom: 1.5rem; }
     .message-box-content button { background-color: var(--brand-red); color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; transition: background-color 0.15s; }
     .message-box-content button:hover { background-color: #b91c1c; }
+    /* NEW Styles for Address Section */
+    .address-card { background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-left: 4px solid transparent; transition: all 0.2s; border: 1px solid #e5e7eb; }
+    .address-card:hover { border-left-color: #f87171; transform: translateY(-2px); }
+    .address-card.default { border-left-color: var(--brand-red); border-color: var(--brand-red); }
+    .address-card.default .default-badge { display: inline-block; }
+    .default-badge { display: none; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
   <header class="bg-white text-gray-800 p-4 shadow-sm sticky top-0 z-20">
-    <div class="container mx-auto flex justify-between items-center max-w-4xl">
-      <a href="menu.html" class="text-xl text-gray-600 hover:text-gray-900 transition">
-        <i class="fas fa-arrow-left"></i>
-      </a>
-      <a href="menu.html" class="text-xl sm:text-2xl font-bold hover:opacity-80 transition flex items-center gap-2">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="h-8" />
-      </a>
-      <a href="cart.html" class="text-lg relative hover:opacity-80 transition">
-        <i class="fas fa-shopping-cart text-red-600"></i>
-        <span id="cart-count-nav" class="absolute -top-2 -right-2 bg-yellow-400 text-red-800 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
-      </a>
-    </div>
-  </header>
+      </header>
 
   <main class="container mx-auto p-4 sm:p-6 mt-4 max-w-2xl flex-grow">
     <h1 id="profile-main-title" class="text-3xl font-bold mb-6 text-gray-800">My Account</h1>
 
     <div class="border-b border-gray-200 mb-6">
         <nav class="-mb-px flex space-x-6" aria-label="Tabs">
-            <button class="tab-button active" data-tab="personal-info"><i class="fas fa-user-edit mr-2"></i><span>Personal Info</span></button>
-            <button class="tab-button" data-tab="addresses"><i class="fas fa-map-marker-alt mr-2"></i><span>My Addresses</span></button>
-            <button class="tab-button" data-tab="settings"><i class="fas fa-cog mr-2"></i><span>Settings</span></button>
+            <button class="tab-button active" data-tab="personal-info"><span>Personal Info</span></button>
+            <button class="tab-button" data-tab="addresses"><span>My Addresses</span></button>
+            <button class="tab-button" data-tab="settings"><span>Settings</span></button>
         </nav>
     </div>
 
     <div>
         <div id="personal-info" class="tab-content active">
-            <div class="bg-white p-6 rounded-xl shadow-xl">
-                <form id="profile-form" class="space-y-4">
-                    <div>
-                        <div class="flex justify-between items-center">
-                            <label class="block text-sm font-medium text-gray-700">Email Address</label>
-                            <span id="email-verification-status" class="email-status"></span>
-                        </div>
-                        <div class="flex items-center gap-2 mt-1">
-                           <input type="email" id="profile-email" class="block w-full p-3 border border-gray-300 rounded-lg bg-gray-100" readonly />
-                           <button type="button" id="change-email-btn" class="px-4 py-2 bg-gray-200 rounded-lg text-sm font-semibold hover:bg-gray-300">Change</button>
-                           <button type="button" id="save-email-btn" class="hidden px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700">Save</button>
-                           <button type="button" id="cancel-email-btn" class="hidden px-4 py-2 bg-gray-500 text-white rounded-lg text-sm font-semibold hover:bg-gray-600">Cancel</button>
-                        </div>
-                        <button type="button" id="verify-email-btn" class="hidden text-sm text-blue-600 hover:underline mt-1">Send verification email</button>
-                        <p id="profile-email-error" class="error-message"></p>
-                    </div>
-                    <div>
-                        <label for="profile-name" class="block text-sm font-medium text-gray-700">Full Name</label>
-                        <input type="text" id="profile-name" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg" required />
-                        <p id="profile-name-error" class="error-message"></p>
-                    </div>
-                    <div>
-                        <label for="profile-phone" class="block text-sm font-medium text-gray-700">Phone Number</label>
-                        <input type="tel" id="profile-phone" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg" />
-                        <p id="profile-phone-error" class="error-message"></p>
-                    </div>
-                    <button type="submit" id="update-profile-btn" class="w-full bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg px-6 py-3 shadow-md transition flex items-center justify-center relative">
-                        <span class="btn-text">Update Profile</span>
-                        <div class="spinner absolute"></div>
-                    </button>
-                </form>
             </div>
+
+        <div id="addresses" class="tab-content">
+            <div id="addresses-list" class="space-y-4">
+                </div>
+            <div id="loading-state" class="text-center py-10"><i class="fas fa-spinner fa-spin text-red-600 text-4xl"></i></div>
+            <div id="no-addresses-state" class="hidden text-center bg-white p-8 rounded-lg shadow-md">
+                <i class="fas fa-map-marker-alt text-4xl text-gray-400 mb-4"></i>
+                <h2 class="text-xl font-bold text-gray-800">No Saved Addresses</h2>
+                <p class="text-gray-600 mt-2">Click the button below to add your first address.</p>
+            </div>
+            <button id="add-new-address-btn" class="mt-6 w-full bg-red-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 transition flex items-center justify-center">
+                <i class="fas fa-plus-circle mr-2"></i> <span>Add New Address</span>
+            </button>
         </div>
+
         <div id="settings" class="tab-content">
             </div>
     </div>
   </main>
   
-  <div id="custom-message-box" class="message-box">
-    <div class="message-box-content">
-        <h3 id="message-box-title"></h3>
-        <p id="message-box-text"></p>
-        <button id="message-box-ok-btn">OK</button>
+  <template id="address-card-template">
+    <div class="address-card p-4 flex justify-between items-start gap-4">
+        <div class="flex-grow">
+            <p class="font-bold text-lg flex items-center gap-2">
+                <span class="address-label"></span> 
+                <span class="default-badge text-xs bg-red-100 text-red-700 font-medium px-2 py-0.5 rounded-full">Default</span>
+            </p>
+            <p class="text-gray-600 text-sm"><span class="address-street"></span>, <span class="address-city"></span></p>
+            <p class="text-gray-500 text-xs mt-1 address-phone"></p>
+            <button class="set-default-btn text-sm text-blue-600 hover:underline mt-2">Set as Default</button>
+        </div>
+        <div class="flex-shrink-0 flex flex-col sm:flex-row items-center gap-2">
+            <button class="edit-btn p-2 text-gray-500 hover:text-blue-600"><i class="fas fa-edit"></i></button>
+            <button class="delete-btn p-2 text-gray-500 hover:text-red-600"><i class="fas fa-trash-alt"></i></button>
+        </div>
+    </div>
+  </template>
+
+  <div id="address-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <form id="address-form" class="p-6 space-y-4">
+            <h2 id="modal-title" class="text-2xl font-bold text-gray-800">Add New Address</h2>
+            <div>
+                <label for="address-label" class="text-sm font-medium text-gray-700">Label (e.g., Home, Work)</label>
+                <input type="text" id="address-label" required class="mt-1 w-full p-2 border rounded-md">
+            </div>
+            <div>
+                <label for="address-street" class="text-sm font-medium text-gray-700">Street Address</label>
+                <input type="text" id="address-street" required class="mt-1 w-full p-2 border rounded-md">
+            </div>
+            <div>
+                <label for="address-city" class="text-sm font-medium text-gray-700">City</label>
+                <input type="text" id="address-city" required class="mt-1 w-full p-2 border rounded-md">
+            </div>
+            <div>
+                <label for="address-phone" class="text-sm font-medium text-gray-700">Phone Number for this Address</label>
+                <input type="tel" id="address-phone" required class="mt-1 w-full p-2 border rounded-md">
+            </div>
+            <div class="pt-4 flex justify-end gap-3">
+                <button type="button" id="cancel-btn" class="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300">Cancel</button>
+                <button type="submit" id="save-address-btn" class="px-6 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">Save</button>
+            </div>
+        </form>
     </div>
   </div>
+  
+  <div id="custom-message-box" class="message-box">
+      </div>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
