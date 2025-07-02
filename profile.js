@@ -34,6 +34,13 @@ const elements = {
     addressCityInput: document.getElementById('address-city'),
     addressPhoneInput: document.getElementById('address-phone'),
     cancelAddressModalBtn: document.getElementById('cancel-address-modal'),
+    // Settings elements
+    changePasswordForm: document.getElementById('change-password-form'),
+    currentPasswordInput: document.getElementById('current-password'),
+    newPasswordInput: document.getElementById('new-password'),
+    confirmNewPasswordInput: document.getElementById('confirm-new-password'),
+    passwordChangeMessage: document.getElementById('password-change-message'),
+    updatePasswordBtn: document.getElementById('update-password-btn'),
 };
 
 // --- State ---
@@ -330,6 +337,49 @@ const removeAddress = async (addressId) => {
     loadProfileInfo(user);
 };
 
+// --- Settings Functions ---
+const handleChangePassword = async (e) => {
+    e.preventDefault();
+    const currentPassword = elements.currentPasswordInput.value;
+    const newPassword = elements.newPasswordInput.value;
+    const confirmNewPassword = elements.confirmNewPasswordInput.value;
+    const messageEl = elements.passwordChangeMessage;
+
+    if (newPassword !== confirmNewPassword) {
+        messageEl.textContent = "New passwords do not match.";
+        messageEl.className = 'text-sm h-5 text-red-600';
+        return;
+    }
+    if (newPassword.length < 6) {
+        messageEl.textContent = "Password must be at least 6 characters long.";
+        messageEl.className = 'text-sm h-5 text-red-600';
+        return;
+    }
+
+    messageEl.textContent = "Updating...";
+    messageEl.className = 'text-sm h-5 text-gray-500';
+
+    try {
+        const user = auth.currentUser;
+        const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPassword);
+        await user.reauthenticateWithCredential(credential);
+        await user.updatePassword(newPassword);
+        
+        messageEl.textContent = "Password updated successfully!";
+        messageEl.className = 'text-sm h-5 text-green-600';
+        elements.changePasswordForm.reset();
+    } catch (error) {
+        console.error("Password change error:", error);
+        if (error.code === 'auth/wrong-password') {
+            messageEl.textContent = "Incorrect current password.";
+        } else {
+            messageEl.textContent = "An error occurred. Please try again.";
+        }
+        messageEl.className = 'text-sm h-5 text-red-600';
+    }
+};
+
+
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     initializePhoneInput();
@@ -358,6 +408,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     elements.addressForm.addEventListener('submit', saveAddress);
     elements.cancelAddressModalBtn.addEventListener('click', closeAddressModal);
+    
+    elements.changePasswordForm.addEventListener('submit', handleChangePassword);
     
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');

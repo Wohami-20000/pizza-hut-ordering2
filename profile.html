@@ -133,6 +133,46 @@
         <div id="addresses" class="tab-content">
         </div>
         <div id="settings" class="tab-content">
+            <div class="space-y-6">
+                <!-- Shortcuts Section -->
+                <div class="bg-white p-6 rounded-xl shadow-xl">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Quick Links</h3>
+                    <div class="space-y-2">
+                        <a href="my-orders.html" class="flex justify-between items-center p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                            <span class="font-semibold text-gray-700">My Orders</span>
+                            <i class="fas fa-chevron-right text-gray-400"></i>
+                        </a>
+                    </div>
+                </div>
+        
+                <!-- Change Password Section -->
+                <div class="bg-white p-6 rounded-xl shadow-xl">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Change Password</h3>
+                    <form id="change-password-form" class="space-y-4">
+                        <div>
+                            <label for="current-password" class="block text-sm font-medium text-gray-700">Current Password</label>
+                            <input type="password" id="current-password" required class="mt-1 block w-full p-3 border border-gray-300 rounded-lg">
+                        </div>
+                        <div>
+                            <label for="new-password" class="block text-sm font-medium text-gray-700">New Password</label>
+                            <input type="password" id="new-password" required class="mt-1 block w-full p-3 border border-gray-300 rounded-lg">
+                        </div>
+                        <div>
+                            <label for="confirm-new-password" class="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                            <input type="password" id="confirm-new-password" required class="mt-1 block w-full p-3 border border-gray-300 rounded-lg">
+                        </div>
+                        <p id="password-change-message" class="text-sm h-5"></p>
+                        <button type="submit" id="update-password-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg px-6 py-3">Update Password</button>
+                    </form>
+                </div>
+        
+                <!-- Danger Zone Section -->
+                <div class="bg-white p-6 rounded-xl shadow-xl border-t-4 border-red-600">
+                    <h3 class="text-xl font-bold text-red-700 mb-4">Danger Zone</h3>
+                    <p class="text-gray-600 mb-4">Permanently delete your account and all associated data. This action cannot be undone.</p>
+                    <a href="delete-account.html" class="w-full block text-center bg-red-800 hover:bg-red-900 text-white font-semibold rounded-lg px-6 py-3">Delete My Account</a>
+                </div>
+            </div>
         </div>
     </div>
   </main>
