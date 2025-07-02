@@ -3,90 +3,109 @@
 // Initialize Firebase database and auth objects for this script
 const db = firebase.database();
 const auth = firebase.auth();
-console.log("cart.js: Firebase 'db' and 'auth' objects initialized."); 
+console.log("cart.js: Firebase 'db' and 'auth' objects initialized.");
 
 // Load cart and promo from localStorage
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 let appliedPromo = JSON.parse(localStorage.getItem("appliedPromo")) || null;
 let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
 const DELIVERY_FEE = 20.00; // Define a standard delivery fee
+const TAX_RATE = 0.20; // 20% VAT/TVA, as an example
 
 // --- Global variables for message box ---
-const messageBox = document.getElementById('custom-message-box'); 
-const messageBoxTitle = document.getElementById('message-box-title'); 
-const messageBoxText = document.getElementById('message-box-text'); 
-const messageBoxOkBtn = document.getElementById('message-box-ok-btn'); 
+const messageBox = document.getElementById('custom-message-box');
+const messageBoxTitle = document.getElementById('message-box-title');
+const messageBoxText = document.getElementById('message-box-text');
+const messageBoxOkBtn = document.getElementById('message-box-ok-btn');
 
 let currentLang = localStorage.getItem('lang') || 'en';
 
-// --- IMPORTANT: Server-Side Validation ---
-// In a production application, you should NEVER trust the prices sent from the client.
-// The client can be manipulated. A secure application must have a backend (like Firebase Functions)
-// to verify the price of each item in the cart before finalizing an order.
-//
-// Here's a conceptual example of how that would work in a Firebase Function:
-//
-// exports.placeOrder = functions.https.onCall(async (data, context) => {
-//   const cart = data.cart;
-//   const promoCode = data.promoCode;
-//   const uid = context.auth.uid;
-//
-//   if (!uid) {
-//     throw new functions.https.HttpsError('unauthenticated', 'You must be logged in to place an order.');
-//   }
-//
-//   let serverCalculatedSubtotal = 0;
-//
-//   // Loop through cart items sent from the client
-//   for (const clientItem of cart) {
-//     // Fetch the item's true price from the database
-//     const itemRef = db.ref(`menu/${clientItem.categoryId}/items/${clientItem.id}`);
-//     const snapshot = await itemRef.once('value');
-//     const serverItem = snapshot.val();
-//
-//     if (!serverItem) {
-//       throw new functions.https.HttpsError('not-found', `Item with ID ${clientItem.id} not found.`);
-//     }
-//
-//     // Add the verified price to the server-calculated subtotal
-//     serverCalculatedSubtotal += serverItem.price * clientItem.quantity;
-//   }
-//
-//   // Now, calculate the final total with delivery fees and promo codes on the server
-//   const finalTotal = calculateFinalTotal(serverCalculatedSubtotal, promoCode);
-//
-//   // If the server's total matches the client's, save the order to the database.
-//   // Otherwise, reject the order.
-//   // ...
-// });
-//
-// The following code is for the client-side experience and does NOT include this
-// critical server-side validation.
+// --- NEW HELPER FUNCTIONS ---
 
-function showMessageBox(titleKey, messageKey, isError = false) {
-  let translatedTitle = (typeof translations !== 'undefined' && translations[currentLang]?.[titleKey]) || titleKey; 
-  let translatedMessage = (typeof translations !== 'undefined' && translations[currentLang]?.[messageKey]) || messageKey; 
-  let translatedOk = (typeof translations !== 'undefined' && translations[currentLang]?.message_box_ok) || "OK"; 
-
-  messageBoxTitle.textContent = translatedTitle; 
-  messageBoxText.textContent = translatedMessage; 
-  messageBoxOkBtn.textContent = translatedOk; 
-
-  messageBoxOkBtn.onclick = () => { messageBox.style.display = 'none'; }; // Default close behavior
-
-  if (isError) { 
-    messageBoxTitle.classList.add('text-red-600'); 
-    messageBoxOkBtn.classList.add('bg-red-600'); 
-    messageBoxOkBtn.classList.remove('bg-gray-500'); 
-  } else {
-    messageBoxTitle.classList.remove('text-red-600'); 
-    messageBoxOkBtn.classList.remove('bg-red-600'); 
-  }
-
-  messageBox.style.display = 'flex'; 
+/**
+ * Generates a random, 6-character alphanumeric ID for an order.
+ * @returns {string} A 6-character ID (e.g., "A4T9B1").
+ */
+function generateShortId() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
 }
 
-// Message box with a redirecting OK button
+/**
+ * Gets the next sequential order number for the current day.
+ * Uses a Firebase Transaction to ensure atomicity and prevent race conditions.
+ * Resets to 1 every new day.
+ * @returns {Promise<number|null>} The next order number, or null if the transaction fails.
+ */
+async function getNextOrderNumber() {
+    const counterRef = db.ref('dailyCounters/orders');
+    const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
+    try {
+        const {
+            committed,
+            snapshot
+        } = await counterRef.transaction(currentData => {
+            if (currentData === null) {
+                // First order ever, initialize the counter.
+                return {
+                    number: 1,
+                    date: today
+                };
+            }
+            if (currentData.date === today) {
+                // It's the same day, increment the number.
+                currentData.number++;
+            } else {
+                // It's a new day, reset the number to 1 and update the date.
+                currentData.number = 1;
+                currentData.date = today;
+            }
+            return currentData;
+        });
+
+        if (committed) {
+            return snapshot.val().number;
+        } else {
+            console.error("Transaction to get next order number was aborted.");
+            return null;
+        }
+    } catch (error) {
+        console.error("Firebase transaction for order number failed: ", error);
+        return null;
+    }
+}
+
+
+// --- EXISTING UI AND HELPER FUNCTIONS (Corrected Syntax) ---
+
+function showMessageBox(titleKey, messageKey, isError = false) {
+    // CORRECTED SYNTAX
+    let translatedTitle = (translations && translations[currentLang] && translations[currentLang][titleKey]) || titleKey;
+    let translatedMessage = (translations && translations[currentLang] && translations[currentLang][messageKey]) || messageKey;
+    let translatedOk = (translations && translations[currentLang] && translations[currentLang].message_box_ok) || "OK";
+
+    messageBoxTitle.textContent = translatedTitle;
+    messageBoxText.textContent = translatedMessage;
+    messageBoxOkBtn.textContent = translatedOk;
+    messageBoxOkBtn.onclick = () => {
+        messageBox.style.display = 'none';
+    };
+    if (isError) {
+        messageBoxTitle.classList.add('text-red-600');
+        messageBoxOkBtn.classList.add('bg-red-600');
+    } else {
+        messageBoxTitle.classList.remove('text-red-600');
+        messageBoxOkBtn.classList.remove('bg-red-600');
+    }
+    messageBox.style.display = 'flex';
+}
+
+
 function showRedirectMessageBox(titleKey, messageKey, redirectUrl) {
     showMessageBox(titleKey, messageKey, true);
     messageBoxOkBtn.onclick = () => {
@@ -95,11 +114,15 @@ function showRedirectMessageBox(titleKey, messageKey, redirectUrl) {
 }
 
 
-function escapeHTML(str) { 
-  if (typeof str !== 'string') return str !== null && str !== undefined ? String(str) : ''; 
-  return String(str).replace(/[<>&"']/g, s => ({ 
-    "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;"
-  }[s]));
+function escapeHTML(str) {
+    if (typeof str !== 'string') return str !== null && str !== undefined ? String(str) : '';
+    return String(str).replace(/[<>&"']/g, s => ({
+        "<": "&lt;",
+        ">": "&gt;",
+        "&": "&amp;",
+        '"': "&quot;",
+        "'": "&#39;"
+    } [s]));
 }
 
 
@@ -115,15 +138,13 @@ function updateTotalsUI() {
 
     const orderType = localStorage.getItem('orderType');
     const subtotal = cart.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0), 0);
-    let total = subtotal;
+    const taxes = subtotal * TAX_RATE;
+    let total = subtotal + taxes;
     let currentDeliveryFee = 0;
 
     if (orderType === 'delivery') {
         if (appliedPromo && appliedPromo.discountType === 'free_delivery') {
             currentDeliveryFee = 0;
-            discountRowEl.classList.remove('hidden');
-            discountCodeDisplayEl.textContent = appliedPromo.code;
-            discountAmountEl.textContent = `${DELIVERY_FEE.toFixed(2)}`;
         } else {
             currentDeliveryFee = DELIVERY_FEE;
         }
@@ -134,59 +155,63 @@ function updateTotalsUI() {
         deliveryRowEl.classList.add('hidden');
     }
 
-    if (appliedPromo && appliedPromo.discountType !== 'free_delivery' && subtotal > 0) {
-        let discount = 0;
+    let discountValue = 0;
+    if (appliedPromo) {
         if (appliedPromo.discountType === 'percentage') {
-            discount = subtotal * (appliedPromo.discountValue / 100);
+            discountValue = subtotal * (appliedPromo.discountValue / 100);
         } else if (appliedPromo.discountType === 'fixed') {
-            discount = appliedPromo.discountValue;
+            discountValue = appliedPromo.discountValue;
+        } else if (appliedPromo.discountType === 'free_delivery') {
+            discountValue = DELIVERY_FEE;
         }
-        
         discountRowEl.classList.remove('hidden');
         discountCodeDisplayEl.textContent = appliedPromo.code;
-        discountAmountEl.textContent = discount.toFixed(2);
-        total -= discount;
-    } else if (!appliedPromo || appliedPromo.discountType === 'free_delivery') {
-         if (!appliedPromo || appliedPromo.discountType !== 'free_delivery'){
-            discountRowEl.classList.add('hidden');
-         }
+        discountAmountEl.textContent = discountValue.toFixed(2);
+        total -= discountValue;
+    } else {
+        discountRowEl.classList.add('hidden');
     }
-    
+
     total = Math.max(0, total);
 
     summarySubtotalEl.textContent = `${subtotal.toFixed(2)} MAD`;
+    // Add this line to your HTML inside the summary section if you want to show taxes
+    // <div class="summary-row flex justify-between"><span data-translate="summary_taxes">Taxes</span><span id="summary-taxes">0.00 MAD</span></div>
+    if (document.getElementById('summary-taxes')) {
+        document.getElementById('summary-taxes').textContent = `${taxes.toFixed(2)} MAD`;
+    }
     summaryTotalEl.textContent = `${total.toFixed(2)} MAD`;
     cartTotalEl.textContent = total.toFixed(2);
 }
 
 
-function renderCart() { 
-  const container = document.getElementById("cart-items"); 
-  const summaryBar = document.getElementById('order-summary-bar');
+function renderCart() {
+    const container = document.getElementById("cart-items");
+    const summaryBar = document.getElementById('order-summary-bar');
 
-  if (!container) { 
-    console.error("Cart HTML elements not found!"); 
-    return;
-  }
+    if (!container) {
+        console.error("Cart HTML elements not found!");
+        return;
+    }
 
-  container.innerHTML = ""; 
-  cart = JSON.parse(localStorage.getItem("cart")) || []; 
+    container.innerHTML = "";
+    cart = JSON.parse(localStorage.getItem("cart")) || [];
 
-  if (cart.length === 0) { 
-    container.innerHTML = "<p data-translate='cart_empty' class='text-gray-500 text-center py-8'>Your cart is empty. Let's add something tasty!</p>"; 
-    summaryBar.classList.remove('visible');
-  } else {
-     summaryBar.classList.add('visible');
-  }
+    if (cart.length === 0) {
+        container.innerHTML = "<p data-translate='cart_empty' class='text-gray-500 text-center py-8'>Your cart is empty. Let's add something tasty!</p>";
+        summaryBar.classList.remove('visible');
+    } else {
+        summaryBar.classList.add('visible');
+    }
 
-  cart.forEach((item, index) => { 
-    const itemQuantity = parseInt(item.quantity) || 0; 
-    const itemPrice = parseFloat(item.price) || 0; 
-    
-    const itemDiv = document.createElement("div"); 
-    itemDiv.className = "cart-item-card"; 
-    
-    itemDiv.innerHTML = `
+    cart.forEach((item, index) => {
+        const itemQuantity = parseInt(item.quantity) || 0;
+        const itemPrice = parseFloat(item.price) || 0;
+
+        const itemDiv = document.createElement("div");
+        itemDiv.className = "cart-item-card";
+
+        itemDiv.innerHTML = `
       <div class="cart-item-image">
         <img src="${escapeHTML(item.image || 'https://www.pizzahut.ma/images/Default_pizza.png')}" alt="${escapeHTML(item.name || 'Cart Item')}">
       </div>
@@ -219,55 +244,55 @@ function renderCart() {
           <i class="fas fa-times-circle text-xl"></i>
         </button>
     `;
-    container.appendChild(itemDiv); 
-  });
-  
-  updateTotalsUI();
+        container.appendChild(itemDiv);
+    });
 
-  if (typeof applyLanguage === 'function') { 
-    applyLanguage(currentLang, document.body); 
-  }
+    updateTotalsUI();
+
+    if (typeof applyLanguage === 'function') {
+        applyLanguage(currentLang, document.body);
+    }
 }
 
 window.cartFunctions = {
-  changeQuantity: (index, delta) => { 
-    if (cart[index]) { 
-      cart[index].quantity += delta; 
-      if (cart[index].quantity <= 0) { 
-        cart.splice(index, 1); 
-      }
-      localStorage.setItem("cart", JSON.stringify(cart)); 
-      renderCart(); 
-      renderSuggestions();
-      updateCartCountNav(); 
-      updatePlaceOrderButtonState(); 
+    changeQuantity: (index, delta) => {
+        if (cart[index]) {
+            cart[index].quantity += delta;
+            if (cart[index].quantity <= 0) {
+                cart.splice(index, 1);
+            }
+            localStorage.setItem("cart", JSON.stringify(cart));
+            renderCart();
+            renderSuggestions();
+            updateCartCountNav();
+            updatePlaceOrderButtonState();
+        }
+    },
+    removeItem: (index) => {
+        cart.splice(index, 1);
+        localStorage.setItem("cart", JSON.stringify(cart));
+        renderCart();
+        renderSuggestions();
+        updateCartCountNav();
+        updatePlaceOrderButtonState();
     }
-  },
-  removeItem: (index) => { 
-    cart.splice(index, 1); 
-    localStorage.setItem("cart", JSON.stringify(cart)); 
-    renderCart(); 
-    renderSuggestions();
-    updateCartCountNav(); 
-    updatePlaceOrderButtonState(); 
-  }
 };
 
-function updateCartCountNav() { 
-    const cartForCount = JSON.parse(localStorage.getItem("cart")) || []; 
-    const count = cartForCount.reduce((sum, i) => sum + i.quantity, 0); 
-    const cartCountSpanDetails = document.getElementById('cart-count-details'); 
-    if (cartCountSpanDetails) { 
-        cartCountSpanDetails.textContent = count; 
+function updateCartCountNav() {
+    const cartForCount = JSON.parse(localStorage.getItem("cart")) || [];
+    const count = cartForCount.reduce((sum, i) => sum + i.quantity, 0);
+    const cartCountSpanDetails = document.getElementById('cart-count-details');
+    if (cartCountSpanDetails) {
+        cartCountSpanDetails.textContent = count;
     }
 }
 
-function updatePlaceOrderButtonState() { 
-  const placeOrderBtn = document.getElementById("place-order"); 
-  if (placeOrderBtn) { 
-    const cartIsEmpty = cart.length === 0;
-    placeOrderBtn.disabled = cartIsEmpty; 
-  }
+function updatePlaceOrderButtonState() {
+    const placeOrderBtn = document.getElementById("place-order");
+    if (placeOrderBtn) {
+        const cartIsEmpty = cart.length === 0;
+        placeOrderBtn.disabled = cartIsEmpty;
+    }
 }
 
 function updateOrderTypeSelectionUI() {
@@ -282,7 +307,7 @@ function updateOrderTypeSelectionUI() {
 }
 
 async function renderOrderDetailsInput(user) {
-    const orderDetailsInputDiv = document.getElementById('order-details-input'); 
+    const orderDetailsInputDiv = document.getElementById('order-details-input');
     if (!orderDetailsInputDiv) return;
 
     orderDetailsInputDiv.innerHTML = '';
@@ -290,15 +315,15 @@ async function renderOrderDetailsInput(user) {
     updateOrderTypeSelectionUI();
     updateTotalsUI();
 
-    if (orderType === 'dineIn') { 
-        const tableNumber = localStorage.getItem('tableNumber') || ''; 
+    if (orderType === 'dineIn') {
+        const tableNumber = localStorage.getItem('tableNumber') || '';
         orderDetailsInputDiv.innerHTML = `
             <label id="table-label" for="table-number" class="block mb-2 font-semibold text-gray-700" data-translate="table_number_label">Table Number</label>
             <input type="number" id="table-number" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500 focus:border-red-500" placeholder="Enter your table number" inputmode="numeric" value="${escapeHTML(tableNumber)}" data-translate="table_number_placeholder" />
         `;
-        const tableNumberInputEl = document.getElementById("table-number"); 
-        if (tableNumber && tableNumberInputEl) { 
-            tableNumberInputEl.value = tableNumber; 
+        const tableNumberInputEl = document.getElementById("table-number");
+        if (tableNumber && tableNumberInputEl) {
+            tableNumberInputEl.value = tableNumber;
         }
 
     } else if (orderType === 'pickup' || orderType === 'delivery') {
@@ -307,8 +332,8 @@ async function renderOrderDetailsInput(user) {
             return;
         }
 
-        const userProfileSnapshot = await db.ref('users/' + user.uid).once('value'); 
-        const userProfile = userProfileSnapshot.val() || {}; 
+        const userProfileSnapshot = await db.ref('users/' + user.uid).once('value');
+        const userProfile = userProfileSnapshot.val() || {};
         const customerName = userProfile.name ? userProfile.name.trim() : '';
         const customerPhone = userProfile.phone ? userProfile.phone.trim() : '';
 
@@ -330,7 +355,7 @@ async function renderOrderDetailsInput(user) {
         }
 
         let addressInputHtml = '';
-        if (orderType === 'delivery') { 
+        if (orderType === 'delivery') {
             addressInputHtml = `
                 <div>
                     <label id="address-label" for="delivery-address" class="block mb-2 font-semibold text-gray-700" data-translate="delivery_address_label">Delivery Address</label>
@@ -342,7 +367,7 @@ async function renderOrderDetailsInput(user) {
                 </div>
             `;
         }
-        
+
         orderDetailsInputDiv.innerHTML = `
             <div class="space-y-4">
                 <div>
@@ -372,9 +397,9 @@ async function renderOrderDetailsInput(user) {
                 });
             });
         }
-    } else if (!orderType) { 
+    } else if (!orderType) {
         showRedirectMessageBox('Validation Error', 'Order type is not set. Please select how you want to order.', 'order-type-selection.html');
-        document.getElementById("place-order").disabled = true; 
+        document.getElementById("place-order").disabled = true;
     }
 
     if (typeof applyLanguage === 'function') {
@@ -423,7 +448,7 @@ function handlePromoCode() {
         const promoCodesRef = db.ref('promoCodes');
         const snapshot = await promoCodesRef.once('value');
         const promoCodesData = snapshot.val();
-        
+
         let foundOffer = null;
         if (promoCodesData) {
             for (const offerId in promoCodesData) {
@@ -442,7 +467,7 @@ function handlePromoCode() {
                 promoMessageEl.className = 'text-sm mt-2 font-semibold error';
                 return;
             }
-            
+
             if (foundOffer.discountType === 'free_delivery' && localStorage.getItem('orderType') !== 'delivery') {
                 promoMessageEl.textContent = 'This code is only valid for delivery orders.';
                 promoMessageEl.className = 'text-sm mt-2 font-semibold error';
@@ -451,8 +476,8 @@ function handlePromoCode() {
 
             appliedPromo = foundOffer;
             localStorage.setItem('appliedPromo', JSON.stringify(appliedPromo));
-            updateTotalsUI(); 
-            
+            updateTotalsUI();
+
             promoInput.disabled = true;
             applyBtn.textContent = 'Remove';
             applyBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
@@ -476,7 +501,7 @@ function createSuggestionCard(item, categoryId, itemId) {
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
     const totalQuantityInCart = cart.filter(ci => ci.id === itemId).reduce((sum, ci) => sum + ci.quantity, 0);
     const isFavorite = favorites.includes(itemId);
-    
+
     card.innerHTML = `
         <div class="item-content-left flex flex-col">
             <div class="flex justify-between items-start">
@@ -522,7 +547,10 @@ async function renderSuggestions() {
                 for (const itemId in category.items) {
                     const item = category.items[itemId];
                     if (item.price < 30 && !cartItemIds.includes(itemId)) {
-                        potentialItems.push({ ...item, id: itemId, categoryId: categoryId });
+                        potentialItems.push({ ...item,
+                            id: itemId,
+                            categoryId: categoryId
+                        });
                     }
                 }
             }
@@ -530,13 +558,13 @@ async function renderSuggestions() {
 
         const suggestions = potentialItems.sort(() => 0.5 - Math.random()).slice(0, 3);
 
-        container.innerHTML = ''; 
+        container.innerHTML = '';
         if (suggestions.length > 0) {
             const title = document.createElement('h2');
             title.className = 'text-2xl font-bold mb-4 text-gray-800';
             title.textContent = 'You might also like';
             container.appendChild(title);
-            
+
             const itemsContainer = document.createElement('div');
             itemsContainer.className = 'space-y-4';
             suggestions.forEach(item => {
@@ -595,12 +623,12 @@ Object.assign(window.cartFunctions, {
 
 
 document.addEventListener('DOMContentLoaded', () => {
-    currentLang = localStorage.getItem('lang') || 'en'; 
-    
-    renderCart(); 
-    updateCartCountNav(); 
+    currentLang = localStorage.getItem('lang') || 'en';
+
+    renderCart();
+    updateCartCountNav();
     updatePlaceOrderButtonState();
-    handlePromoCode(); 
+    handlePromoCode();
     renderSuggestions();
 
     const orderTypeButtons = document.querySelectorAll('.order-type-button');
@@ -615,20 +643,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             localStorage.setItem('orderType', newOrderType);
-            
+
             if (newOrderType !== 'delivery' && appliedPromo && appliedPromo.discountType === 'free_delivery') {
                 appliedPromo = null;
                 localStorage.removeItem('appliedPromo');
-                 document.getElementById('promo-code-input').value = '';
-                 document.getElementById('promo-code-input').disabled = false;
-                 document.getElementById('apply-promo-btn').textContent = 'Apply';
-                 document.getElementById('promo-message').textContent = '';
+                document.getElementById('promo-code-input').value = '';
+                document.getElementById('promo-code-input').disabled = false;
+                document.getElementById('apply-promo-btn').textContent = 'Apply';
+                document.getElementById('promo-message').textContent = '';
             }
             renderOrderDetailsInput(user);
         });
     });
 
-    const placeOrderBtn = document.getElementById("place-order"); 
+    const placeOrderBtn = document.getElementById("place-order");
 
     auth.onAuthStateChanged(async (user) => {
         const dineInOption = document.getElementById('dineInOption');
@@ -665,177 +693,166 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        await renderOrderDetailsInput(user); 
-        updatePlaceOrderButtonState(); 
+        await renderOrderDetailsInput(user);
+        updatePlaceOrderButtonState();
 
-        if (placeOrderBtn) { 
-            const oldClickListener = placeOrderBtn._currentClickListener; 
+        if (placeOrderBtn) {
+            const oldClickListener = placeOrderBtn._currentClickListener;
             if (oldClickListener) {
                 placeOrderBtn.removeEventListener("click", oldClickListener);
             }
 
+            // *** REWRITTEN "PLACE ORDER" CLICK LISTENER ***
             const newClickListener = async () => {
                 if (placeOrderBtn.disabled) return;
-                
-                let orderDetails = {};
+
+                let customerInfo = {};
+                let orderSpecifics = {};
                 let validationError = false;
 
-                let currentOrderType = localStorage.getItem("orderType"); 
+                const currentOrderType = localStorage.getItem("orderType");
 
-                if (currentOrderType === 'dineIn') { 
-                    const localTableNumberInput = document.getElementById('table-number'); 
-                    const tableNumberFromInput = localTableNumberInput ? localTableNumberInput.value.trim() : '';
-                    if (!tableNumberFromInput || isNaN(parseInt(tableNumberFromInput)) || parseInt(tableNumberFromInput) <= 0) {
-                        showMessageBox('validation_error_title', 'table_number_missing_error', true); 
+                // --- Step 1: Validate inputs and gather data ---
+                if (currentOrderType === 'dineIn') {
+                    const tableNumberInput = document.getElementById('table-number');
+                    const tableNumber = tableNumberInput ? tableNumberInput.value.trim() : '';
+                    if (!tableNumber || isNaN(parseInt(tableNumber)) || parseInt(tableNumber) <= 0) {
+                        showMessageBox('validation_error_title', 'table_number_missing_error', true);
                         validationError = true;
                     } else {
-                        orderDetails.table = tableNumberFromInput;
+                        orderSpecifics.table = tableNumber;
+                    }
+                    if (user && !user.isAnonymous) { // Logged-in user at a table
+                        const profile = (await db.ref(`users/${user.uid}`).once('value')).val() || {};
+                        customerInfo = {
+                            userId: user.uid,
+                            name: profile.name || 'N/A',
+                            phone: profile.phone || 'N/A'
+                        };
+                    } else { // Guest user at a table
+                        customerInfo = {
+                            userId: user ? user.uid : 'guest',
+                            name: 'Dine-in Guest',
+                            phone: ''
+                        };
                     }
                 } else if (currentOrderType === 'pickup' || currentOrderType === 'delivery') {
-                    if (!user || user.isAnonymous) { 
-                        showRedirectMessageBox('Login Required', 'You must be logged in to place this type of order.', 'auth.html');
-                        validationError = true;
-                    } else {
-                        const userProfileSnapshot = await db.ref('users/' + user.uid).once('value'); 
-                        const userProfile = userProfileSnapshot.val() || {}; 
+                    if (!user || user.isAnonymous) {
+                        showRedirectMessageBox('Login Required', 'You must be logged in for this order type.', 'auth.html');
+                        return; // Stop execution
+                    }
+                    const profile = (await db.ref(`users/${user.uid}`).once('value')).val() || {};
+                    customerInfo = {
+                        userId: user.uid,
+                        name: profile.name || 'N/A',
+                        phone: profile.phone || 'N/A'
+                    };
 
-                        orderDetails.userId = user.uid;
-                        orderDetails.customerName = userProfile.name || '';
-                        orderDetails.customerPhone = userProfile.phone || '';
-
-                        if (currentOrderType === 'delivery') { 
-                            const deliveryAddressInput = document.getElementById('delivery-address');
-                            const deliveryAddress = deliveryAddressInput ? deliveryAddressInput.value.trim() : '';
-                            if (!deliveryAddress) {
-                                showMessageBox('validation_error_title', 'delivery_address_missing_error', true); 
+                    if (currentOrderType === 'delivery') {
+                        const addressInput = document.getElementById('delivery-address');
+                        const address = addressInput ? addressInput.value.trim() : '';
+                        if (!address) {
+                            showMessageBox('validation_error_title', 'delivery_address_missing_error', true);
+                            validationError = true;
+                        } else {
+                            orderSpecifics.deliveryAddress = address;
+                            const instructionsInput = document.getElementById('delivery-instructions');
+                            orderSpecifics.deliveryInstructions = instructionsInput ? instructionsInput.value.trim() : '';
+                        }
+                    } else { // Pickup
+                        const pickupTimeOption = document.querySelector('input[name="pickupTimeOption"]:checked');
+                        if (pickupTimeOption && pickupTimeOption.value === 'schedule') {
+                            const scheduledTime = document.getElementById('pickup-time').value;
+                            if (!scheduledTime) {
+                                showMessageBox('validation_error_title', 'pickup_time_missing_error', true);
                                 validationError = true;
                             } else {
-                                orderDetails.deliveryAddress = deliveryAddress;
+                                orderSpecifics.pickupTime = scheduledTime;
                             }
-
-                            const deliveryInstructionsInput = document.getElementById('delivery-instructions');
-                            if (deliveryInstructionsInput) {
-                                orderDetails.deliveryInstructions = deliveryInstructionsInput.value.trim();
-                            }
-                        }
-
-                        if (currentOrderType === 'pickup') {
-                             const pickupTimeOption = document.querySelector('input[name="pickupTimeOption"]:checked');
-                             if(pickupTimeOption){
-                                const selectedValue = pickupTimeOption.value;
-                                if (selectedValue === 'schedule') {
-                                    const scheduledTime = document.getElementById('pickup-time').value;
-                                    if (!scheduledTime) {
-                                        showMessageBox('validation_error_title', 'pickup_time_missing_error', true); 
-                                        validationError = true;
-                                    } else {
-                                        orderDetails.pickupTime = scheduledTime;
-                                    }
-                                } else {
-                                    orderDetails.pickupTime = 'ASAP';
-                                }
-                             } else {
-                                 showMessageBox('validation_error_title', 'pickup_time_missing_error', true); 
-                                 validationError = true;
-                             }
+                        } else {
+                            orderSpecifics.pickupTime = 'ASAP';
                         }
                     }
-                } else { 
+                } else {
                     showMessageBox('validation_error_title', 'order_type_missing_error', true);
                     return;
                 }
 
-                if (validationError) {
-                  return;
+                if (validationError || cart.length === 0) {
+                    if (cart.length === 0) showMessageBox('validation_error_title', 'cart_empty_order_error', true);
+                    return;
                 }
 
-                if (cart.length === 0) { 
-                  showMessageBox('validation_error_title', 'cart_empty_order_error', true); 
-                  return;
+                placeOrderBtn.disabled = true;
+                placeOrderBtn.textContent = "Placing Order...";
+
+                // --- Step 2: Generate IDs and Calculate Prices ---
+                const orderNumber = await getNextOrderNumber();
+                if (orderNumber === null) {
+                    showMessageBox('order_error_title', 'Could not generate order number. Please try again.', true);
+                    placeOrderBtn.disabled = false;
+                    placeOrderBtn.textContent = "Place Order";
+                    return;
                 }
+                const orderId = generateShortId();
 
-                placeOrderBtn.disabled = true; 
-                placeOrderBtn.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.placing_order_feedback) || "Placing Order..."; 
+                const itemsTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const taxes = itemsTotal * TAX_RATE;
+                const deliveryFee = currentOrderType === 'delivery' ? (appliedPromo && appliedPromo.discountType === 'free_delivery' ? 0 : DELIVERY_FEE) : 0;
+                let discount = 0;
+                if (appliedPromo) {
+                    if (appliedPromo.discountType === 'percentage') discount = itemsTotal * (appliedPromo.discountValue / 100);
+                    else if (appliedPromo.discountType === 'fixed') discount = appliedPromo.discountValue;
+                    else if (appliedPromo.discountType === 'free_delivery') discount = DELIVERY_FEE;
+                }
+                const finalTotal = itemsTotal + taxes + deliveryFee - discount;
 
-                const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                let finalTotal = subtotal;
-                let currentDeliveryFee = 0;
-                
+                // --- Step 3: Construct the Final Order Object ---
                 const orderData = {
-                  orderType: currentOrderType, 
-                  ...orderDetails,     
-                  cart: cart,
-                  subtotal: subtotal,
-                  timestamp: new Date().toISOString(), 
-                  status: "pending" 
+                    orderNumber,
+                    orderId,
+                    orderType: currentOrderType,
+                    items: cart,
+                    priceDetails: {
+                        itemsTotal: parseFloat(itemsTotal.toFixed(2)),
+                        deliveryFee: parseFloat(deliveryFee.toFixed(2)),
+                        taxes: parseFloat(taxes.toFixed(2)),
+                        discount: parseFloat(discount.toFixed(2)),
+                        finalTotal: parseFloat(finalTotal.toFixed(2))
+                    },
+                    status: "pending",
+                    timestamp: new Date().toISOString(),
+                    customerInfo,
+                    ...orderSpecifics // Adds table, address, etc.
                 };
 
-                if (currentOrderType === 'delivery') {
-                    currentDeliveryFee = (appliedPromo && appliedPromo.discountType === 'free_delivery') ? 0 : DELIVERY_FEE;
-                    orderData.deliveryFee = currentDeliveryFee;
-                    finalTotal += currentDeliveryFee;
-                }
-
-                if (appliedPromo) {
-                    let discountAmount = 0;
-                    if (appliedPromo.discountType === 'percentage') {
-                        discountAmount = subtotal * (appliedPromo.discountValue / 100);
-                    } else if (appliedPromo.discountType === 'fixed') {
-                        discountAmount = appliedPromo.discountValue;
-                    }
-                    
-                    if(appliedPromo.discountType !== 'free_delivery'){
-                         finalTotal -= discountAmount;
-                    }
-                    
-                    orderData.promoApplied = {
-                        code: appliedPromo.code,
-                        name: appliedPromo.name,
-                        discountType: appliedPromo.discountType,
-                        discountValue: appliedPromo.discountValue,
-                        appliedDiscount: appliedPromo.discountType === 'free_delivery' ? DELIVERY_FEE : discountAmount
-                    };
-                }
-                
-                orderData.totalPrice = Math.max(0, finalTotal);
-                
-                if(user && !user.isAnonymous) {
-                    orderData.userId = user.uid;
-                }
-
-                if (currentOrderType === 'dineIn') { 
-                    localStorage.setItem("tableNumber", orderDetails.table); 
-                }
-
+                // --- Step 4: Save to Firebase and Redirect ---
                 try {
-                    let newOrderRef = db.ref("orders").push(); 
-                    await newOrderRef.set(orderData); 
-                    
-                    if (orderData.userId) {
-                       await db.ref(`users/${orderData.userId}/orders/${newOrderRef.key}`).set(true);
+                    // Use the new short orderId as the key
+                    await db.ref("orders/" + orderId).set(orderData);
+
+                    if (customerInfo.userId && customerInfo.userId !== 'guest') {
+                        await db.ref(`users/${customerInfo.userId}/orders/${orderId}`).set(true);
                     }
-                    
-                    localStorage.setItem("lastOrderId", newOrderRef.key); 
-                    localStorage.removeItem("cart"); 
+
+                    localStorage.setItem("lastOrderId", orderId);
+
+                    // Clear the cart for the next order
+                    localStorage.removeItem("cart");
                     localStorage.removeItem("appliedPromo");
-                    
-                    window.location.href = `confirm.html?orderId=${newOrderRef.key}`; 
+
+                    // Redirect to confirmation page with the new short ID
+                    window.location.href = `confirm.html?orderId=${orderId}`;
                 } catch (error) {
-                    console.error("cart.js: Firebase error during order placement:", error); 
-                    showMessageBox('order_error_title', `Order placement failed: ${error.message}`, true); 
+                    console.error("Firebase error during order placement:", error);
+                    showMessageBox('order_error_title', `Order placement failed: ${error.message}`, true);
                 } finally {
-                    placeOrderBtn.disabled = false; 
-                    placeOrderBtn.textContent = (typeof translations !== 'undefined' && translations[currentLang]?.place_order_button) || "Place Order"; 
-                    if (typeof applyLanguage === 'function') {
-                        applyLanguage(currentLang);
-                    }
-                    updatePlaceOrderButtonState(); 
+                    placeOrderBtn.disabled = false;
+                    placeOrderBtn.textContent = "Place Order";
                 }
             };
             placeOrderBtn.addEventListener("click", newClickListener);
-            placeOrderBtn._currentClickListener = newClickListener; 
-        } else {
-            console.error("Place order button not found.");
+            placeOrderBtn._currentClickListener = newClickListener;
         }
     });
 });
