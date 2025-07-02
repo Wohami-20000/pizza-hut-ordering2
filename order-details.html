@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Order Details - Pizza Hut</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+    <style>
+        :root { --brand-red: #D71921; }
+        body { background-color: #F9FAFB; }
+        /* Reusing status tracker styles from confirm.html */
+        .status-tracker { display: flex; justify-content: space-between; position: relative; }
+        .status-tracker::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background-color: #e5e7eb; transform: translateY(-50%); z-index: 1; }
+        .status-step { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 2; width: 80px; }
+        .status-dot { width: 2.5rem; height: 2.5rem; border-radius: 9999px; background-color: #fff; border: 2px solid #d1d5db; display: flex; align-items: center; justify-content: center; color: #d1d5db; transition: all 0.4s ease; }
+        .status-label { font-size: 0.75rem; text-align: center; margin-top: 0.5rem; color: #6b7280; }
+        .status-step.completed .status-dot { background-color: var(--brand-red); border-color: var(--brand-red); color: white; }
+        .status-step.completed .status-label { color: #111827; font-weight: 600; }
+        #status-progress-bar { position: absolute; top: 50%; left: 0; height: 2px; background-color: var(--brand-red); z-index: 1; transform: translateY(-50%); width: 0%; transition: width 0.5s ease-out; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <header class="flex items-center justify-between px-4 py-3 bg-white text-gray-800 shadow-sm sticky top-0 z-30 h-[60px]">
+        <a href="my-orders.html" class="p-2 text-xl text-gray-600"><i class="fas fa-arrow-left"></i></a>
+        <h1 class="font-bold text-xl tracking-tight">Order Details</h1>
+        <div class="w-8"></div>
+    </header>
+
+    <main class="container mx-auto p-4 sm:p-6 mt-4 max-w-4xl">
+        <div id="loading-state" class="text-center py-12">
+            <i class="fas fa-spinner fa-spin text-4xl text-red-600"></i>
+            <p class="mt-4 text-lg text-gray-500">Loading Order Details...</p>
+        </div>
+
+        <div id="error-state" class="hidden text-center bg-red-50 p-6 rounded-lg">
+            <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-3"></i>
+            <p class="text-red-700 font-semibold" id="error-message-text">Could not load order details.</p>
+        </div>
+
+        <div id="order-details-content" class="hidden space-y-8">
+            </div>
+    </main>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="firebase.js"></script>
+    <script src="order-details.js"></script> </body>
+</html>

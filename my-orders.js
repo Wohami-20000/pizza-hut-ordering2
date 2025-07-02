@@ -1,3 +1,5 @@
+// my-orders.js
+
 const db = firebase.database();
 const auth = firebase.auth();
 
@@ -44,8 +46,9 @@ const createOrderCard = (orderId, orderData) => {
         actionButton = `<button aria-label="Cancel this order" onclick="cancelOrder('${orderId}')" class="cancel-btn bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition"><i class="fas fa-times mr-2"></i>Cancel</button>`;
     }
 
+    // --- MODIFIED LINE: href now points to order-details.html ---
     card.innerHTML = `
-        <a href="track-order.html?orderId=${orderId}" class="block" aria-label="View details for order #${orderId.slice(-6).toUpperCase()}">
+        <a href="order-details.html?orderId=${orderId}" class="block" aria-label="View details for order #${orderId.slice(-6).toUpperCase()}">
             <div class="flex justify-between items-start">
                 <div>
                     <p class="font-bold text-lg text-gray-800 dark:text-white">Order #${orderId.slice(-6).toUpperCase()}</p>
@@ -56,8 +59,8 @@ const createOrderCard = (orderId, orderData) => {
                 </span>
             </div>
             <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                <p class="text-sm text-gray-600 dark:text-gray-300">${orderData.cart.length} item(s)</p>
-                <p class="font-bold text-xl text-gray-900 dark:text-white">${orderData.totalPrice.toFixed(2)} MAD</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300">${orderData.items.length} item(s)</p>
+                <p class="font-bold text-xl text-gray-900 dark:text-white">${orderData.priceDetails.finalTotal.toFixed(2)} MAD</p>
             </div>
         </a>
         <div class="mt-4 text-right">
@@ -67,17 +70,18 @@ const createOrderCard = (orderId, orderData) => {
     return card;
 };
 
+// ... (The rest of the my-orders.js file remains the same)
 const sortAndFilterOrders = () => {
     const query = searchInput.value.toLowerCase();
     const sortValue = sortSelect.value;
     
-    let orders = Object.values(allOrdersCache).filter(order => order.id.toLowerCase().includes(query));
+    let orders = Object.values(allOrdersCache).filter(order => order.orderId.toLowerCase().includes(query));
 
     orders.sort((a, b) => {
         switch (sortValue) {
             case 'date_asc': return new Date(a.timestamp) - new Date(b.timestamp);
-            case 'price_desc': return b.totalPrice - a.totalPrice;
-            case 'price_asc': return a.totalPrice - b.totalPrice;
+            case 'price_desc': return b.priceDetails.finalTotal - a.priceDetails.finalTotal;
+            case 'price_asc': return a.priceDetails.finalTotal - b.priceDetails.finalTotal;
             default: return new Date(b.timestamp) - new Date(a.timestamp); // date_desc
         }
     });
@@ -106,15 +110,15 @@ const renderOrders = (reset = false) => {
     const ordersToDisplay = filteredOrders.slice(startIndex, endIndex);
 
     ordersToDisplay.forEach(orderData => {
-        if (!displayedOrderIds.has(orderData.id)) {
-            const card = createOrderCard(orderData.id, orderData);
+        if (!displayedOrderIds.has(orderData.orderId)) {
+            const card = createOrderCard(orderData.orderId, orderData);
             const isPast = ['delivered', 'completed', 'cancelled'].includes(orderData.status);
             if(isPast) {
                 pastOrdersPanel.appendChild(card);
             } else {
                 activeOrdersPanel.appendChild(card);
             }
-            displayedOrderIds.add(orderData.id);
+            displayedOrderIds.add(orderData.orderId);
         }
     });
 
@@ -138,8 +142,8 @@ const cancelOrder = (orderId) => {
 
 const reorder = (orderId) => {
     const orderData = allOrdersCache[orderId];
-    if (orderData && orderData.cart) {
-        localStorage.setItem('cart', JSON.stringify(orderData.cart));
+    if (orderData && orderData.items) {
+        localStorage.setItem('cart', JSON.stringify(orderData.items));
         window.location.href = 'cart.html';
     }
 };
@@ -203,7 +207,6 @@ const loadDataFromCache = () => {
     }
 };
 
-// --- Firebase Listener ---
 const listenForOrders = (userId) => {
     const userOrdersRef = db.ref(`users/${userId}/orders`);
     userOrdersRef.on('value', snapshot => {
@@ -217,15 +220,15 @@ const listenForOrders = (userId) => {
         orderIds.forEach(orderId => {
             db.ref(`orders/${orderId}`).on('value', snap => {
                 if(snap.exists()){
-                    const orderData = { id: snap.key, ...snap.val() };
-                    const existingCard = getOrderCard(orderData.id);
+                    const orderData = snap.val();
+                    const existingCard = getOrderCard(orderData.orderId);
 
-                    if (allOrdersCache[orderData.id] && allOrdersCache[orderData.id].status !== orderData.status) {
-                        showToast(`Order #${orderData.id.slice(-6)} is now ${statusConfig[orderData.status]?.label || orderData.status}!`);
+                    if (allOrdersCache[orderData.orderId] && allOrdersCache[orderData.orderId].status !== orderData.status) {
+                        showToast(`Order #${orderData.orderId.slice(-6)} is now ${statusConfig[orderData.status]?.label || orderData.status}!`);
                         if(existingCard) existingCard.remove();
                     }
                     
-                    allOrdersCache[orderData.id] = orderData;
+                    allOrdersCache[orderData.orderId] = orderData;
                     localStorage.setItem('ordersCache', JSON.stringify(allOrdersCache));
                     if (!existingCard) renderOrders(true);
                 }
@@ -234,7 +237,6 @@ const listenForOrders = (userId) => {
     });
 };
 
-// --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     loadDataFromCache();
     auth.onAuthStateChanged(user => {
