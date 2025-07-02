@@ -14,54 +14,14 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .fa-spinner { animation: spin 1s linear infinite; }
     
-    /* New Status Tracker Styles */
     .status-tracker { display: flex; justify-content: space-between; position: relative; }
-    .status-tracker::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 0;
-        right: 0;
-        height: 2px;
-        background-color: #e5e7eb; /* gray-200 */
-        transform: translateY(-50%);
-        z-index: 1;
-    }
+    .status-tracker::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background-color: #e5e7eb; transform: translateY(-50%); z-index: 1; }
     .status-step { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 2; width: 80px; }
-    .status-dot {
-        width: 2.5rem; /* w-10 */
-        height: 2.5rem; /* h-10 */
-        border-radius: 9999px;
-        background-color: #fff;
-        border: 2px solid #d1d5db; /* gray-300 */
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #d1d5db;
-        transition: all 0.4s ease;
-    }
+    .status-dot { width: 2.5rem; height: 2.5rem; border-radius: 9999px; background-color: #fff; border: 2px solid #d1d5db; display: flex; align-items: center; justify-content: center; color: #d1d5db; transition: all 0.4s ease; }
     .status-label { font-size: 0.75rem; text-align: center; margin-top: 0.5rem; color: #6b7280; }
-
-    /* Active/Completed Step Styles */
-    .status-step.completed .status-dot {
-        background-color: var(--brand-red);
-        border-color: var(--brand-red);
-        color: white;
-    }
+    .status-step.completed .status-dot { background-color: var(--brand-red); border-color: var(--brand-red); color: white; }
     .status-step.completed .status-label { color: #111827; font-weight: 600; }
-
-    /* Connection line progress */
-    #status-progress-bar {
-        position: absolute;
-        top: 50%;
-        left: 0;
-        height: 2px;
-        background-color: var(--brand-red);
-        z-index: 1;
-        transform: translateY(-50%);
-        width: 0%; /* Will be set by JS */
-        transition: width 0.5s ease-out;
-    }
+    #status-progress-bar { position: absolute; top: 50%; left: 0; height: 2px; background-color: var(--brand-red); z-index: 1; transform: translateY(-50%); width: 0%; transition: width 0.5s ease-out; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -153,7 +113,7 @@
         <button id="save-pdf-btn" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-800 transition shadow-md flex items-center justify-center">
             <i class="fas fa-file-pdf mr-2"></i> <span data-translate="save_pdf_button">Save as PDF</span>
         </button>
-        <a href="order-type-selection.html" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold transition shadow-md flex items-center justify-center">
+        <a id="new-order-btn" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold transition shadow-md flex items-center justify-center">
             <i class="fas fa-redo-alt mr-2"></i> <span data-translate="back_to_menu">New Order</span>
         </a>
       </div>

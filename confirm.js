@@ -8,24 +8,20 @@ function escapeHTML(str) {
 
 function updateStatusTracker(status) {
     const statuses = ['pending', 'preparing', 'out for delivery', 'delivered'];
-    // Normalize status from DB (e.g., 'Out for Delivery' -> 'out for delivery')
     const currentStatusIndex = statuses.indexOf(status.toLowerCase());
 
     if (currentStatusIndex === -1) return;
 
-    // Mark all steps up to and including the current one as 'completed'
     for (let i = 0; i <= currentStatusIndex; i++) {
-        const stepId = `status-step-${statuses[i].replace(' ', '_')}`; // e.g., status-step-out_for_delivery
-        const stepEl = document.getElementById(stepId.replace('_for_', '-')); // handle the specific 'out for delivery' case
+        const stepId = `status-step-${statuses[i].replace(/\s/g, '-')}`;
+        const stepEl = document.getElementById(stepId);
         if (stepEl) {
             stepEl.classList.add('completed');
         }
     }
     
-    // Update the progress bar width
     const progressBar = document.getElementById('status-progress-bar');
     if (progressBar) {
-        // The width is a percentage based on the gaps between dots
         const progressPercentage = (currentStatusIndex / (statuses.length - 1)) * 100;
         progressBar.style.width = `${progressPercentage}%`;
     }
@@ -36,6 +32,7 @@ function displayOrderDetails(orderId, orderData) {
     const detailsContainer = document.getElementById('order-summary-details');
     const itemsList = document.getElementById('items-list');
     const totalsSection = document.getElementById('totals-section');
+    const newOrderBtn = document.getElementById('new-order-btn'); // Get the button
 
     detailsContainer.innerHTML = `<p><strong>Order ID:</strong> #${orderId.slice(-6).toUpperCase()}</p>`;
     itemsList.innerHTML = '';
@@ -68,7 +65,6 @@ function displayOrderDetails(orderId, orderData) {
         itemsList.appendChild(li);
     });
     
-    // Build Totals Section
     totalsSection.innerHTML += `
         <div class="flex justify-between text-gray-600">
             <span>Subtotal</span>
@@ -94,9 +90,21 @@ function displayOrderDetails(orderId, orderData) {
             <span>${orderData.totalPrice.toFixed(2)} MAD</span>
         </div>`;
 
-    // Update the status tracker
     if(orderData.status) {
        updateStatusTracker(orderData.status);
+    }
+    
+    // *** NEW LOGIC FOR THE "NEW ORDER" BUTTON ***
+    if (newOrderBtn) {
+        if (orderData.orderType === 'dineIn') {
+            // For dine-in, go back to the menu. The table number is already in localStorage.
+            newOrderBtn.href = 'menu.html';
+        } else {
+            // For pickup or delivery, go back to the order type selection.
+            // Clear the table number just in case.
+            localStorage.removeItem('tableNumber');
+            newOrderBtn.href = 'order-type-selection.html';
+        }
     }
 
     document.getElementById('loading-order').style.display = 'none';
@@ -144,32 +152,37 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
+    // Clear the cart and promo code from the previous order
+    localStorage.removeItem("cart"); 
+    localStorage.removeItem("appliedPromo");
+
     auth.onAuthStateChanged(user => {
         if (user && user.isAnonymous) {
             document.getElementById('guest-cta-section').style.display = 'flex';
         }
 
         const orderRef = db.ref('orders/' + orderId);
-        // Use on() instead of once() to listen for real-time status updates
         orderRef.on('value', snapshot => {
             if (!snapshot.exists()) {
                 showError('This order could not be found.');
-                orderRef.off(); // Stop listening if order doesn't exist
+                orderRef.off();
                 return;
             }
             
             const orderData = snapshot.val();
 
-            if (!user || user.isAnonymous || (user && orderData.userId === user.uid)) {
+            // Permission check: allow if guest, or if logged-in user matches the order's userId
+            const canView = !user || user.isAnonymous || (user && orderData.userId === user.uid);
+
+            if (canView) {
                 displayOrderDetails(orderId, orderData);
-                // Setup PDF button only once
                 if (!document.getElementById('save-pdf-btn')._isSetup) {
                     setupPdfButton(orderId);
                     document.getElementById('save-pdf-btn')._isSetup = true;
                 }
             } else {
                 showError('You do not have permission to view this order.');
-                orderRef.off(); // Stop listening
+                orderRef.off(); 
             }
         }, error => {
             console.error("Firebase fetch error:", error);
