@@ -23,6 +23,8 @@ const elements = {
     profileNameError: document.getElementById('profile-name-error'),
     profilePhoneError: document.getElementById('profile-phone-error'),
     profileEmailError: document.getElementById('profile-email-error'),
+    addressesTab: document.querySelector('[data-tab="addresses"]'),
+    addressesContent: document.getElementById('addresses'),
 };
 
 // --- State ---
@@ -100,6 +102,7 @@ const loadProfileInfo = async (user) => {
     if (userProfile.phone && phoneInputInstance) {
         phoneInputInstance.setNumber(userProfile.phone);
     }
+    renderAddresses(userProfile.addresses);
 };
 
 const handleUpdateProfile = async (e) => {
@@ -114,13 +117,13 @@ const handleUpdateProfile = async (e) => {
         return;
     }
 
-    if (!phoneInputInstance.isValidNumber()) {
+    if (phoneInputInstance && !phoneInputInstance.isValidNumber()) {
         elements.profilePhoneError.textContent = 'The phone number is not valid for the selected country.';
         setLoadingState(elements.updateProfileBtn, false, 'Update Profile');
         return;
     }
 
-    const fullPhoneNumber = phoneInputInstance.getNumber(); // Gets number in E.164 format
+    const fullPhoneNumber = phoneInputInstance ? phoneInputInstance.getNumber() : '';
 
     try {
         await db.ref(`users/${currentUser.uid}`).update({
@@ -208,6 +211,129 @@ const handleForgotPassword = () => {
                 showMessageBox('Error', `Failed to send reset link: ${error.message}`);
             });
     }
+};
+
+// --- Address Functions ---
+const renderAddresses = (addresses) => {
+    const addressesContent = elements.addressesContent;
+    addressesContent.innerHTML = ''; 
+
+    if (!addresses || Object.keys(addresses).length === 0) {
+        addressesContent.innerHTML = `
+            <div class="text-center">
+                <p>No addresses found.</p>
+                <button id="add-address-btn" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded">Add Address</button>
+            </div>
+        `;
+        document.getElementById('add-address-btn').addEventListener('click', () => {
+            showAddressModal();
+        });
+        return;
+    }
+
+    const addressesList = document.createElement('div');
+    addressesList.className = 'space-y-4';
+
+    for (const addressId in addresses) {
+        const address = addresses[addressId];
+        const addressCard = document.createElement('div');
+        addressCard.className = 'p-4 border rounded-lg';
+        addressCard.innerHTML = `
+            <p><strong>Label:</strong> ${address.label}</p>
+            <p><strong>Street:</strong> ${address.street}</p>
+            <p><strong>City:</strong> ${address.city}</p>
+            <p><strong>Phone:</strong> ${address.phone}</p>
+            <button class="edit-address-btn" data-id="${addressId}">Edit</button>
+            <button class="remove-address-btn" data-id="${addressId}">Remove</button>
+        `;
+        addressesList.appendChild(addressCard);
+    }
+    addressesContent.appendChild(addressesList);
+
+    const addAddressButton = document.createElement('button');
+    addAddressButton.id = 'add-address-btn';
+    addAddressButton.textContent = 'Add Address';
+    addAddressButton.className = 'mt-4 bg-blue-500 text-white px-4 py-2 rounded';
+    addressesContent.appendChild(addAddressButton);
+
+    document.getElementById('add-address-btn').addEventListener('click', () => {
+        showAddressModal();
+    });
+
+    document.querySelectorAll('.edit-address-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const addressId = e.target.dataset.id;
+            const address = addresses[addressId];
+            showAddressModal(addressId, address);
+        });
+    });
+
+    document.querySelectorAll('.remove-address-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const addressId = e.target.dataset.id;
+            if (confirm('Are you sure you want to remove this address?')) {
+                removeAddress(addressId);
+            }
+        });
+    });
+};
+
+const showAddressModal = (addressId = null, address = {}) => {
+    const modal = document.createElement('div');
+    modal.className = 'message-box';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+        <div class="message-box-content">
+            <h3>${addressId ? 'Edit Address' : 'Add Address'}</h3>
+            <form id="address-form" class="space-y-4">
+                <input type="text" id="address-label" placeholder="Label (e.g., Home, Work)" value="${address.label || ''}" required class="w-full p-2 border rounded">
+                <input type="text" id="address-street" placeholder="Street" value="${address.street || ''}" required class="w-full p-2 border rounded">
+                <input type="text" id="address-city" placeholder="City" value="Oujda" required class="w-full p-2 border rounded" readonly>
+                <input type="tel" id="address-phone" placeholder="Phone Number" value="${address.phone || ''}" required class="w-full p-2 border rounded">
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Save</button>
+                <button type="button" id="cancel-address-modal" class="bg-gray-500 text-white px-4 py-2 rounded">Cancel</button>
+            </form>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('address-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const newAddress = {
+            label: document.getElementById('address-label').value,
+            street: document.getElementById('address-street').value,
+            city: document.getElementById('address-city').value,
+            phone: document.getElementById('address-phone').value,
+        };
+        saveAddress(addressId, newAddress);
+        modal.remove();
+    });
+
+    document.getElementById('cancel-address-modal').addEventListener('click', () => {
+        modal.remove();
+    });
+};
+
+const saveAddress = async (addressId, address) => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    if (addressId) {
+        // Update existing address
+        await db.ref(`users/${user.uid}/addresses/${addressId}`).update(address);
+    } else {
+        // Add new address
+        await db.ref(`users/${user.uid}/addresses`).push(address);
+    }
+    loadProfileInfo(user);
+};
+
+const removeAddress = async (addressId) => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    await db.ref(`users/${user.uid}/addresses/${addressId}`).remove();
+    loadProfileInfo(user);
 };
 
 // --- Initialization ---
