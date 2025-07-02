@@ -8,6 +8,9 @@ function escapeHTML(str) {
 
 function updateStatusTracker(status) {
     const statuses = ['pending', 'preparing', 'out for delivery', 'delivered'];
+    // Handle different status names for dine-in/pickup
+    if (status === 'ready') status = 'out for delivery'; // Map 'ready' to the third step for visual consistency
+    
     const currentStatusIndex = statuses.indexOf(status.toLowerCase());
 
     if (currentStatusIndex === -1) return;
@@ -32,9 +35,9 @@ function displayOrderDetails(orderId, orderData) {
     const detailsContainer = document.getElementById('order-summary-details');
     const itemsList = document.getElementById('items-list');
     const totalsSection = document.getElementById('totals-section');
-    const newOrderBtn = document.getElementById('new-order-btn'); // Get the button
+    const newOrderBtn = document.getElementById('new-order-btn');
 
-    detailsContainer.innerHTML = `<p><strong>Order ID:</strong> #${orderId.slice(-6).toUpperCase()}</p>`;
+    detailsContainer.innerHTML = `<p><strong>Order ID:</strong> #${orderData.orderId}</p><p><strong>Daily Number:</strong> ${orderData.orderNumber}</p>`;
     itemsList.innerHTML = '';
     totalsSection.innerHTML = '';
 
@@ -52,7 +55,7 @@ function displayOrderDetails(orderId, orderData) {
         detailsContainer.innerHTML += `<p><strong>Placed At:</strong> ${date.toLocaleTimeString()}, ${date.toLocaleDateString()}</p>`;
     }
 
-    orderData.cart.forEach(item => {
+    orderData.items.forEach(item => {
         const li = document.createElement('li');
         li.className = 'flex justify-between items-center text-sm pb-3 border-b border-gray-100';
         li.innerHTML = `
@@ -65,43 +68,47 @@ function displayOrderDetails(orderId, orderData) {
         itemsList.appendChild(li);
     });
     
+    const priceDetails = orderData.priceDetails;
     totalsSection.innerHTML += `
         <div class="flex justify-between text-gray-600">
             <span>Subtotal</span>
-            <span>${orderData.subtotal.toFixed(2)} MAD</span>
+            <span>${priceDetails.itemsTotal.toFixed(2)} MAD</span>
         </div>`;
-    if (orderData.deliveryFee > 0) {
+    if (priceDetails.deliveryFee > 0) {
         totalsSection.innerHTML += `
             <div class="flex justify-between text-gray-600">
                 <span>Delivery Fee</span>
-                <span>${orderData.deliveryFee.toFixed(2)} MAD</span>
+                <span>${priceDetails.deliveryFee.toFixed(2)} MAD</span>
             </div>`;
     }
-    if (orderData.promoApplied) {
+    if (priceDetails.taxes > 0) {
+        totalsSection.innerHTML += `
+            <div class="flex justify-between text-gray-600">
+                <span>Taxes</span>
+                <span>${priceDetails.taxes.toFixed(2)} MAD</span>
+            </div>`;
+    }
+    if (priceDetails.discount > 0) {
         totalsSection.innerHTML += `
             <div class="flex justify-between text-green-600 font-semibold">
-                <span>Discount (${escapeHTML(orderData.promoApplied.code)})</span>
-                <span>-${orderData.promoApplied.appliedDiscount.toFixed(2)} MAD</span>
+                <span>Discount</span>
+                <span>-${priceDetails.discount.toFixed(2)} MAD</span>
             </div>`;
     }
      totalsSection.innerHTML += `
         <div class="flex justify-between text-2xl font-bold text-gray-900 mt-3 pt-3 border-t">
             <span>Total</span>
-            <span>${orderData.totalPrice.toFixed(2)} MAD</span>
+            <span>${priceDetails.finalTotal.toFixed(2)} MAD</span>
         </div>`;
 
     if(orderData.status) {
        updateStatusTracker(orderData.status);
     }
     
-    // *** NEW LOGIC FOR THE "NEW ORDER" BUTTON ***
     if (newOrderBtn) {
         if (orderData.orderType === 'dineIn') {
-            // For dine-in, go back to the menu. The table number is already in localStorage.
             newOrderBtn.href = 'menu.html';
         } else {
-            // For pickup or delivery, go back to the order type selection.
-            // Clear the table number just in case.
             localStorage.removeItem('tableNumber');
             newOrderBtn.href = 'order-type-selection.html';
         }
@@ -152,7 +159,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // Clear the cart and promo code from the previous order
     localStorage.removeItem("cart"); 
     localStorage.removeItem("appliedPromo");
 
@@ -171,8 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const orderData = snapshot.val();
 
-            // Permission check: allow if guest, or if logged-in user matches the order's userId
-            const canView = !user || user.isAnonymous || (user && orderData.userId === user.uid);
+            // CORRECTED: Client-side check now looks inside customerInfo
+            const canView = !user || (user && orderData.customerInfo.userId === user.uid) || (orderData.customerInfo.userId === 'guest');
 
             if (canView) {
                 displayOrderDetails(orderId, orderData);
