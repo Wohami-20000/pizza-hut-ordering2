@@ -33,20 +33,25 @@ const createOrderCard = (orderId, orderData) => {
     const date = new Date(orderData.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const time = new Date(orderData.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     const statusInfo = statusConfig[orderData.status] || { label: orderData.status, color: { bg: '#E5E7EB', text: '#374151' }, icon: 'fa-question-circle' };
+    
+    // --- UPDATED LOGIC FOR ACTION BUTTONS ---
     const isCancellable = orderData.status === 'pending';
-    const isDelivered = orderData.status === 'delivered';
+    const canBeRated = ['delivered', 'completed'].includes(orderData.status);
+    const hasBeenRated = orderData.rated === true;
     const isPastOrder = ['delivered', 'completed', 'cancelled'].includes(orderData.status);
 
     let actionButton = '';
-    if (isDelivered) {
+    if (canBeRated && !hasBeenRated) {
         actionButton = `<button aria-label="Rate this order" onclick="rateOrder('${orderId}')" class="reorder-btn bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded transition"><i class="fas fa-star mr-2"></i>Rate Order</button>`;
+    } else if (hasBeenRated) {
+        actionButton = `<span class="text-sm text-green-600 font-semibold"><i class="fas fa-check-circle mr-2"></i>Feedback Submitted</span>`;
     } else if (isPastOrder) {
         actionButton = `<button aria-label="Reorder this order" onclick="reorder('${orderId}')" class="reorder-btn bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition"><i class="fas fa-redo-alt mr-2"></i>Reorder</button>`;
     } else if (isCancellable) {
         actionButton = `<button aria-label="Cancel this order" onclick="cancelOrder('${orderId}')" class="cancel-btn bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition"><i class="fas fa-times mr-2"></i>Cancel</button>`;
     }
+    // --- END OF UPDATED LOGIC ---
 
-    // --- MODIFIED LINE: href now points to order-details.html ---
     card.innerHTML = `
         <a href="order-details.html?orderId=${orderId}" class="block" aria-label="View details for order #${orderId.slice(-6).toUpperCase()}">
             <div class="flex justify-between items-start">
@@ -70,7 +75,6 @@ const createOrderCard = (orderId, orderData) => {
     return card;
 };
 
-// ... (The rest of the my-orders.js file remains the same)
 const sortAndFilterOrders = () => {
     const query = searchInput.value.toLowerCase();
     const sortValue = sortSelect.value;
