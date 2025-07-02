@@ -1,11 +1,10 @@
-// profile.js - Enhanced with new features
+// profile.js - Enhanced with new features and feedback messages
 
 const auth = firebase.auth();
 const db = firebase.database();
 
 // --- Element Cache ---
 const elements = {
-    // ... (other elements remain the same)
     profileEmail: document.getElementById('profile-email'),
     profileName: document.getElementById('profile-name'),
     profilePhone: document.getElementById('profile-phone'),
@@ -16,7 +15,6 @@ const elements = {
     messageBoxText: document.getElementById('message-box-text'),
     messageBoxOkBtn: document.getElementById('message-box-ok-btn'),
     forgotPasswordLink: document.getElementById('forgot-password-link'),
-    // NEW Elements
     emailVerificationStatus: document.getElementById('email-verification-status'),
     verifyEmailBtn: document.getElementById('verify-email-btn'),
     changeEmailBtn: document.getElementById('change-email-btn'),
@@ -44,7 +42,20 @@ const hideMessageBox = () => {
 };
 
 const setLoadingState = (button, isLoading, originalText) => {
-    // ... (this function remains the same)
+    if (!button) return;
+    button.disabled = isLoading;
+    const btnText = button.querySelector('.btn-text');
+    const spinner = button.querySelector('.spinner');
+    if (isLoading) {
+        if (btnText) btnText.style.visibility = 'hidden';
+        if (spinner) spinner.style.display = 'inline-block';
+    } else {
+        if (btnText) {
+            btnText.style.visibility = 'visible';
+            if(originalText) btnText.textContent = originalText;
+        }
+        if (spinner) spinner.style.display = 'none';
+    }
 };
 
 const clearErrorMessages = () => {
@@ -55,6 +66,7 @@ const clearErrorMessages = () => {
 
 // --- Phone Input Initialization ---
 const initializePhoneInput = () => {
+    if (!elements.profilePhone) return;
     phoneInputInstance = window.intlTelInput(elements.profilePhone, {
         initialCountry: "auto",
         geoIpLookup: callback => {
@@ -85,7 +97,7 @@ const loadProfileInfo = async (user) => {
     const snapshot = await db.ref(`users/${user.uid}`).once('value');
     const userProfile = snapshot.val() || {};
     elements.profileName.value = userProfile.name || '';
-    if (userProfile.phone) {
+    if (userProfile.phone && phoneInputInstance) {
         phoneInputInstance.setNumber(userProfile.phone);
     }
 };
@@ -103,7 +115,7 @@ const handleUpdateProfile = async (e) => {
     }
 
     if (!phoneInputInstance.isValidNumber()) {
-        elements.profilePhoneError.textContent = 'The phone number is not valid.';
+        elements.profilePhoneError.textContent = 'The phone number is not valid for the selected country.';
         setLoadingState(elements.updateProfileBtn, false, 'Update Profile');
         return;
     }
@@ -124,7 +136,7 @@ const handleUpdateProfile = async (e) => {
     }
 };
 
-// --- NEW Email Functions ---
+// --- Email Functions ---
 const toggleEmailEditMode = (isEditing) => {
     elements.profileEmail.readOnly = !isEditing;
     elements.changeEmailBtn.classList.toggle('hidden', isEditing);
@@ -150,28 +162,57 @@ const handleSaveEmail = () => {
     if (!password) return;
 
     const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, password);
-
+    
+    setLoadingState(elements.saveEmailBtn, true, 'Save');
     currentUser.reauthenticateWithCredential(credential).then(() => {
         return currentUser.updateEmail(newEmail);
     }).then(() => {
         return db.ref(`users/${currentUser.uid}`).update({ email: newEmail });
     }).then(() => {
         showMessageBox('Success!', 'Your email has been updated. A verification link has been sent to your new address.');
-        originalEmail = newEmail; // Update the original email state
+        originalEmail = newEmail;
         toggleEmailEditMode(false);
-        loadProfileInfo(currentUser); // Refresh verification status etc.
+        loadProfileInfo(auth.currentUser); // Refresh info on page
     }).catch(error => {
         showMessageBox('Error', `Failed to update email. ${error.message}`);
         toggleEmailEditMode(false); // Revert on error
+    }).finally(() => {
+        setLoadingState(elements.saveEmailBtn, false, 'Save');
     });
 };
 
-const handleSendVerificationEmail = () => { /* ... remains the same */ };
-const handleForgotPassword = () => { /* ... remains the same */ };
+const handleSendVerificationEmail = () => {
+    elements.verifyEmailBtn.disabled = true;
+    elements.verifyEmailBtn.textContent = 'Sending...';
+
+    currentUser.sendEmailVerification()
+        .then(() => {
+            showMessageBox('Email Sent', 'A verification link has been sent to your email address. Please check your inbox (and spam folder).');
+        })
+        .catch(error => {
+            showMessageBox('Error', `Failed to send verification email: ${error.message}`);
+        })
+        .finally(() => {
+            elements.verifyEmailBtn.disabled = false;
+            elements.verifyEmailBtn.textContent = 'Send verification email';
+        });
+};
+
+const handleForgotPassword = () => {
+    if (confirm("Are you sure you want to send a password reset link to your email?")) {
+        auth.sendPasswordResetEmail(currentUser.email)
+            .then(() => {
+                showMessageBox('Link Sent', 'A password reset link has been sent to your email.');
+            })
+            .catch(error => {
+                showMessageBox('Error', `Failed to send reset link: ${error.message}`);
+            });
+    }
+};
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    initializePhoneInput(); // Initialize the phone input library
+    initializePhoneInput();
 
     auth.onAuthStateChanged(user => {
         if (!user || user.isAnonymous) {
@@ -186,7 +227,6 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.profileForm.addEventListener('submit', handleUpdateProfile);
     elements.messageBoxOkBtn.addEventListener('click', hideMessageBox);
     
-    // New Listeners
     elements.verifyEmailBtn.addEventListener('click', handleSendVerificationEmail);
     elements.changeEmailBtn.addEventListener('click', () => toggleEmailEditMode(true));
     elements.cancelEmailBtn.addEventListener('click', () => toggleEmailEditMode(false));
@@ -196,5 +236,14 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.forgotPasswordLink.addEventListener('click', handleForgotPassword);
     }
     
-    // ... Tab switching logic remains the same
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            button.classList.add('active');
+            document.getElementById(button.dataset.tab).classList.add('active');
+        });
+    });
 });
