@@ -12,262 +12,165 @@ const elements = {
     profileForm: document.getElementById('profile-form'),
     tabButtons: document.querySelectorAll('.tab-button'),
     tabContents: document.querySelectorAll('.tab-content'),
-    addressesList: document.getElementById('addresses-list'),
-    loadingState: document.getElementById('loading-state'),
-    noAddressesState: document.getElementById('no-addresses-state'),
-    addNewAddressBtn: document.getElementById('add-new-btn'),
-    addressModal: document.getElementById('address-modal'),
-    addressModalContent: document.getElementById('address-modal-content'),
-    addressForm: document.getElementById('address-form'),
-    cancelBtn: document.getElementById('cancel-btn'),
-    modalTitle: document.getElementById('modal-title'),
-    saveAddressBtn: document.getElementById('save-address-btn'),
     messageBox: document.getElementById('custom-message-box'),
     messageBoxTitle: document.getElementById('message-box-title'),
     messageBoxText: document.getElementById('message-box-text'),
     messageBoxOkBtn: document.getElementById('message-box-ok-btn'),
     changePasswordForm: document.getElementById('change-password-form'),
     updatePasswordBtn: document.getElementById('update-password-btn'),
-    customConfirmModal: document.getElementById('custom-confirm-modal'),
-    confirmModalTitle: document.getElementById('confirm-modal-title'),
-    confirmModalText: document.getElementById('confirm-modal-text'),
-    confirmModalCancelBtn: document.getElementById('confirm-modal-cancel-btn'),
-    confirmModalConfirmBtn: document.getElementById('confirm-modal-confirm-btn'),
+    // NEW Elements
+    emailVerificationStatus: document.getElementById('email-verification-status'),
+    verifyEmailBtn: document.getElementById('verify-email-btn'),
+    changeEmailBtn: document.getElementById('change-email-btn'),
+    forgotPasswordLink: document.getElementById('forgot-password-link'),
+    profileNameError: document.getElementById('profile-name-error'),
+    profilePhoneError: document.getElementById('profile-phone-error'),
 };
 
 // --- State ---
 let currentUser = null;
-let addressesRef = null;
-let editingAddressKey = null;
 
 // --- Utility & UI Functions ---
-const showMessageBox = (titleKey, messageKey, isError = false) => {
-    const lang = localStorage.getItem('lang') || 'en';
-    const t = translations[lang];
-    elements.messageBoxTitle.textContent = t[titleKey] || titleKey;
-    elements.messageBoxText.textContent = t[messageKey] || messageKey;
-    elements.messageBoxOkBtn.textContent = t.message_box_ok || "OK";
+const showMessageBox = (title, message) => {
+    elements.messageBoxTitle.textContent = title;
+    elements.messageBoxText.textContent = message;
     elements.messageBox.style.display = 'flex';
     elements.messageBoxOkBtn.onclick = () => { elements.messageBox.style.display = 'none'; };
 };
 
-const showConfirmModal = (title, message, onConfirm) => {
-    elements.confirmModalTitle.textContent = title;
-    elements.confirmModalText.textContent = message;
-    elements.customConfirmModal.classList.remove('hidden');
-
-    const confirmHandler = () => {
-        onConfirm();
-        closeConfirmModal();
-    };
-
-    const cancelHandler = () => {
-        closeConfirmModal();
-    };
-
-    const closeConfirmModal = () => {
-        elements.customConfirmModal.classList.add('hidden');
-        elements.confirmModalConfirmBtn.removeEventListener('click', confirmHandler);
-        elements.confirmModalCancelBtn.removeEventListener('click', cancelHandler);
-    };
-
-    elements.confirmModalConfirmBtn.addEventListener('click', confirmHandler);
-    elements.confirmModalCancelBtn.addEventListener('click', cancelHandler);
-};
-
-const setLoadingState = (button, isLoading) => {
+const setLoadingState = (button, isLoading, originalText = 'Update') => {
     button.disabled = isLoading;
+    const btnText = button.querySelector('.btn-text');
+    const spinner = button.querySelector('.spinner');
+    if (isLoading) {
+        if (btnText) btnText.style.visibility = 'hidden';
+        if (spinner) spinner.style.display = 'inline-block';
+    } else {
+        if (btnText) {
+            btnText.style.visibility = 'visible';
+            btnText.textContent = originalText;
+        }
+        if (spinner) spinner.style.display = 'none';
+    }
 };
 
-const escapeHTML = (str) => {
-    if (typeof str !== 'string') return str;
-    return str.replace(/[&<>"']/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': "&quot;", "'": '&#39;' }[match]));
+const clearErrorMessages = () => {
+    elements.profileNameError.textContent = '';
+    elements.profilePhoneError.textContent = '';
 };
 
 // --- Main Application Logic ---
-
-// 1. TAB SWITCHING
-elements.tabButtons.forEach(button => {
-    button.addEventListener('click', () => {
-        elements.tabButtons.forEach(btn => btn.classList.remove('active'));
-        elements.tabContents.forEach(content => content.classList.remove('active'));
-        button.classList.add('active');
-        document.getElementById(button.dataset.tab).classList.add('active');
-    });
-});
-
-// 2. PROFILE INFO & PHONE VALIDATION
-const setupPhoneValidation = () => {
-    const phoneInput = elements.profilePhone;
-    phoneInput.addEventListener('blur', () => {
-        try {
-            const phoneNumber = new libphonenumber.parsePhoneNumber(phoneInput.value, 'MA');
-            phoneInput.style.borderColor = phoneNumber.isValid() ? '#d1d5db' : 'red';
-        } catch (error) {
-            phoneInput.style.borderColor = 'red';
-        }
-    });
-};
-
 const loadProfileInfo = async (user) => {
     elements.profileEmail.value = user.email;
+    
+    // Email verification status
+    if (user.emailVerified) {
+        elements.emailVerificationStatus.textContent = 'Verified';
+        elements.emailVerificationStatus.className = 'email-status verified';
+        elements.verifyEmailBtn.classList.add('hidden');
+    } else {
+        elements.emailVerificationStatus.textContent = 'Not Verified';
+        elements.emailVerificationStatus.className = 'email-status unverified';
+        elements.verifyEmailBtn.classList.remove('hidden');
+    }
+
     const snapshot = await db.ref(`users/${user.uid}`).once('value');
     const userProfile = snapshot.val() || {};
     elements.profileName.value = userProfile.name || '';
-    elements.profilePhone.value = userProfile.phone || '';
+    
+    // Format phone number for display
+    try {
+        if (userProfile.phone) {
+            const phoneNumber = libphonenumber.parsePhoneNumber(userProfile.phone, 'MA');
+            elements.profilePhone.value = phoneNumber.nationalNumber || '';
+        } else {
+            elements.profilePhone.value = '';
+        }
+    } catch(e) {
+        elements.profilePhone.value = userProfile.phone || ''; // Fallback to raw number
+    }
 };
 
 const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    const nameField = elements.profileName;
-    const nameError = nameField.nextElementSibling;
-    nameError.textContent = '';
-    
-    if (!nameField.value.trim()) {
-        nameError.textContent = 'Full Name cannot be empty.';
+    clearErrorMessages();
+    setLoadingState(elements.updateProfileBtn, true, 'Update Profile');
+
+    const name = elements.profileName.value.trim();
+    const phone = elements.profilePhone.value.trim();
+
+    if (!name) {
+        elements.profileNameError.textContent = 'Full Name cannot be empty.';
+        setLoadingState(elements.updateProfileBtn, false, 'Update Profile');
         return;
     }
 
     try {
-        const phoneNumber = new libphonenumber.parsePhoneNumber(elements.profilePhone.value, 'MA');
+        // Validate phone number before updating
+        const phoneNumber = new libphonenumber.parsePhoneNumber(phone, 'MA');
         if (!phoneNumber.isValid()) {
-            showMessageBox('Validation Error', 'Please enter a valid phone number.', true);
+            elements.profilePhoneError.textContent = 'Please enter a valid Moroccan phone number.';
+            setLoadingState(elements.updateProfileBtn, false, 'Update Profile');
             return;
         }
-        setLoadingState(elements.updateProfileBtn, true);
+
         await db.ref(`users/${currentUser.uid}`).update({
-            name: elements.profileName.value.trim(),
-            phone: phoneNumber.formatInternational()
+            name: name,
+            phone: phoneNumber.format('E.164') // Store in international format
         });
-        showMessageBox('profile_success_title', 'profile_update_success');
+        showMessageBox('Success', 'Your profile has been updated successfully!');
     } catch (error) {
-        showMessageBox('Validation Error', 'The phone number is not valid.', true);
+        elements.profilePhoneError.textContent = 'The phone number is not valid.';
+        console.error("Profile update error:", error);
     } finally {
-        setLoadingState(elements.updateProfileBtn, false);
+        setLoadingState(elements.updateProfileBtn, false, 'Update Profile');
     }
 };
 
-// 3. ADDRESS MANAGEMENT & MODAL ACCESSIBILITY
-const openAddressModal = (address = null, key = null) => {
-    const lang = localStorage.getItem('lang') || 'en';
-    const t = translations[lang];
-    elements.addressForm.reset();
-    editingAddressKey = key;
-    elements.modalTitle.textContent = key ? t.modal_title_edit_address : t.modal_title_add_address;
-    if (address) {
-        elements.addressForm.querySelector('#address-label').value = address.label || '';
-        elements.addressForm.querySelector('#address-street').value = address.street || '';
-        elements.addressForm.querySelector('#address-city').value = address.city || '';
-        elements.addressForm.querySelector('#address-phone').value = address.phone || '';
-    }
-    elements.addressModal.classList.remove('hidden');
-    elements.addressForm.querySelector('input').focus();
+const handleSendVerificationEmail = () => {
+    currentUser.sendEmailVerification()
+        .then(() => {
+            showMessageBox('Email Sent', 'A verification link has been sent to your email address. Please check your inbox (and spam folder).');
+        })
+        .catch(error => {
+            showMessageBox('Error', `Failed to send verification email: ${error.message}`);
+        });
 };
 
-const closeAddressModal = () => elements.addressModal.classList.add('hidden');
+const handleChangeEmail = () => {
+    const password = prompt("For your security, please enter your current password:");
+    if (!password) return;
 
-const handleSaveAddress = async (e) => {
-    e.preventDefault();
-    setLoadingState(elements.saveAddressBtn, true);
-    const addressData = {
-        label: elements.addressForm.querySelector('#address-label').value.trim(),
-        street: elements.addressForm.querySelector('#address-street').value.trim(),
-        city: elements.addressForm.querySelector('#address-city').value.trim(),
-        phone: elements.addressForm.querySelector('#address-phone').value.trim(),
-    };
-    if (!addressData.street || !addressData.city) {
-        showMessageBox('Validation Error', 'Street and City are required.', true);
-        setLoadingState(elements.saveAddressBtn, false);
-        return;
-    }
-    try {
-        const snapshot = await addressesRef.once('value');
-        addressData.isDefault = !snapshot.exists();
-        const promise = editingAddressKey ? addressesRef.child(editingAddressKey).update(addressData) : addressesRef.push(addressData);
-        await promise;
-        closeAddressModal();
-    } catch (err) {
-        showMessageBox('Error', 'Could not save address.', true);
-    } finally {
-        setLoadingState(elements.saveAddressBtn, false);
-    }
-};
+    const newEmail = prompt("Please enter your new email address:");
+    if (!newEmail) return;
 
-const setDefaultAddress = async (key) => {
-    const snapshot = await addressesRef.once('value');
-    const updates = {};
-    snapshot.forEach(child => { updates[child.key + '/isDefault'] = child.key === key; });
-    await addressesRef.update(updates);
-};
-
-const deleteAddress = (key, isDefault) => {
-    if (isDefault) {
-        showMessageBox('Action Required', 'Cannot delete default address. Please set another address as default first.', true);
-        return;
-    }
-    showConfirmModal('Delete Address', 'Are you sure you want to delete this address?', () => {
-        addressesRef.child(key).remove();
-    });
-};
-
-const createAddressCard = (address, key) => {
-    const template = document.getElementById('address-card-template');
-    const card = template.content.cloneNode(true);
+    const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, password);
     
-    card.querySelector('.address-label').textContent = escapeHTML(address.label);
-    card.querySelector('.address-street').textContent = escapeHTML(address.street);
-    card.querySelector('.address-city').textContent = escapeHTML(address.city);
-    card.querySelector('.address-phone').textContent = escapeHTML(address.phone);
-    
-    if (address.isDefault) {
-        card.querySelector('.address-card').classList.add('default');
-        const setDefaultBtn = card.querySelector('.set-default-btn');
-        if (setDefaultBtn) setDefaultBtn.remove();
-    }
-
-    card.querySelector('.edit-btn').addEventListener('click', () => openAddressModal(address, key));
-    card.querySelector('.delete-btn').addEventListener('click', () => deleteAddress(key, address.isDefault));
-    const setDefaultBtn = card.querySelector('.set-default-btn');
-    if (setDefaultBtn) setDefaultBtn.addEventListener('click', () => setDefaultAddress(key));
-    
-    return card;
+    currentUser.reauthenticateWithCredential(credential)
+        .then(() => {
+            return currentUser.updateEmail(newEmail);
+        })
+        .then(() => {
+            return db.ref(`users/${currentUser.uid}`).update({ email: newEmail });
+        })
+        .then(() => {
+            showMessageBox('Success', 'Your email has been updated. Please verify your new email address.');
+            loadProfileInfo(currentUser); // Refresh info on page
+        })
+        .catch(error => {
+            showMessageBox('Error', `Failed to update email: ${error.message}`);
+        });
 };
 
-
-const renderAddresses = (snapshot) => {
-    elements.loadingState.classList.add('hidden');
-    elements.addressesList.innerHTML = '';
-    if (!snapshot.exists()) {
-        elements.noAddressesState.classList.remove('hidden');
-        return;
-    }
-    elements.noAddressesState.classList.add('hidden');
-    snapshot.forEach(child => {
-        elements.addressesList.appendChild(createAddressCard(child.val(), child.key));
-    });
-};
-
-// 4. PASSWORD CHANGE
-const handleChangePassword = async (e) => {
-    e.preventDefault();
-    setLoadingState(elements.updatePasswordBtn, true);
-    const [current, newPass, confirm] = ['current-password', 'new-password', 'confirm-password'].map(id => document.getElementById(id).value);
-    
-    if (newPass !== confirm) {
-        showMessageBox('Validation Error', 'password_update_mismatch', true);
-        setLoadingState(elements.updatePasswordBtn, false);
-        return;
-    }
-    try {
-        const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, current);
-        await currentUser.reauthenticateWithCredential(credential);
-        await currentUser.updatePassword(newPass);
-        showMessageBox('Success', 'password_update_success');
-        elements.changePasswordForm.reset();
-    } catch (error) {
-        showMessageBox('Error', error.code === 'auth/wrong-password' ? 'password_update_wrong_current' : 'password_update_error', true);
-    } finally {
-        setLoadingState(elements.updatePasswordBtn, false);
+const handleForgotPassword = () => {
+    if (confirm("Are you sure you want to send a password reset link to your email?")) {
+        auth.sendPasswordResetEmail(currentUser.email)
+            .then(() => {
+                showMessageBox('Link Sent', 'A password reset link has been sent to your email.');
+            })
+            .catch(error => {
+                showMessageBox('Error', `Failed to send reset link: ${error.message}`);
+            });
     }
 };
 
@@ -280,36 +183,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         currentUser = user;
         loadProfileInfo(user);
-        setupPhoneValidation();
-        addressesRef = db.ref(`users/${user.uid}/addresses`);
-        elements.loadingState.classList.remove('hidden');
-        addressesRef.on('value', renderAddresses, (error) => {
-            elements.loadingState.classList.add('hidden');
-            showMessageBox('Error', 'Could not load addresses.', true);
-        });
     });
 
     // Event Listeners
     elements.profileForm.addEventListener('submit', handleUpdateProfile);
-    elements.addNewAddressBtn.addEventListener('click', () => openAddressModal());
-    elements.cancelBtn.addEventListener('click', closeAddressModal);
-    elements.addressForm.addEventListener('submit', handleSaveAddress);
-    elements.changePasswordForm.addEventListener('submit', handleChangePassword);
+    elements.verifyEmailBtn.addEventListener('click', handleSendVerificationEmail);
+    elements.changeEmailBtn.addEventListener('click', handleChangeEmail);
+    elements.forgotPasswordLink.addEventListener('click', handleForgotPassword);
     
-    // Modal Accessibility
-    elements.addressModal.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeAddressModal();
-        if (e.key === 'Tab') {
-            const focusable = elements.addressModalContent.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-            const first = focusable[0];
-            const last = focusable[focusable.length - 1];
-            if (e.shiftKey && document.activeElement === first) {
-                last.focus();
-                e.preventDefault();
-            } else if (!e.shiftKey && document.activeElement === last) {
-                first.focus();
-                e.preventDefault();
-            }
-        }
+    elements.tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            elements.tabButtons.forEach(btn => btn.classList.remove('active'));
+            elements.tabContents.forEach(content => content.classList.remove('active'));
+            button.classList.add('active');
+            document.getElementById(button.dataset.tab).classList.add('active');
+        });
     });
 });

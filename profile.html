@@ -10,57 +10,40 @@
   <style>
     :root { --brand-red: #D71921; }
     body { background-color: #f9fafb; }
-    .tab-button {
-        transition: all 0.2s ease-in-out;
-        border-bottom: 3px solid transparent;
-        padding: 0.75rem 0.5rem;
-        color: #6b7280;
-    }
-    .tab-button.active {
-        border-bottom-color: var(--brand-red);
-        color: var(--brand-red);
-        font-weight: 600;
-    }
+    .tab-button { transition: all 0.2s ease-in-out; border-bottom: 3px solid transparent; padding: 0.75rem 0.5rem; color: #6b7280; }
+    .tab-button.active { border-bottom-color: var(--brand-red); color: var(--brand-red); font-weight: 600; }
     .tab-content { display: none; animation: fadeIn 0.4s ease; }
     .tab-content.active { display: block; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-    .address-card {
-        background-color: white; border-radius: 0.75rem;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        border-left: 4px solid transparent; transition: all 0.2s;
-        border: 1px solid #e5e7eb;
-    }
+    .address-card { background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-left: 4px solid transparent; transition: all 0.2s; border: 1px solid #e5e7eb; }
     .address-card:hover { border-left-color: #f87171; transform: translateY(-2px); }
     .address-card.default { border-left-color: var(--brand-red); border-color: var(--brand-red); }
     .address-card.default .default-badge { display: inline-block; }
     .default-badge { display: none; }
-    
-    .spinner {
-        display: none;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-top: 2px solid #fff;
-        border-radius: 50%;
-        width: 1.25rem;
-        height: 1.25rem;
-        animation: spin 1s linear infinite;
-    }
+    .spinner { display: none; border: 2px solid rgba(255, 255, 255, 0.3); border-top: 2px solid #fff; border-radius: 50%; width: 1.25rem; height: 1.25rem; animation: spin 1s linear infinite; }
     button:disabled .spinner { display: inline-block; }
     button:disabled .btn-text { visibility: hidden; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .error-message { color: #dc2626; font-size: 0.875rem; margin-top: 0.25rem; min-height: 1.25rem; }
+    .email-status { font-size: 0.75rem; font-weight: 600; padding: 0.125rem 0.5rem; border-radius: 9999px; }
+    .email-status.verified { background-color: #dcfce7; color: #166534; }
+    .email-status.unverified { background-color: #fee2e2; color: #991b1b; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
   <header class="bg-white text-gray-800 p-4 shadow-sm sticky top-0 z-20">
     <div class="container mx-auto flex justify-between items-center max-w-4xl">
-      <a href="menu.html" class="text-xl sm:text-2xl font-bold hover:opacity-80 transition flex items-center gap-2">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="h-8" />
+      <a href="menu.html" class="text-xl text-gray-600 hover:text-gray-900 transition">
+        <i class="fas fa-arrow-left"></i>
       </a>
-        <a href="cart.html" class="text-lg relative hover:opacity-80 transition">
-            <i class="fas fa-shopping-cart text-red-600"></i>
-            <span id="cart-count-nav" class="absolute -top-2 -right-2 bg-yellow-400 text-red-800 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
-        </a>
+      <a href="menu.html" class="text-xl sm:text-2xl font-bold hover:opacity-80 transition flex items-center gap-2">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Pizza_Hut_logo.svg/2560px-Pizza_Hut_logo.svg.png" alt="Pizza Hut Logo" class="h-8" />
+      </a>
+      <a href="cart.html" class="text-lg relative hover:opacity-80 transition">
+        <i class="fas fa-shopping-cart text-red-600"></i>
+        <span id="cart-count-nav" class="absolute -top-2 -right-2 bg-yellow-400 text-red-800 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+      </a>
     </div>
   </header>
 
@@ -80,17 +63,30 @@
             <div class="bg-white p-6 rounded-xl shadow-xl">
                 <form id="profile-form" class="space-y-4">
                     <div>
-                        <label for="profile-email" class="block text-sm font-medium text-gray-700">Email Address</label>
-                        <input type="email" id="profile-email" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" readonly />
+                        <div class="flex justify-between items-center">
+                            <label for="profile-email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                            <span id="email-verification-status" class="email-status"></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                           <input type="email" id="profile-email" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" readonly />
+                           <button type="button" id="change-email-btn" class="mt-1 px-3 py-2 bg-gray-200 rounded-lg text-sm font-semibold hover:bg-gray-300">Change</button>
+                        </div>
+                        <button type="button" id="verify-email-btn" class="hidden text-sm text-blue-600 hover:underline mt-1">Send verification email</button>
                     </div>
                     <div>
                         <label for="profile-name" class="block text-sm font-medium text-gray-700" data-translate="customer_name_label">Full Name</label>
                         <input type="text" id="profile-name" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg" required />
-                        <p class="error-message text-red-500 text-sm mt-1"></p>
+                        <p id="profile-name-error" class="error-message"></p>
                     </div>
                     <div>
-                        <label for="profile-phone" class="block text-sm font-medium text-gray-700" data-translate="phone_number_label">Phone Number</label>
-                        <input type="tel" id="profile-phone" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg" />
+                        <label for="profile-phone" class="block text-sm font-medium text-gray-700" data-translate="phone_number_label">Phone Number (Morocco)</label>
+                        <div class="relative mt-1">
+                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <span class="text-gray-500 sm:text-sm">+212</span>
+                            </div>
+                            <input type="tel" id="profile-phone" class="block w-full rounded-lg border-gray-300 p-3 pl-12" placeholder="6 12 34 56 78" />
+                        </div>
+                        <p id="profile-phone-error" class="error-message"></p>
                     </div>
                     <button type="submit" id="update-profile-btn" class="w-full bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg px-6 py-3 shadow-md transition flex items-center justify-center relative">
                         <span class="btn-text" data-translate="update_profile_button">Update Profile</span>
@@ -101,24 +97,13 @@
         </div>
 
         <div id="addresses" class="tab-content">
-            <div id="addresses-list" class="space-y-4"></div>
-            <div id="loading-state" class="text-center py-10"><i class="fas fa-spinner fa-spin text-red-600 text-4xl"></i></div>
-            <div id="no-addresses-state" class="hidden text-center bg-white p-8 rounded-lg shadow-md">
-                <i class="fas fa-map-marker-alt text-4xl text-gray-400 mb-4"></i>
-                <h2 class="text-xl font-bold text-gray-800" data-translate="no_addresses_title">No Saved Addresses</h2>
-                <p class="text-gray-600 mt-2" data-translate="no_addresses_subtitle">Click the button below to add your first address.</p>
-            </div>
-            <button id="add-new-btn" class="mt-6 w-full bg-red-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 transition flex items-center justify-center">
-                <i class="fas fa-plus-circle mr-2"></i> <span data-translate="add_new_address_btn">Add New Address</span>
-            </button>
-        </div>
+             </div>
 
         <div id="settings" class="tab-content">
              <div class="bg-white p-6 rounded-xl shadow-xl space-y-6">
                 <div>
                     <h3 class="font-semibold text-lg text-gray-800" data-translate="setting_change_password">Change Password</h3>
-                    <p class="text-sm text-gray-500 mb-4" data-translate="setting_change_password_desc">Update your login credentials</p>
-                    <form id="change-password-form" class="space-y-3 border-t pt-4">
+                    <form id="change-password-form" class="space-y-3 pt-4 border-t mt-4">
                         <div>
                             <label for="current-password" class="block text-sm font-medium text-gray-700" data-translate="form_label_current_password">Current Password</label>
                             <input type="password" id="current-password" required class="mt-1 w-full p-2 border border-gray-300 rounded-md">
@@ -130,6 +115,9 @@
                          <div>
                             <label for="confirm-password" class="block text-sm font-medium text-gray-700" data-translate="form_label_confirm_password">Confirm New Password</label>
                             <input type="password" id="confirm-password" required class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div class="text-right text-sm">
+                            <a href="#" id="forgot-password-link" class="font-medium text-blue-600 hover:underline">Forgot your password?</a>
                         </div>
                         <button type="submit" id="update-password-btn" class="w-full bg-gray-700 hover:bg-gray-800 text-white font-semibold rounded-lg px-6 py-2.5 shadow-md transition flex items-center justify-center relative">
                              <span class="btn-text" data-translate="form_button_update_password">Update Password</span>
@@ -149,73 +137,12 @@
         </div>
     </div>
   </main>
-
-  <template id="address-card-template">
-    <div class="address-card p-4 flex justify-between items-start gap-4">
-        <div class="flex-grow">
-            <p class="font-bold text-lg flex items-center gap-2">
-                <span class="address-label"></span> 
-                <span class="default-badge text-xs bg-red-100 text-red-700 font-medium px-2 py-0.5 rounded-full">Default</span>
-            </p>
-            <p class="text-gray-600 text-sm"><span class="address-street"></span>, <span class="address-city"></span></p>
-            <p class="text-gray-500 text-xs mt-1 address-phone"></p>
-            <button class="set-default-btn text-sm text-blue-600 hover:underline mt-2">Set as Default</button>
-        </div>
-        <div class="flex-shrink-0 flex flex-col sm:flex-row items-center gap-2">
-            <button class="edit-btn p-2 text-gray-500 hover:text-blue-600"><i class="fas fa-edit"></i></button>
-            <button class="delete-btn p-2 text-gray-500 hover:text-red-600"><i class="fas fa-trash-alt"></i></button>
-        </div>
-    </div>
-  </template>
-
-  <div id="address-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-md" id="address-modal-content">
-        <form id="address-form" class="p-6 space-y-4">
-            <h2 id="modal-title" class="text-2xl font-bold text-gray-800">Add New Address</h2>
-            <div>
-                <label for="address-label" class="text-sm font-medium text-gray-700">Label (e.g., Home, Work)</label>
-                <input type="text" id="address-label" required class="mt-1 w-full p-2 border rounded-md">
-            </div>
-            <div>
-                <label for="address-street" class="text-sm font-medium text-gray-700">Street Address</label>
-                <input type="text" id="address-street" required class="mt-1 w-full p-2 border rounded-md">
-            </div>
-            <div>
-                <label for="address-city" class="text-sm font-medium text-gray-700">City</label>
-                <input type="text" id="address-city" required class="mt-1 w-full p-2 border rounded-md">
-            </div>
-            <div>
-                <label for="address-phone" class="text-sm font-medium text-gray-700">Phone Number for this Address</label>
-                <input type="tel" id="address-phone" required class="mt-1 w-full p-2 border rounded-md">
-            </div>
-            <div class="pt-4 flex justify-end gap-3">
-                <button type="button" id="cancel-btn" class="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300">Cancel</button>
-                <button type="submit" id="save-address-btn" class="px-6 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 relative flex justify-center items-center">
-                    <span class="btn-text">Save</span>
-                    <div class="spinner absolute"></div>
-                </button>
-            </div>
-        </form>
-    </div>
-  </div>
-
+  
   <div id="custom-message-box" class="message-box">
     <h3 id="message-box-title"></h3>
     <p id="message-box-text"></p>
     <button id="message-box-ok-btn">OK</button>
   </div>
-  
-  <div id="custom-confirm-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 hidden">
-    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
-        <h3 id="confirm-modal-title" class="text-lg font-bold text-gray-900">Confirmation</h3>
-        <p id="confirm-modal-text" class="text-sm text-gray-600 my-4"></p>
-        <div class="flex justify-end gap-3">
-            <button id="confirm-modal-cancel-btn" class="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300">Cancel</button>
-            <button id="confirm-modal-confirm-btn" class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">Confirm</button>
-        </div>
-    </div>
-  </div>
-
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
