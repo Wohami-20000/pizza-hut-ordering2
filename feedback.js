@@ -87,7 +87,8 @@ document.addEventListener('DOMContentLoaded', () => {
             timestamp: new Date().toISOString()
         };
         
-        firebase.database().ref(`feedback/${orderId}`).set(feedbackData)
+        // **MODIFIED LINE: Changed path from feedback/${orderId} to orders/${orderId}/feedback**
+        firebase.database().ref(`orders/${orderId}/feedback`).set(feedbackData)
             .then(() => {
                 // Also update the order itself to show it has been rated
                 return firebase.database().ref(`orders/${orderId}/rated`).set(true);
