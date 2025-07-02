@@ -149,7 +149,7 @@ function renderCategoriesTabs() {
     if (tabsContainer.firstElementChild) tabsContainer.firstElementChild.classList.add('active-tab');
 }
 
-// --- RESTORED SLIDESHOW LOGIC ---
+// --- SLIDESHOW LOGIC ---
 function showSlide(index) {
     const slidesWrapper = document.getElementById('slides-wrapper');
     if (!slidesWrapper || !slides.length) return;
@@ -279,23 +279,43 @@ function updateActiveTabOnScroll() {
     });
 }
 
+/**
+ * NEW AND IMPROVED DRAWER UI LOGIC
+ * This function now handles all user states:
+ * 1. Logged-in full user
+ * 2. Guest user (anonymous)
+ * 3. Not logged in at all
+ */
 function updateDrawerUI(user) {
     const guestInfo = document.getElementById('guest-info-drawer');
     const userInfo = document.getElementById('user-info-drawer');
     const userNameSpan = document.getElementById('user-name-drawer');
-    const accountSection = document.getElementById('account-section-drawer');
-    if (!guestInfo || !userInfo || !userNameSpan || !accountSection) return;
+    const authenticatedMenu = document.getElementById('authenticated-menu');
+    const guestMenu = document.getElementById('guest-menu');
+
+    if (!guestInfo || !userInfo || !userNameSpan || !authenticatedMenu || !guestMenu) return;
+
+    // --- Case 1: Full Logged-in User ---
     if (user && !user.isAnonymous) {
-        guestInfo.classList.add('hidden');
-        userInfo.classList.remove('hidden');
-        accountSection.classList.remove('hidden');
+        guestInfo.classList.add('hidden'); // Hide the "Login/Signup" prompt
+        userInfo.classList.remove('hidden'); // Show the user's name
+        authenticatedMenu.classList.remove('hidden'); // Show the full menu
+        guestMenu.classList.remove('hidden'); // The "Help" section is shared
+
         dbInstance.ref(`users/${user.uid}/name`).once('value').then(snapshot => {
             userNameSpan.textContent = (snapshot.val() || 'Customer');
         }).catch(() => userNameSpan.textContent = 'Customer');
-    } else {
-        guestInfo.classList.remove('hidden');
-        userInfo.classList.add('hidden');
-        accountSection.classList.add('hidden');
+    } 
+    // --- Case 2: Guest (Anonymous) or No User ---
+    else {
+        userInfo.classList.add('hidden'); // Hide user-specific info
+        authenticatedMenu.classList.add('hidden'); // Hide the authenticated menu
+        guestMenu.classList.remove('hidden'); // Show the shared "Help" menu
+        
+        // If they are a dine-in guest, we don't need to ask them to log in.
+        // If they are not logged in at all, we show the login prompt.
+        const isDineInGuest = user && user.isAnonymous;
+        guestInfo.classList.toggle('hidden', isDineInGuest);
     }
 }
 
