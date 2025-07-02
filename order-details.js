@@ -8,6 +8,7 @@ const loadingState = document.getElementById('loading-state');
 const errorState = document.getElementById('error-state');
 const errorMessageText = document.getElementById('error-message-text');
 const contentDiv = document.getElementById('order-details-content');
+const actionButtonsDiv = document.getElementById('action-buttons');
 
 function escapeHTML(str) {
     if (typeof str !== 'string') return str;
@@ -24,21 +25,18 @@ function updateStatusTracker(status, orderType) {
 
     let currentStatusIndex = statuses.indexOf(status.toLowerCase());
     
-    // If status is 'completed' but not in list, map it to the last step
     if (currentStatusIndex === -1 && status.toLowerCase() === 'completed') {
         currentStatusIndex = statuses.length - 1;
     }
 
     if (currentStatusIndex === -1) return;
 
-    // Update status dots
     for (let i = 0; i <= currentStatusIndex; i++) {
         const stepId = `status-step-${statuses[i].replace(/\s/g, '-')}`;
         const stepEl = document.getElementById(stepId);
         if (stepEl) stepEl.classList.add('completed');
     }
 
-    // Update progress bar
     const progressBar = document.getElementById('status-progress-bar');
     if (progressBar) {
         const progressPercentage = (currentStatusIndex / (statuses.length - 1)) * 100;
@@ -49,15 +47,13 @@ function updateStatusTracker(status, orderType) {
 function renderOrderDetails(orderData) {
     const { orderId, orderNumber, orderType, items, priceDetails, timestamp, customerInfo, status } = orderData;
     
-    // Define status labels based on order type
     let statusLabels = ['Placed', 'Preparing'];
     if (orderType === 'delivery') {
         statusLabels.push('On its way', 'Delivered');
-    } else { // dineIn or pickup
+    } else {
         statusLabels.push('Ready', 'Completed');
     }
 
-    // Define status steps for the tracker
     let statusSteps = ['pending', 'preparing'];
     if (orderType === 'delivery') {
         statusSteps.push('out for delivery', 'delivered');
@@ -126,8 +122,8 @@ function renderOrderDetails(orderData) {
 
     loadingState.style.display = 'none';
     contentDiv.classList.remove('hidden');
+    actionButtonsDiv.classList.add('flex'); // Show the button container
     
-    // Call the status tracker update after the HTML is rendered
     updateStatusTracker(status, orderType);
 }
 
@@ -135,6 +131,38 @@ function showError(message) {
     loadingState.style.display = 'none';
     errorMessageText.textContent = message;
     errorState.classList.remove('hidden');
+}
+
+// --- NEW FUNCTION TO HANDLE PDF SAVING ---
+function setupPdfButton(orderId) {
+    const btn = document.getElementById('save-pdf-btn');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Generating...';
+        btn.disabled = true;
+
+        const elementToCapture = document.getElementById('order-details-content');
+        
+        const options = {
+            margin: 0.5,
+            filename: `PizzaHut_Order_${orderId}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, scrollY: -window.scrollY },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+
+        html2pdf().set(options).from(elementToCapture).save().then(() => {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }).catch(err => {
+            console.error("PDF generation failed:", err);
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+            alert("Sorry, there was an error creating the PDF.");
+        });
+    });
 }
 
 // --- Initialization ---
@@ -149,29 +177,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const orderRef = db.ref('orders/' + orderId);
     
-    // Use .on() to listen for real-time status updates
     orderRef.on('value', (snapshot) => {
         if (!snapshot.exists()) {
             showError('The requested order could not be found.');
-            orderRef.off(); // Stop listening if it doesn't exist
+            orderRef.off();
             return;
         }
         
         const orderData = snapshot.val();
         
-        // Basic check to see if the user is logged in to view their order
-        // Note: The main security is handled by Firebase Rules
         auth.onAuthStateChanged(user => {
-            if (user && orderData.customerInfo.userId === user.uid) {
+            const canView = (user && orderData.customerInfo.userId === user.uid) || 
+                            (orderData.customerInfo.userId === 'guest');
+
+            if (canView) {
                 renderOrderDetails(orderData);
-            } else if (!user && orderData.customerInfo.userId === 'guest') {
-                renderOrderDetails(orderData);
+                if (!document.getElementById('save-pdf-btn')._isSetup) {
+                    setupPdfButton(orderId);
+                    document.getElementById('save-pdf-btn')._isSetup = true;
+                }
             } else {
-                 // Check for admin just in case
                 if(user) {
                      user.getIdTokenResult().then(idTokenResult => {
                         if (idTokenResult.claims.admin) {
                             renderOrderDetails(orderData);
+                            if (!document.getElementById('save-pdf-btn')._isSetup) {
+                                setupPdfButton(orderId);
+                                document.getElementById('save-pdf-btn')._isSetup = true;
+                            }
                         } else {
                             showError("You don't have permission to view this order.");
                         }

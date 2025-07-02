@@ -6,10 +6,10 @@
     <title>Order Details - Pizza Hut</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root { --brand-red: #D71921; }
         body { background-color: #F9FAFB; }
-        /* Reusing status tracker styles from confirm.html */
         .status-tracker { display: flex; justify-content: space-between; position: relative; }
         .status-tracker::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background-color: #e5e7eb; transform: translateY(-50%); z-index: 1; }
         .status-step { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 2; width: 80px; }
@@ -40,11 +40,18 @@
 
         <div id="order-details-content" class="hidden space-y-8">
             </div>
+        
+        <div id="action-buttons" class="hidden flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-8">
+            <button id="save-pdf-btn" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-800 transition shadow-md flex items-center justify-center">
+                <i class="fas fa-file-pdf mr-2"></i> <span>Save as PDF</span>
+            </button>
+        </div>
     </main>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="firebase.js"></script>
-    <script src="order-details.js"></script> </body>
+    <script src="order-details.js"></script>
+</body>
 </html>
