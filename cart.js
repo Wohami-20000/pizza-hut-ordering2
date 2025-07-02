@@ -636,22 +636,45 @@ document.addEventListener('DOMContentLoaded', () => {
         const deliveryOption = document.getElementById('deliveryOption');
         let orderType = localStorage.getItem('orderType');
 
-        if (user && user.isAnonymous) {
-            pickupOption.disabled = true;
-            pickupOption.classList.add('disabled');
-            deliveryOption.disabled = true;
-            deliveryOption.classList.add('disabled');
+        // *** NEW LOGIC: LOCK ORDER TYPE FOR DINE-IN ***
+        const tableNumber = localStorage.getItem('tableNumber');
+        if (tableNumber) {
+            // This is a dine-in user from an NFC scan.
+            localStorage.setItem('orderType', 'dineIn'); // Ensure order type is set correctly
+            if(pickupOption) {
+                pickupOption.disabled = true;
+                pickupOption.classList.add('disabled');
+            }
+            if(deliveryOption) {
+                deliveryOption.disabled = true;
+                deliveryOption.classList.add('disabled');
+            }
+        } 
+        // Original logic for guest users who are NOT dine-in
+        else if (user && user.isAnonymous) {
+            if(pickupOption) {
+                pickupOption.disabled = true;
+                pickupOption.classList.add('disabled');
+            }
+            if(deliveryOption) {
+                deliveryOption.disabled = true;
+                deliveryOption.classList.add('disabled');
+            }
             
             if (orderType === 'pickup' || orderType === 'delivery') {
                 localStorage.setItem('orderType', 'dineIn');
             }
         } else {
-            pickupOption.disabled = false;
-            pickupOption.classList.remove('disabled');
-            deliveryOption.disabled = false;
-            deliveryOption.classList.remove('disabled');
+            // Enable buttons for logged-in users who are not dine-in
+            if(pickupOption) {
+                pickupOption.disabled = false;
+                pickupOption.classList.remove('disabled');
+            }
+            if(deliveryOption) {
+                deliveryOption.disabled = false;
+                deliveryOption.classList.remove('disabled');
+            }
         }
-
 
         await renderOrderDetailsInput(user); 
         updatePlaceOrderButtonState(); 
@@ -672,12 +695,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (currentOrderType === 'dineIn') { 
                     const localTableNumberInput = document.getElementById('table-number'); 
-                    const tableNumber = localTableNumberInput ? localTableNumberInput.value.trim() : '';
-                    if (!tableNumber || isNaN(parseInt(tableNumber)) || parseInt(tableNumber) <= 0) {
+                    const tableNumberFromInput = localTableNumberInput ? localTableNumberInput.value.trim() : '';
+                    if (!tableNumberFromInput || isNaN(parseInt(tableNumberFromInput)) || parseInt(tableNumberFromInput) <= 0) {
                         showMessageBox('validation_error_title', 'table_number_missing_error', true); 
                         validationError = true;
                     } else {
-                        orderDetails.table = tableNumber;
+                        orderDetails.table = tableNumberFromInput;
                     }
                 } else if (currentOrderType === 'pickup' || currentOrderType === 'delivery') {
                     if (!user || user.isAnonymous) { 
