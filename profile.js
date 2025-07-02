@@ -14,7 +14,6 @@ const elements = {
     messageBoxTitle: document.getElementById('message-box-title'),
     messageBoxText: document.getElementById('message-box-text'),
     messageBoxOkBtn: document.getElementById('message-box-ok-btn'),
-    forgotPasswordLink: document.getElementById('forgot-password-link'),
     emailVerificationStatus: document.getElementById('email-verification-status'),
     verifyEmailBtn: document.getElementById('verify-email-btn'),
     changeEmailBtn: document.getElementById('change-email-btn'),
@@ -41,6 +40,7 @@ const elements = {
     confirmNewPasswordInput: document.getElementById('confirm-new-password'),
     passwordChangeMessage: document.getElementById('password-change-message'),
     updatePasswordBtn: document.getElementById('update-password-btn'),
+    settingsForgotPassword: document.getElementById('settings-forgot-password'),
 };
 
 // --- State ---
@@ -223,7 +223,7 @@ const handleForgotPassword = () => {
     if (confirm("Are you sure you want to send a password reset link to your email?")) {
         auth.sendPasswordResetEmail(currentUser.email)
             .then(() => {
-                showMessageBox('Link Sent', 'A password reset link has been sent to your email.');
+                showMessageBox('Link Sent', 'A password reset link has been sent to your email. Please check your inbox.');
             })
             .catch(error => {
                 showMessageBox('Error', `Failed to send reset link: ${error.message}`);
@@ -402,8 +402,11 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.cancelEmailBtn.addEventListener('click', () => toggleEmailEditMode(false));
     elements.saveEmailBtn.addEventListener('click', handleSaveEmail);
 
-    if (elements.forgotPasswordLink) {
-        elements.forgotPasswordLink.addEventListener('click', handleForgotPassword);
+    if (elements.settingsForgotPassword) {
+        elements.settingsForgotPassword.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleForgotPassword();
+        });
     }
     
     elements.addressForm.addEventListener('submit', saveAddress);
