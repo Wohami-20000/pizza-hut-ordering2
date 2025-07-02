@@ -634,45 +634,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const dineInOption = document.getElementById('dineInOption');
         const pickupOption = document.getElementById('pickupOption');
         const deliveryOption = document.getElementById('deliveryOption');
-        let orderType = localStorage.getItem('orderType');
+        const guestCtaSection = document.getElementById('guest-cta-section');
 
-        // *** NEW LOGIC: LOCK ORDER TYPE FOR DINE-IN ***
         const tableNumber = localStorage.getItem('tableNumber');
+
+        // Hide CTA by default
+        guestCtaSection.classList.add('hidden');
+
+        // *** UPDATED LOGIC BLOCK ***
         if (tableNumber) {
-            // This is a dine-in user from an NFC scan.
-            localStorage.setItem('orderType', 'dineIn'); // Ensure order type is set correctly
-            if(pickupOption) {
-                pickupOption.disabled = true;
-                pickupOption.classList.add('disabled');
+            // Case 1: Dine-in user (from NFC scan)
+            localStorage.setItem('orderType', 'dineIn');
+            pickupOption.disabled = true;
+            pickupOption.classList.add('disabled');
+            deliveryOption.disabled = true;
+            deliveryOption.classList.add('disabled');
+            // Show CTA if they are a guest
+            if (user && user.isAnonymous) {
+                guestCtaSection.classList.remove('hidden');
             }
-            if(deliveryOption) {
-                deliveryOption.disabled = true;
-                deliveryOption.classList.add('disabled');
-            }
-        } 
-        // Original logic for guest users who are NOT dine-in
-        else if (user && user.isAnonymous) {
-            if(pickupOption) {
-                pickupOption.disabled = true;
-                pickupOption.classList.add('disabled');
-            }
-            if(deliveryOption) {
-                deliveryOption.disabled = true;
-                deliveryOption.classList.add('disabled');
-            }
-            
-            if (orderType === 'pickup' || orderType === 'delivery') {
-                localStorage.setItem('orderType', 'dineIn');
-            }
+        } else if (user && !user.isAnonymous) {
+            // Case 2: Logged-in user (not from NFC)
+            dineInOption.disabled = true;
+            dineInOption.classList.add('disabled');
         } else {
-            // Enable buttons for logged-in users who are not dine-in
-            if(pickupOption) {
-                pickupOption.disabled = false;
-                pickupOption.classList.remove('disabled');
-            }
-            if(deliveryOption) {
-                deliveryOption.disabled = false;
-                deliveryOption.classList.remove('disabled');
+            // Case 3: New user without an account (should have been redirected to auth, but as a fallback)
+            // Or a guest from a previous session who is trying to order delivery/pickup
+            if (localStorage.getItem('orderType') !== 'dineIn') {
+                showRedirectMessageBox('Login Required', 'Pickup and Delivery orders require an account. Please log in or create an account to continue.', 'auth.html');
             }
         }
 
