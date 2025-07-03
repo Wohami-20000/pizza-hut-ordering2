@@ -67,7 +67,7 @@ async function loadFavorites(user) {
     } else {
         favorites = JSON.parse(localStorage.getItem("favorites")) || [];
     }
-    renderFullMenu(menuDataCache);
+    filterAndSortMenu();
 }
 
 function createMenuItemCard(item, categoryId, itemId) {
@@ -135,10 +135,6 @@ function createMenuItemCard(item, categoryId, itemId) {
     return card;
 }
 
-/**
- * ---- UPDATED FUNCTION ----
- * Now accepts sorted data to render the menu.
- */
 function renderFullMenu(dataToRender) {
     const menuContainer = document.getElementById("menu-container");
     const loadingPlaceholder = document.getElementById("loading-placeholder");
@@ -187,7 +183,6 @@ function renderFullMenu(dataToRender) {
     if (noResultsMessage) menuContainer.appendChild(noResultsMessage);
 }
 
-
 function renderCategoriesTabs() {
     const tabsContainer = document.getElementById('category-tabs');
     if (!tabsContainer) return;
@@ -213,7 +208,72 @@ function renderCategoriesTabs() {
     }
 }
 
-// ... (slideshow and other functions remain the same)
+function showSlide(index) {
+    const slidesWrapper = document.getElementById('slides-wrapper');
+    if (!slidesWrapper || !slides.length) return;
+    slides.forEach(slide => slide.classList.remove('active'));
+    dots.forEach(dot => dot.classList.remove('active'));
+    currentIndex = (index + slides.length) % slides.length;
+    slides[currentIndex].classList.add('active');
+    dots[currentIndex].classList.add('active');
+    slidesWrapper.style.transform = `translateX(-${currentIndex * 100}%)`;
+}
+
+function startSlideshow() {
+    stopSlideshow();
+    slideInterval = setInterval(() => showSlide(currentIndex + 1), 3000);
+}
+
+function stopSlideshow() {
+    clearInterval(slideInterval);
+}
+
+function renderOffersSlideshow() {
+    const slideshowContainer = document.getElementById('offers-slideshow-container');
+    const slidesWrapper = document.getElementById('slides-wrapper');
+    const dotsContainer = document.getElementById('slides-dots');
+    if (!slideshowContainer || !slidesWrapper || !dotsContainer) return;
+
+    dbInstance.ref('offers').on('value', (snapshot) => {
+        slidesWrapper.innerHTML = '';
+        dotsContainer.innerHTML = '';
+        stopSlideshow();
+        if (snapshot.exists()) {
+            const offersData = snapshot.val();
+            slides = [];
+            dots = [];
+            let offerIndex = 0;
+            for (const offerId in offersData) {
+                const offer = offersData[offerId];
+                const slideElement = document.createElement('a');
+                slideElement.href = `item-details.html?offerId=${offerId}`;
+                slideElement.className = 'slide';
+                slideElement.style.backgroundImage = `url('${escapeHTML(offer.imageURL || '')}')`;
+                slideElement.innerHTML = `<div class="slide-content"><h3 class="slide-title">${escapeHTML(offer.name)}</h3></div>`;
+                slidesWrapper.appendChild(slideElement);
+                slides.push(slideElement);
+
+                const dotElement = document.createElement('div');
+                dotElement.className = 'slide-dot';
+                dotElement.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); showSlide(offerIndex); startSlideshow(); });
+                dotsContainer.appendChild(dotElement);
+                dots.push(dotElement);
+                offerIndex++;
+            }
+            if (slides.length > 0) {
+                showSlide(0);
+                startSlideshow();
+                slideshowContainer.classList.remove('hidden');
+                slideshowContainer.addEventListener('mouseenter', stopSlideshow);
+                slideshowContainer.addEventListener('mouseleave', startSlideshow);
+            } else {
+                slideshowContainer.classList.add('hidden');
+            }
+        } else {
+            slideshowContainer.classList.add('hidden');
+        }
+    });
+}
 
 window.menuFunctions = {
     updateItemQuantity: (itemId, change, buttonElement) => {
@@ -252,10 +312,6 @@ window.menuFunctions = {
     }
 };
 
-/**
- * ---- UPDATED FUNCTION ----
- * Handles both search and sort filtering.
- */
 function filterAndSortMenu() {
     const searchBar = document.getElementById("search-bar");
     const noResultsMessage = document.getElementById("no-results-message");
@@ -303,7 +359,6 @@ function filterAndSortMenu() {
     noResultsMessage.style.display = hasResults ? 'none' : 'block';
     updateActiveTabOnScroll();
 }
-
 
 function updateActiveTabOnScroll() {
     const scrollPosition = window.scrollY + 201;
