@@ -23,22 +23,40 @@
         #drawer-menu h3 { color: var(--brand-red); }
         #drawer-menu a:hover { background-color: #FEF2F2; color: var(--brand-red); }
         #drawer-menu a:hover i { color: var(--brand-red); }
-        #category-tabs-container { position: sticky; top: 60px; z-index: 20; background-color: #F9FAFB; padding: 0.75rem 0; }
+        #search-container { position: sticky; top: 60px; z-index: 20; }
+        #category-tabs-container { position: sticky; top: 132px; z-index: 20; background-color: #F9FAFB; padding: 0.75rem 0; }
         #category-tabs { -ms-overflow-style: none; scrollbar-width: none; }
         #category-tabs::-webkit-scrollbar { display: none; }
         .category-tab { transition: all 0.2s; border-radius: 9999px; border: 1px solid var(--brand-red); background-color: white; color: var(--brand-red); }
         .category-tab:hover { background-color: #FEF2F2; }
         .category-tab.active-tab { background-color: var(--brand-red); color: white; }
-        .menu-item-card { display: grid; grid-template-columns: 1fr 100px; gap: 1rem; background-color: white; border-radius: 1rem; box-shadow: 0 4px 16px rgba(0,0,0,0.07); padding: 1rem; opacity: 0; transform: translateY(20px); transition: opacity 0.4s ease-out, transform 0.4s ease-out; }
+
+        /* --- UPDATED CARD STYLES --- */
+        .menu-item-card {
+            display: flex;
+            flex-direction: column;
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.4s ease-out, transform 0.4s ease-out, box-shadow 0.2s ease-out;
+            position: relative;
+        }
+        .menu-item-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
         .menu-item-card.visible { opacity: 1; transform: translateY(0); }
-        .item-image-right img { width: 100px; height: 100px; object-fit: contain; }
+        /* --- END OF UPDATED STYLES --- */
+
         .fav-icon { color: #D1D5DB; cursor: pointer; transition: all 0.2s; }
         .fav-icon:hover { transform: scale(1.2); }
         .fav-icon.active { color: var(--brand-red); animation: pop 0.4s ease; }
         @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1); } }
         .customize-btn { font-size: 0.875rem; color: var(--brand-red); transition: color 0.2s; }
         .customize-btn:hover { color: #000; }
-        .quantity-btn { width: 28px; height: 28px; border-radius: 50%; background-color: var(--brand-yellow); color: var(--brand-dark); font-weight: 600; transition: background-color 0.2s; }
+        .quantity-btn { width: 32px; height: 32px; border-radius: 50%; background-color: var(--brand-yellow); color: var(--brand-dark); font-weight: 600; transition: background-color 0.2s; }
         .quantity-btn:hover { background-color: #facc15; }
         #cart-summary-bar .view-cart-btn { background-color: var(--brand-red); color: white; }
         #cart-summary-bar .summary-count-circle { background-color: var(--brand-yellow); color: var(--brand-dark); }
@@ -107,7 +125,7 @@
         </nav>
     </div>
     
-    <div id="search-container" class="bg-white p-3 sticky top-[60px] z-20 border-b initial-hidden animate-fadeInUp" style="animation-delay: 100ms;"><div class="relative"><span class="absolute inset-y-0 left-0 flex items-center pl-4"><i class="fas fa-search text-gray-400"></i></span><input type="search" id="search-bar" class="w-full pl-12 pr-4 py-3 border-none bg-gray-100 rounded-full focus:ring-2 focus:ring-red-500" placeholder="Search for your favorite pizza..."></div></div>
+    <div id="search-container" class="bg-white p-3 border-b initial-hidden animate-fadeInUp" style="animation-delay: 100ms;"><div class="relative"><span class="absolute inset-y-0 left-0 flex items-center pl-4"><i class="fas fa-search text-gray-400"></i></span><input type="search" id="search-bar" class="w-full pl-12 pr-4 py-3 border-none bg-gray-100 rounded-full focus:ring-2 focus:ring-red-500" placeholder="Search for your favorite pizza..."></div></div>
     
     <div id="offers-slideshow-container" class="relative w-full bg-gray-900 overflow-hidden initial-hidden animate-fadeInUp hidden" style="animation-delay: 200ms;">
         <div id="slides-wrapper" class="flex h-full transition-transform duration-700 ease-in-out"></div>

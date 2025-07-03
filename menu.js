@@ -60,6 +60,10 @@ async function loadFavorites(user) {
     renderFullMenu();
 }
 
+/**
+ * ---- UPDATED FUNCTION ----
+ * Creates an item card with the new vertical design.
+ */
 function createMenuItemCard(item, categoryId, itemId) {
     const card = document.createElement('div');
     card.className = 'menu-item-card';
@@ -76,41 +80,37 @@ function createMenuItemCard(item, categoryId, itemId) {
     const customizedQuantity = customizedItems.reduce((sum, item) => sum + item.quantity, 0);
 
     const isFavorite = favorites.includes(itemId);
-    
-    if (standardQuantity > 0 || customizedQuantity > 0) {
-        card.classList.add('border-2', 'border-brand-yellow', 'shadow-lg');
-    }
-
-    // New indicator for customized items
-    const customizedIndicator = customizedQuantity > 0
-        ? `<div class="text-xs text-center text-red-600 font-semibold mt-1">+${customizedQuantity} customized in cart</div>`
-        : '';
 
     card.innerHTML = `
-        <div class="item-content-left flex flex-col">
-            <div class="flex justify-between items-start">
-                <h3 class="text-lg font-bold text-gray-800 pr-2">${escapeHTML(item.name || 'Unknown Item')}</h3>
-                <i class="fas fa-heart fav-icon text-xl ${isFavorite ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite('${itemId}', this)"></i>
+        <button onclick="event.stopPropagation(); toggleFavorite('${itemId}', this.querySelector('i'))" class="absolute top-2 right-2 z-10 bg-white rounded-full h-8 w-8 flex items-center justify-center shadow-md hover:bg-gray-100 transition-colors">
+            <i class="fas fa-heart fav-icon text-lg ${isFavorite ? 'active' : ''}"></i>
+        </button>
+        
+        <a href="item-details.html?categoryId=${categoryId}&itemId=${itemId}" class="block cursor-pointer">
+            <div class="p-4 bg-white rounded-t-xl">
+                 <img src="${escapeHTML(item.image_url || 'https://www.pizzahut.ma/images/Default_pizza.png')}" alt="${escapeHTML(item.name || 'Pizza')}" class="w-full h-32 object-contain transition-transform duration-300 group-hover:scale-105">
             </div>
-            <p class="text-gray-500 text-sm mt-1 mb-3 flex-grow">${escapeHTML(item.description || '')}</p>
-            <div class="mt-auto flex justify-between items-center">
-                <span class="text-xl font-extrabold text-gray-900">${itemPrice.toFixed(2)} MAD</span>
-                <button class="customize-btn font-semibold" onclick="event.stopPropagation(); window.menuFunctions.navigateToItemDetails('${categoryId}', '${itemId}')">Customize</button>
-            </div>
+        </a>
+        
+        <div class="p-3 text-center flex-grow flex flex-col">
+            <h3 class="font-semibold text-base text-gray-800 truncate flex-grow" title="${escapeHTML(item.name || 'Unknown Item')}">${escapeHTML(item.name || 'Unknown Item')}</h3>
+            <p class="text-xl font-extrabold text-red-600 mt-1">${itemPrice.toFixed(2)} MAD</p>
         </div>
-        <div class="item-image-right flex flex-col items-center justify-between">
-            <img src="${escapeHTML(item.image_url || 'https://www.pizzahut.ma/images/Default_pizza.png')}" alt="${escapeHTML(item.name || 'Pizza')}">
-            <div class="quantity-controls flex items-center gap-3 mt-2">
-                <button class="quantity-btn" onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', -1, this)">-</button>
-                <span class="font-bold text-lg w-8 text-center">${standardQuantity}</span>
-                <button class="quantity-btn" onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', 1, this)">+</button>
-            </div>
-            ${customizedIndicator}
+        
+        <div class="px-3 pb-4">
+            <button onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', 1, this)" class="w-full bg-yellow-400 text-brand-dark font-bold py-2 px-4 rounded-full hover:bg-yellow-500 transition-all transform hover:scale-105">
+                Add
+            </button>
         </div>
     `;
     return card;
 }
 
+
+/**
+ * ---- UPDATED FUNCTION ----
+ * Renders the full menu with a responsive grid layout.
+ */
 function renderFullMenu() {
     const menuContainer = document.getElementById("menu-container");
     const loadingPlaceholder = document.getElementById("loading-placeholder");
@@ -135,8 +135,11 @@ function renderFullMenu() {
         itemRenderDelay += 100;
         title.textContent = escapeHTML(categoryData.category);
         section.appendChild(title);
+
         const itemsContainer = document.createElement('div');
-        itemsContainer.className = 'space-y-4';
+        // This class creates the responsive grid
+        itemsContainer.className = 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4';
+
         if (categoryData.items) {
             Object.entries(categoryData.items).forEach(([itemId, itemData]) => {
                 const card = createMenuItemCard(itemData, categoryId, itemId);
@@ -152,6 +155,7 @@ function renderFullMenu() {
     const noResultsMessage = document.getElementById("no-results-message");
     if (noResultsMessage) menuContainer.appendChild(noResultsMessage);
 }
+
 
 function renderCategoriesTabs() {
     const tabsContainer = document.getElementById('category-tabs');
@@ -260,16 +264,19 @@ window.menuFunctions = {
 
         localStorage.setItem("cart", JSON.stringify(cart));
         updateCartUI();
-
-        // Re-render the specific card that was changed
-        const newCard = createMenuItemCard(itemData, categoryId, itemId);
-        card.parentNode.replaceChild(newCard, card);
-        newCard.classList.add('visible'); // Make sure it's visible after re-render
+        
+        // Re-render only the quantity on the card to avoid full redraw
+        const quantitySpan = card.querySelector('.quantity-controls span');
+        if (quantitySpan) {
+            const updatedItem = cart.find(i => i.cartItemId === `${itemId}-standard`);
+            quantitySpan.textContent = updatedItem ? updatedItem.quantity : 0;
+        }
+        
     },
     navigateToItemDetails: (categoryId, itemId) => window.location.href = `item-details.html?categoryId=${categoryId}&itemId=${itemId}`,
     scrollToCategory: (categoryId) => {
         const section = document.getElementById(`category-section-${categoryId}`);
-        if (section) window.scrollTo({ top: section.offsetTop - 140, behavior: 'smooth' });
+        if (section) window.scrollTo({ top: section.offsetTop - 200, behavior: 'smooth' });
     }
 };
 
@@ -282,11 +289,11 @@ function filterMenu() {
     document.querySelectorAll('.menu-item-card').forEach(card => {
         const itemName = card.querySelector('h3').textContent.toLowerCase();
         const matches = itemName.includes(searchTerm);
-        card.style.display = matches ? 'grid' : 'none';
+        card.style.display = matches ? 'flex' : 'none'; // Use flex for consistency
         if (matches) hasResults = true;
     });
     document.querySelectorAll('.category-section').forEach(section => {
-        const visibleItems = section.querySelectorAll('.menu-item-card[style*="display: grid"]');
+        const visibleItems = section.querySelectorAll('.menu-item-card[style*="display: flex"]');
         section.style.display = visibleItems.length > 0 ? 'block' : 'none';
     });
     noResultsMessage.style.display = hasResults ? 'none' : 'block';
@@ -294,7 +301,7 @@ function filterMenu() {
 }
 
 function updateActiveTabOnScroll() {
-    const scrollPosition = window.scrollY + 141;
+    const scrollPosition = window.scrollY + 201;
     let activeSectionFound = false;
     document.querySelectorAll('.category-section').forEach(section => {
         if (!activeSectionFound && section.style.display !== 'none' && section.offsetTop <= scrollPosition && section.offsetTop + section.offsetHeight > scrollPosition) {
