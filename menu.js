@@ -4,7 +4,7 @@ const authInstance = firebase.auth();
 
 let menuDataCache = {};
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
-let favorites = []; // <-- Add this variable at the top
+let favorites = [];
 
 // --- SLIDESHOW STATE ---
 let slideInterval;
@@ -30,43 +30,25 @@ function updateCartUI() {
     if(cartSummaryBar) cartSummaryBar.classList.toggle('translate-y-full', totalItems === 0);
 }
 
-/**
- * Toggles an item's favorite status in localStorage and updates the UI.
- * @param {string} itemId The ID of the item to favorite/unfavorite.
- * @param {HTMLElement} heartIconEl The heart icon element that was clicked.
- */
 async function toggleFavorite(itemId, heartIconEl) {
     const user = authInstance.currentUser;
-    // Toggles the 'active' class on the icon
     const isFavorited = heartIconEl.classList.toggle('active');
 
-    // For registered users, sync with Firebase
     if (user && !user.isAnonymous) {
         const favRef = dbInstance.ref(`users/${user.uid}/favorites/${itemId}`);
         if (isFavorited) {
-            await favRef.set(true); // Add to Firebase
+            await favRef.set(true);
             if (!favorites.includes(itemId)) favorites.push(itemId);
         } else {
-            await favRef.remove(); // Remove from Firebase
+            await favRef.remove();
             favorites = favorites.filter(id => id !== itemId);
         }
     } else {
-        // For guests, use browser's localStorage
-        if (isFavorited) {
-            if (!favorites.includes(itemId)) {
-                favorites.push(itemId);
-            }
-        } else {
-            favorites = favorites.filter(id => id !== itemId);
-        }
+        favorites = isFavorited ? [...new Set([...favorites, itemId])] : favorites.filter(id => id !== itemId);
         localStorage.setItem("favorites", JSON.stringify(favorites));
     }
 }
 
-/**
- * Loads the user's favorites from Firebase (if logged in) or localStorage (if a guest).
- * @param {object} user The current Firebase user object.
- */
 async function loadFavorites(user) {
     if (user && !user.isAnonymous) {
         const favRef = dbInstance.ref(`users/${user.uid}/favorites`);
@@ -75,18 +57,25 @@ async function loadFavorites(user) {
     } else {
         favorites = JSON.parse(localStorage.getItem("favorites")) || [];
     }
-    // Re-render the menu to show the correct favorite states on the icons
     renderFullMenu();
 }
 
 function createMenuItemCard(item, categoryId, itemId) {
     const card = document.createElement('div');
+    // Start with base classes
     card.className = 'menu-item-card';
     card.id = `item-card-${itemId}`;
     card.dataset.categoryId = categoryId;
+    
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
     const totalQuantityInCart = cart.filter(ci => ci.id === itemId).reduce((sum, ci) => sum + ci.quantity, 0);
-    const isFavorite = favorites.includes(itemId); // <-- This line is crucial
+    const isFavorite = favorites.includes(itemId);
+    
+    // **NEW**: Check if item is in cart and add Tailwind classes if it is
+    if (totalQuantityInCart > 0) {
+        card.classList.add('border-2', 'border-brand-yellow', 'shadow-lg');
+    }
+
     card.innerHTML = `
         <div class="item-content-left flex flex-col">
             <div class="flex justify-between items-start">
@@ -111,6 +100,7 @@ function createMenuItemCard(item, categoryId, itemId) {
     return card;
 }
 
+// ... (renderFullMenu, renderCategoriesTabs, and slideshow functions remain the same) ...
 function renderFullMenu() {
     const menuContainer = document.getElementById("menu-container");
     const loadingPlaceholder = document.getElementById("loading-placeholder");
@@ -169,7 +159,6 @@ function renderCategoriesTabs() {
     if (tabsContainer.firstElementChild) tabsContainer.firstElementChild.classList.add('active-tab');
 }
 
-// --- SLIDESHOW LOGIC ---
 function showSlide(index) {
     const slidesWrapper = document.getElementById('slides-wrapper');
     if (!slidesWrapper || !slides.length) return;
@@ -255,6 +244,11 @@ window.menuFunctions = {
         updateCartUI();
         const totalQuantity = cart.filter(i => i.id === itemId).reduce((sum, i) => sum + i.quantity, 0);
         card.querySelector('.quantity-controls span').textContent = totalQuantity;
+        
+        // **NEW**: Toggle the highlighting classes based on quantity
+        card.classList.toggle('border-2', totalQuantity > 0);
+        card.classList.toggle('border-brand-yellow', totalQuantity > 0);
+        card.classList.toggle('shadow-lg', totalQuantity > 0);
     },
     navigateToItemDetails: (categoryId, itemId) => window.location.href = `item-details.html?categoryId=${categoryId}&itemId=${itemId}`,
     scrollToCategory: (categoryId) => {
@@ -262,6 +256,8 @@ window.menuFunctions = {
         if (section) window.scrollTo({ top: section.offsetTop - 140, behavior: 'smooth' });
     }
 };
+
+// ... (The rest of the file remains the same) ...
 
 function filterMenu() {
     const searchBar = document.getElementById("search-bar");
@@ -299,13 +295,6 @@ function updateActiveTabOnScroll() {
     });
 }
 
-/**
- * NEW AND IMPROVED DRAWER UI LOGIC
- * This function now handles all user states:
- * 1. Logged-in full user
- * 2. Guest user (anonymous)
- * 3. Not logged in at all
- */
 function updateDrawerUI(user) {
     const guestInfo = document.getElementById('guest-info-drawer');
     const userInfo = document.getElementById('user-info-drawer');
@@ -315,25 +304,21 @@ function updateDrawerUI(user) {
 
     if (!guestInfo || !userInfo || !userNameSpan || !authenticatedMenu || !guestMenu) return;
 
-    // --- Case 1: Full Logged-in User ---
     if (user && !user.isAnonymous) {
-        guestInfo.classList.add('hidden'); // Hide the "Login/Signup" prompt
-        userInfo.classList.remove('hidden'); // Show the user's name
-        authenticatedMenu.classList.remove('hidden'); // Show the full menu
-        guestMenu.classList.remove('hidden'); // The "Help" section is shared
+        guestInfo.classList.add('hidden');
+        userInfo.classList.remove('hidden');
+        authenticatedMenu.classList.remove('hidden');
+        guestMenu.classList.remove('hidden');
 
         dbInstance.ref(`users/${user.uid}/name`).once('value').then(snapshot => {
             userNameSpan.textContent = (snapshot.val() || 'Customer');
         }).catch(() => userNameSpan.textContent = 'Customer');
     } 
-    // --- Case 2: Guest (Anonymous) or No User ---
     else {
-        userInfo.classList.add('hidden'); // Hide user-specific info
-        authenticatedMenu.classList.add('hidden'); // Hide the authenticated menu
-        guestMenu.classList.remove('hidden'); // Show the shared "Help" menu
+        userInfo.classList.add('hidden');
+        authenticatedMenu.classList.add('hidden');
+        guestMenu.classList.remove('hidden');
         
-        // If they are a dine-in guest, we don't need to ask them to log in.
-        // If they are not logged in at all, we show the login prompt.
         const isDineInGuest = user && user.isAnonymous;
         guestInfo.classList.toggle('hidden', isDineInGuest);
     }
@@ -345,7 +330,6 @@ let isAuthReady = false;
 let initialUser = null;
 
 function initializeApp() {
-    // This function will only run when both DOM is ready and Firebase Auth has been checked
     if (!isDomReady || !isAuthReady) return;
     
     updateCartUI();
@@ -353,12 +337,11 @@ function initializeApp() {
 
     dbInstance.ref('menu').on('value', async (snapshot) => {
         menuDataCache = snapshot.val() || {};
-        await loadFavorites(initialUser); // Load favorites based on the initial user
+        await loadFavorites(initialUser);
         renderCategoriesTabs();
         renderOffersSlideshow(); 
     }, error => console.error("Firebase data error:", error));
 
-    // Setup event listeners for UI elements
     const openDrawerBtn = document.getElementById('open-drawer-btn');
     const closeDrawerBtn = document.getElementById('close-drawer-btn');
     const drawerMenu = document.getElementById('drawer-menu');
@@ -375,18 +358,13 @@ function initializeApp() {
     window.addEventListener('scroll', updateActiveTabOnScroll, { passive: true });
 }
 
-// Listener for DOM Ready
 document.addEventListener('DOMContentLoaded', () => {
     isDomReady = true;
-    initializeApp(); // Try to initialize
+    initializeApp();
 });
 
-// Listener for Auth Ready
 authInstance.onAuthStateChanged((user) => {
     isAuthReady = true;
     initialUser = user;
-    // This call will load favorites before rendering the menu
-    loadFavorites(user).then(() => {
-        initializeApp();
-    });
+    initializeApp();
 });
