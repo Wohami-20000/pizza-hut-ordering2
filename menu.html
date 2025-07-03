@@ -28,30 +28,30 @@
         #category-tabs { -ms-overflow-style: none; scrollbar-width: none; }
         #category-tabs::-webkit-scrollbar { display: none; }
 
-        /* --- NEW CATEGORY TAB STYLES --- */
+        /* --- UPDATED CATEGORY TAB STYLES --- */
         .category-tab, .category-tab-special {
             transition: all 0.2s ease-in-out;
-            border-radius: 0.75rem;
-            background-color: white;
-            color: #4B5563; /* gray-600 */
-            border: 1px solid #E5E7EB; /* gray-200 */
+            border-radius: 9999px; /* Fully rounded for a pill shape */
+            background-color: #FEE2E2; /* Light red background */
+            color: var(--brand-red);
+            border: 1px solid #FECACA; /* Slightly darker red border */
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             padding: 0.5rem 1rem;
         }
         .category-tab:hover, .category-tab-special:hover {
-            border-color: #D1D5DB; /* gray-300 */
+            border-color: var(--brand-red);
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
             transform: translateY(-1px);
         }
         .category-tab.active-tab {
-            background-color: var(--brand-dark);
+            background-color: var(--brand-red);
             color: white;
-            border-color: var(--brand-dark);
+            border-color: var(--brand-red);
         }
         .category-tab-special {
             padding: 0.5rem 0.75rem;
         }
-        /* --- END OF NEW STYLES --- */
+        /* --- END OF UPDATED STYLES --- */
 
         .menu-item-card {
             display: flex;
@@ -103,6 +103,15 @@
         .slide.active .slide-title { transform: translateY(0); opacity: 1; transition-delay: 0.2s; }
         .slide-dot { width: 10px; height: 10px; border-radius: 50%; background-color: rgba(255, 255, 255, 0.4); cursor: pointer; transition: all 0.4s ease; transform: scale(0.8); }
         .slide-dot.active { background-color: white; transform: scale(1.1); }
+        
+        /* --- NEW FILTER MODAL STYLES --- */
+        #filter-modal {
+            transition: opacity 0.3s ease-in-out;
+        }
+        #filter-modal-content {
+            transition: transform 0.3s ease-in-out;
+        }
+        /* --- END OF NEW STYLES --- */
     </style>
 </head>
 <body class="min-h-screen">
@@ -176,6 +185,29 @@
     <div id="category-tabs-container" class="border-b border-gray-200 initial-hidden animate-fadeInUp" style="animation-delay: 300ms;"><nav id="category-tabs" class="flex overflow-x-auto px-4 gap-3"></nav></div>
     <main id="menu-container" class="flex-1 px-4 py-5 pb-[120px]"><p id="loading-placeholder" class="text-gray-500 col-span-full text-center py-10">Loading menu...</p><div id="no-results-message" class="hidden text-center py-10"><p class="text-xl font-semibold text-gray-700">No results found</p><p class="text-gray-500 mt-2">Try searching for something else.</p></div></main>
     <div id="cart-summary-bar" class="fixed bottom-0 left-0 right-0 p-3 z-20 transform translate-y-full transition-transform"><div class="max-w-screen-xl mx-auto flex justify-between items-center bg-white rounded-lg p-3 shadow-2xl"><div class="flex items-center space-x-3"><span id="summary-cart-count" class="summary-count-circle text-sm font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span><span class="text-lg font-semibold text-gray-800" id="summary-total-price">0.00 MAD</span></div><a href="cart.html" class="view-cart-btn px-5 py-2 rounded-full font-bold text-lg hover:opacity-90 transition-opacity">View Cart</a></div></div>
+    
+    <div id="filter-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div id="filter-modal-content" class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 transform scale-95 transition-transform">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h2 class="text-xl font-bold">Filters</h2>
+                <button id="close-filter-btn" class="text-2xl text-gray-500 hover:text-gray-800">&times;</button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="font-semibold">Sort By</label>
+                    <select id="sort-filter" class="w-full mt-2 p-2 border rounded-lg">
+                        <option value="default">Default</option>
+                        <option value="price-asc">Price: Low to High</option>
+                        <option value="price-desc">Price: High to Low</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-6 flex gap-3">
+                <button id="reset-filter-btn" class="w-full py-2 px-4 bg-gray-200 rounded-lg font-semibold">Reset</button>
+                <button id="apply-filter-btn" class="w-full py-2 px-4 bg-red-600 text-white rounded-lg font-semibold">Apply</button>
+            </div>
+        </div>
+    </div>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script><script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script><script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script><script src="firebase.js"></script><script src="lang.js"></script><script src="menu.js"></script>
 </body>

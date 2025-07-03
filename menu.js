@@ -12,15 +12,15 @@ let currentIndex = 0;
 let slides = [];
 let dots = [];
 
-// --- NEW: Category Icon Mapping ---
-const categoryIcons = {
-    "Pair Deals": "fa-handshake",
-    "Pizzas": "fa-pizza-slice",
-    "Specialties": "fa-star",
-    "Sides": "fa-hotdog",
-    "Desserts": "fa-ice-cream",
-    "Drinks": "fa-cocktail",
-    "Promotions": "fa-tags"
+// --- UPDATED: Category Emoji Mapping ---
+const categoryEmojis = {
+    "Pair Deals": "🤝",
+    "Pizzas": "🍕",
+    "Specialties": "⭐",
+    "Sides": "🍟",
+    "Desserts": "🍰",
+    "Drinks": "🥤",
+    "Promotions": "🔥"
 };
 
 function escapeHTML(str) {
@@ -184,23 +184,19 @@ function renderFullMenu() {
 
 /**
  * ---- UPDATED FUNCTION ----
- * Renders category tabs with icons and a leading filter icon.
+ * Renders category tabs with emojis and a leading filter icon.
  */
 function renderCategoriesTabs() {
     const tabsContainer = document.getElementById('category-tabs');
     if (!tabsContainer) return;
     tabsContainer.innerHTML = '';
     if (!menuDataCache) return;
-
-    // Add a static filter icon tab at the beginning
-    const filterTab = document.createElement('a');
-    filterTab.href = "#";
+    
+    // Add the special filter button
+    const filterTab = document.createElement('button');
+    filterTab.id = 'open-filter-modal-btn';
     filterTab.className = 'category-tab-special flex-shrink-0 flex items-center justify-center';
     filterTab.innerHTML = `<i class="fas fa-sliders-h text-lg"></i>`;
-    filterTab.onclick = (e) => {
-        e.preventDefault();
-        alert("Filter functionality coming soon!");
-    };
     tabsContainer.appendChild(filterTab);
 
     Object.entries(menuDataCache).forEach(([categoryId, categoryData]) => {
@@ -209,9 +205,9 @@ function renderCategoriesTabs() {
         tab.className = 'category-tab px-4 py-2 text-sm font-semibold whitespace-nowrap flex items-center gap-2';
         
         const categoryName = escapeHTML(categoryData.category);
-        const iconClass = categoryIcons[categoryName] || 'fa-question-circle'; // Default icon
+        const emoji = categoryEmojis[categoryName] || '🍽️'; // Default emoji
         
-        tab.innerHTML = `<i class="fas ${iconClass} w-4 text-center"></i> <span>${categoryName}</span>`;
+        tab.innerHTML = `<span>${emoji}</span> <span>${categoryName}</span>`;
         tab.onclick = (e) => { e.preventDefault(); window.menuFunctions.scrollToCategory(categoryId); };
         tabsContainer.appendChild(tab);
     });
@@ -416,6 +412,9 @@ function initializeApp() {
     const drawerOverlay = document.getElementById('drawer-overlay');
     const logoutBtn = document.getElementById('logout-btn');
     const searchBar = document.getElementById('search-bar');
+    const filterBtn = document.getElementById('filter-btn');
+    const filterModal = document.getElementById('filter-modal');
+    const closeFilterBtn = document.getElementById('close-filter-btn');
     
     if (openDrawerBtn) openDrawerBtn.addEventListener('click', () => { drawerMenu.classList.add('open'); drawerOverlay.classList.remove('hidden'); });
     if (closeDrawerBtn) closeDrawerBtn.addEventListener('click', () => { drawerMenu.classList.remove('open'); drawerOverlay.classList.add('hidden'); });
@@ -423,6 +422,9 @@ function initializeApp() {
     if (logoutBtn) logoutBtn.addEventListener('click', () => { authInstance.signOut().then(() => { localStorage.clear(); window.location.href = 'auth.html'; }); });
     if (searchBar) searchBar.addEventListener('input', filterMenu);
     
+    if(filterBtn) filterBtn.addEventListener('click', () => filterModal.classList.remove('hidden'));
+    if(closeFilterBtn) closeFilterBtn.addEventListener('click', () => filterModal.classList.add('hidden'));
+
     window.addEventListener('scroll', updateActiveTabOnScroll, { passive: true });
 }
 
