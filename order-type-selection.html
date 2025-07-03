@@ -14,42 +14,67 @@
     <style>
         body {
             touch-action: manipulation;
+            background-image: url('https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=2070&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
         }
         .option-card {
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.3s, box-shadow 0.3s, background-color 0.3s;
+            backdrop-filter: blur(10px);
+            background-color: rgba(255, 255, 255, 0.8);
         }
         .option-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            background-color: rgba(255, 255, 255, 0.95);
+        }
+        .option-card .icon-container {
+            transition: transform 0.3s;
+        }
+        .option-card:hover .icon-container {
+            transform: rotate(-15deg);
+        }
+        .animate-slide-in {
+            animation: slide-in 0.5s ease-out forwards;
+        }
+        @keyframes slide-in {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
 <body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
 
     <div class="w-full max-w-md mx-auto">
-        <div class="text-center mb-8">
-            <img src="https://www.pizzahut.ma/images/logo-text.svg" alt="Pizza Hut Logo" class="mx-auto mb-4 w-48">
-            <h1 class="text-3xl font-extrabold text-gray-800" data-translate="order_type_selection_title">How will you get your order?</h1>
-            <p class="text-gray-500 mt-2" data-translate="order_type_selection_subtitle">Choose one of the options below to start.</p>
+        <div class="text-center mb-12 animate-slide-in" style="animation-delay: 0.1s;">
+            <img src="https://www.pizzahut.ma/images/logo-text.svg" alt="Pizza Hut Logo" class="mx-auto mb-4 w-56">
+            <h1 class="text-4xl font-extrabold text-white" data-translate="order_type_selection_title">How will you get your order?</h1>
+            <p class="text-gray-200 mt-2 text-lg" data-translate="order_type_selection_subtitle">Choose one of the options below to start.</p>
         </div>
 
-        <div class="space-y-4">
-            <div id="pickup-option" data-type="pickup" class="option-card bg-white p-6 rounded-xl shadow-lg flex items-center space-x-6 cursor-pointer">
-                <div class="bg-yellow-100 text-yellow-600 rounded-full p-4">
+        <div class="space-y-6">
+            <div id="pickup-option" data-type="pickup" class="option-card p-6 rounded-2xl shadow-lg flex items-center space-x-6 cursor-pointer animate-slide-in" style="animation-delay: 0.3s;">
+                <div class="icon-container bg-yellow-100 text-yellow-600 rounded-full p-4">
                     <i class="fas fa-shopping-bag fa-2x"></i>
                 </div>
                 <div>
-                    <h2 class="text-xl font-bold text-gray-800" data-translate="order_type_to_go">Self Pick Up</h2>
+                    <h2 class="text-2xl font-bold text-gray-800" data-translate="order_type_to_go">Self Pick Up</h2>
                     <p class="text-gray-600" data-translate="order_type_to_go_desc">Collect your order from the store.</p>
                 </div>
             </div>
 
-            <div id="delivery-option" data-type="delivery" class="option-card bg-white p-6 rounded-xl shadow-lg flex items-center space-x-6 cursor-pointer">
-                <div class="bg-green-100 text-green-600 rounded-full p-4">
+            <div id="delivery-option" data-type="delivery" class="option-card p-6 rounded-2xl shadow-lg flex items-center space-x-6 cursor-pointer animate-slide-in" style="animation-delay: 0.5s;">
+                <div class="icon-container bg-green-100 text-green-600 rounded-full p-4">
                     <i class="fas fa-motorcycle fa-2x"></i>
                 </div>
                 <div>
-                    <h2 class="text-xl font-bold text-gray-800" data-translate="order_type_delivery">Delivery</h2>
+                    <h2 class="text-2xl font-bold text-gray-800" data-translate="order_type_delivery">Delivery</h2>
                     <p class="text-gray-600" data-translate="order_type_delivery_desc">Get your order delivered to your door.</p>
                 </div>
             </div>
