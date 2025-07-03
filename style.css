@@ -1259,6 +1259,11 @@ video {
   border-style: none;
 }
 
+.border-brand-yellow {
+  --tw-border-opacity: 1;
+  border-color: rgb(255 199 44 / var(--tw-border-opacity, 1));
+}
+
 .border-gray-100 {
   --tw-border-opacity: 1;
   border-color: rgb(243 244 246 / var(--tw-border-opacity, 1));
@@ -1301,11 +1306,6 @@ video {
 
 .border-transparent {
   border-color: transparent;
-}
-
-.border-brand-yellow {
-  --tw-border-opacity: 1;
-  border-color: rgb(255 199 44 / var(--tw-border-opacity, 1));
 }
 
 .bg-black {

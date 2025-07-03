@@ -62,19 +62,29 @@ async function loadFavorites(user) {
 
 function createMenuItemCard(item, categoryId, itemId) {
     const card = document.createElement('div');
-    // Start with base classes
     card.className = 'menu-item-card';
     card.id = `item-card-${itemId}`;
     card.dataset.categoryId = categoryId;
-    
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
-    const totalQuantityInCart = cart.filter(ci => ci.id === itemId).reduce((sum, ci) => sum + ci.quantity, 0);
+    
+    // Standard item quantity
+    const standardItemInCart = cart.find(ci => ci.cartItemId === `${itemId}-standard`);
+    const standardQuantity = standardItemInCart ? standardItemInCart.quantity : 0;
+
+    // Customized item quantity
+    const customizedItems = cart.filter(ci => ci.id === itemId && ci.cartItemId !== `${itemId}-standard`);
+    const customizedQuantity = customizedItems.reduce((sum, item) => sum + item.quantity, 0);
+
     const isFavorite = favorites.includes(itemId);
     
-    // **NEW**: Check if item is in cart and add Tailwind classes if it is
-    if (totalQuantityInCart > 0) {
+    if (standardQuantity > 0 || customizedQuantity > 0) {
         card.classList.add('border-2', 'border-brand-yellow', 'shadow-lg');
     }
+
+    // New indicator for customized items
+    const customizedIndicator = customizedQuantity > 0
+        ? `<div class="text-xs text-center text-red-600 font-semibold mt-1">+${customizedQuantity} customized in cart</div>`
+        : '';
 
     card.innerHTML = `
         <div class="item-content-left flex flex-col">
@@ -92,15 +102,15 @@ function createMenuItemCard(item, categoryId, itemId) {
             <img src="${escapeHTML(item.image_url || 'https://www.pizzahut.ma/images/Default_pizza.png')}" alt="${escapeHTML(item.name || 'Pizza')}">
             <div class="quantity-controls flex items-center gap-3 mt-2">
                 <button class="quantity-btn" onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', -1, this)">-</button>
-                <span class="font-bold text-lg w-8 text-center">${totalQuantityInCart}</span>
+                <span class="font-bold text-lg w-8 text-center">${standardQuantity}</span>
                 <button class="quantity-btn" onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', 1, this)">+</button>
             </div>
+            ${customizedIndicator}
         </div>
     `;
     return card;
 }
 
-// ... (renderFullMenu, renderCategoriesTabs, and slideshow functions remain the same) ...
 function renderFullMenu() {
     const menuContainer = document.getElementById("menu-container");
     const loadingPlaceholder = document.getElementById("loading-placeholder");
@@ -232,23 +242,29 @@ window.menuFunctions = {
         const categoryId = card.dataset.categoryId;
         const itemData = menuDataCache[categoryId]?.items?.[itemId];
         if (!itemData) return;
-        let standardItemInCart = cart.find(i => i.id === itemId && !i.options);
+        
+        let standardItemInCart = cart.find(i => i.cartItemId === `${itemId}-standard`);
+
         if (change > 0) {
-            if (standardItemInCart) standardItemInCart.quantity++;
-            else cart.push({ cartItemId: itemId + '-standard', id: itemId, name: itemData.name, price: itemData.price, quantity: 1, categoryId: categoryId, image_url: itemData.image_url });
+            if (standardItemInCart) {
+                standardItemInCart.quantity++;
+            } else {
+                cart.push({ cartItemId: `${itemId}-standard`, id: itemId, name: itemData.name, price: itemData.price, quantity: 1, categoryId: categoryId, image_url: itemData.image_url, options: [] });
+            }
         } else if (standardItemInCart) {
             standardItemInCart.quantity--;
-            if (standardItemInCart.quantity <= 0) cart = cart.filter(i => i.cartItemId !== standardItemInCart.cartItemId);
+            if (standardItemInCart.quantity <= 0) {
+                cart = cart.filter(i => i.cartItemId !== `${itemId}-standard`);
+            }
         }
+
         localStorage.setItem("cart", JSON.stringify(cart));
         updateCartUI();
-        const totalQuantity = cart.filter(i => i.id === itemId).reduce((sum, i) => sum + i.quantity, 0);
-        card.querySelector('.quantity-controls span').textContent = totalQuantity;
-        
-        // **NEW**: Toggle the highlighting classes based on quantity
-        card.classList.toggle('border-2', totalQuantity > 0);
-        card.classList.toggle('border-brand-yellow', totalQuantity > 0);
-        card.classList.toggle('shadow-lg', totalQuantity > 0);
+
+        // Re-render the specific card that was changed
+        const newCard = createMenuItemCard(itemData, categoryId, itemId);
+        card.parentNode.replaceChild(newCard, card);
+        newCard.classList.add('visible'); // Make sure it's visible after re-render
     },
     navigateToItemDetails: (categoryId, itemId) => window.location.href = `item-details.html?categoryId=${categoryId}&itemId=${itemId}`,
     scrollToCategory: (categoryId) => {
@@ -256,8 +272,6 @@ window.menuFunctions = {
         if (section) window.scrollTo({ top: section.offsetTop - 140, behavior: 'smooth' });
     }
 };
-
-// ... (The rest of the file remains the same) ...
 
 function filterMenu() {
     const searchBar = document.getElementById("search-bar");

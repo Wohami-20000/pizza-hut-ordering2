@@ -37,10 +37,24 @@
         <h1 id="item-name" class="text-3xl font-extrabold text-gray-800 mb-2">Item Name</h1>
         <p id="item-short-desc" class="text-gray-600 mb-5 text-base">Short item description.</p>
         <div class="mb-6 pb-6 border-b border-gray-200"><span id="item-price" class="text-4xl font-bold text-red-600">0.00 MAD</span></div>
-        
+
         <div id="long-desc-section" class="detail-section">
             <h2 class="text-xl font-semibold text-gray-700 mb-3">Details</h2>
             <p id="item-long-desc" class="text-base text-gray-700 leading-relaxed"></p>
+        </div>
+        
+        <div id="customization-section" class="detail-section">
+            <h2 class="text-xl font-semibold text-gray-700 mb-3">Customize Your Pizza</h2>
+            <div class="space-y-2">
+                <label class="flex items-center">
+                    <input type="checkbox" name="extra-topping" value="pepperoni" data-price="10" class="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500">
+                    <span class="ml-2 text-gray-700">Extra Pepperoni (+10.00 MAD)</span>
+                </label>
+                <label class="flex items-center">
+                    <input type="checkbox" name="extra-topping" value="cheese" data-price="12" class="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500">
+                    <span class="ml-2 text-gray-700">Extra Cheese (+12.00 MAD)</span>
+                </label>
+            </div>
         </div>
 
         <div class="detail-section flex items-center justify-between">
@@ -65,153 +79,7 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="firebase.js"></script>
   <script>
-    const db = firebase.database();
-    let currentItemData = null;
-    let quantity = 1; // Initial quantity
-
-    const loadingStateDiv = document.getElementById('loading-state');
-    const itemContentArticle = document.getElementById('item-content');
-    const errorStateDiv = document.getElementById('error-state');
-    const itemImageWrapper = document.getElementById('item-image-wrapper');
-    const itemNameH1 = document.getElementById('item-name');
-    const itemShortDescP = document.getElementById('item-short-desc');
-    const itemLongDescP = document.getElementById('item-long-desc');
-    const longDescSection = document.getElementById('long-desc-section');
-    const itemPriceSpan = document.getElementById('item-price');
-    const addToCartBtn = document.getElementById('add-to-cart-details-btn');
-    const cartCountSpan = document.getElementById('cart-count');
-    const decreaseQtyBtn = document.getElementById('decrease-qty-btn');
-    const increaseQtyBtn = document.getElementById('increase-qty-btn');
-    const quantitySpan = document.getElementById('item-quantity');
-
-    function escapeHTML(str) {
-      if (typeof str !== 'string') return str;
-      return str.replace(/[&<>"']/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': "&quot;", "'": '&#39;' }[match]));
-    }
-
-    function updateCartCount() {
-        const cart = JSON.parse(localStorage.getItem("cart")) || [];
-        if (cartCountSpan) cartCountSpan.textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
-    }
-
-    function displayItemDetails(itemData) {
-        currentItemData = itemData;
-        const itemName = itemData.name || 'Item';
-        const itemPrice = typeof itemData.price === 'number' ? itemData.price : 0;
-        
-        document.title = `${escapeHTML(itemName)} - Pizza Hut`;
-        itemImageWrapper.innerHTML = `<img src="${escapeHTML(itemData.imageURL || itemData.image_url || '')}" alt="${escapeHTML(itemName)}" class="w-full h-full object-contain p-4">`;
-        itemNameH1.textContent = escapeHTML(itemName);
-        itemShortDescP.textContent = escapeHTML(itemData.description || itemData.shortDesc || '');
-        
-        // Show long description if it exists
-        if (itemData.longDesc) {
-            itemLongDescP.textContent = escapeHTML(itemData.longDesc);
-            longDescSection.style.display = 'block';
-        } else {
-            longDescSection.style.display = 'none';
-        }
-
-        itemPriceSpan.textContent = `${itemPrice.toFixed(2)} MAD`;
-        loadingStateDiv.style.display = 'none';
-        itemContentArticle.style.display = 'block';
-    }
-
-    function showError() {
-        loadingStateDiv.style.display = 'none';
-        errorStateDiv.style.display = 'block';
-    }
-
-    // --- Add to Cart & Quantity Logic ---
-    function updateQuantityDisplay() {
-        quantitySpan.textContent = quantity;
-        decreaseQtyBtn.disabled = quantity <= 1;
-    }
-
-    increaseQtyBtn.addEventListener('click', () => {
-        quantity++;
-        updateQuantityDisplay();
-    });
-
-    decreaseQtyBtn.addEventListener('click', () => {
-        if (quantity > 1) {
-            quantity--;
-            updateQuantityDisplay();
-        }
-    });
-    
-    addToCartBtn.addEventListener('click', () => {
-        if (!currentItemData) return;
-        let cart = JSON.parse(localStorage.getItem("cart")) || [];
-        
-        // Check if a standard version of this item is already in the cart
-        let existingItem = cart.find(item => item.id === currentItemData.id && !item.options);
-
-        if (existingItem) {
-             existingItem.quantity += quantity;
-        } else {
-             const newItem = {
-                cartItemId: currentItemData.id + '-' + Date.now(), 
-                id: currentItemData.id, 
-                name: currentItemData.name,
-                image: currentItemData.imageURL || currentItemData.image_url,
-                price: currentItemData.price, 
-                quantity: quantity
-            };
-            cart.push(newItem);
-        }
-        
-        localStorage.setItem("cart", JSON.stringify(cart));
-        updateCartCount();
-        
-        // Give feedback and redirect to the menu
-        const btn = document.getElementById('add-to-cart-details-btn');
-        btn.textContent = 'Added! Returning to menu...';
-        btn.disabled = true; // Prevent multiple clicks
-        btn.classList.remove('bg-red-600', 'hover:bg-red-700');
-        btn.classList.add('bg-green-600');
-        
-        // Redirect back to menu after a short delay
-        setTimeout(() => {
-            window.location.href = 'menu.html';
-        }, 1000); // 1-second delay
-    });
-
-    // --- Initialization ---
-    document.addEventListener('DOMContentLoaded', () => {
-        updateCartCount();
-        updateQuantityDisplay();
-        const params = new URLSearchParams(window.location.search);
-        const categoryId = params.get('categoryId');
-        const itemId = params.get('itemId');
-        const offerId = params.get('offerId'); // NEW: Get offerId
-
-        let itemRef;
-
-        if (offerId) {
-            itemRef = db.ref(`offers/${offerId}`);
-        } else if (categoryId && itemId) {
-            itemRef = db.ref(`menu/${categoryId}/items/${itemId}`);
-        } else {
-            showError();
-            return;
-        }
-
-        itemRef.once('value')
-            .then(snapshot => {
-                const itemData = snapshot.val();
-                if (itemData) {
-                    itemData.id = snapshot.key; // Ensure the item has its ID
-                    displayItemDetails(itemData);
-                } else {
-                    showError();
-                }
-            })
-            .catch(error => {
-                console.error("Error fetching item details:", error);
-                showError();
-            });
-    });
+    // The JavaScript for this page will be in a separate block below
   </script>
 </body>
 </html>
