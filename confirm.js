@@ -29,6 +29,8 @@ function displayOrderDetails(orderId, orderData) {
     const itemsList = document.getElementById('items-list');
     const totalsSection = document.getElementById('totals-section');
     const newOrderBtn = document.getElementById('new-order-btn');
+    const feedbackCtaSection = document.getElementById('feedback-cta-section');
+    const leaveFeedbackBtn = document.getElementById('leave-feedback-btn');
 
     detailsContainer.innerHTML = `<p><strong>Order ID:</strong> #${orderData.orderId}</p><p><strong>Daily Number:</strong> ${orderData.orderNumber}</p>`;
     itemsList.innerHTML = '';
@@ -72,6 +74,18 @@ function displayOrderDetails(orderId, orderData) {
         updateStatusTracker(orderData.status);
     }
 
+    // --- NEW FEEDBACK CTA LOGIC ---
+    const canBeRated = ['delivered', 'completed'].includes(orderData.status);
+    const hasBeenRated = orderData.rated === true || orderData.feedback;
+
+    if (canBeRated && !hasBeenRated) {
+        leaveFeedbackBtn.href = `feedback.html?orderId=${orderId}`;
+        feedbackCtaSection.classList.remove('hidden');
+    } else {
+        feedbackCtaSection.classList.add('hidden');
+    }
+    // --- END OF NEW LOGIC ---
+
     if (newOrderBtn) {
         if (orderData.orderType === 'dineIn') {
             newOrderBtn.href = 'menu.html';
@@ -94,7 +108,6 @@ function showError(message) {
     errorDiv.style.display = 'block';
 }
 
-// --- NEW FUNCTION TO HANDLE PDF SAVING ---
 function setupPdfButton(orderId) {
     const btn = document.getElementById('save-pdf-btn');
     if (!btn) return;
@@ -158,7 +171,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (canView) {
                 displayOrderDetails(orderId, orderData);
-                // Ensure the PDF button listener is only set up once.
                 if (!document.getElementById('save-pdf-btn')._isSetup) {
                     setupPdfButton(orderId);
                     document.getElementById('save-pdf-btn')._isSetup = true;

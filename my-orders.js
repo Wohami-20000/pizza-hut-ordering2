@@ -42,7 +42,8 @@ const createOrderCard = (orderId, orderData) => {
 
     let actionButton = '';
     if (canBeRated && !hasBeenRated) {
-        actionButton = `<button aria-label="Rate this order" onclick="rateOrder('${orderId}')" class="reorder-btn bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded transition"><i class="fas fa-star mr-2"></i>Rate Order</button>`;
+        // --- UPDATED BUTTON STYLE ---
+        actionButton = `<button aria-label="Leave Feedback for this order" onclick="rateOrder('${orderId}')" class="feedback-btn bg-brand-yellow hover:opacity-90 text-brand-dark font-bold py-2 px-4 rounded-lg shadow-sm transition-all transform hover:scale-105"><i class="fas fa-comment-dots mr-2"></i>Leave Feedback</button>`;
     } else if (hasBeenRated) {
         actionButton = `<span class="text-sm text-green-600 font-semibold"><i class="fas fa-check-circle mr-2"></i>Feedback Submitted</span>`;
     } else if (isPastOrder) {
