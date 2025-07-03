@@ -12,6 +12,17 @@ let currentIndex = 0;
 let slides = [];
 let dots = [];
 
+// --- NEW: Category Icon Mapping ---
+const categoryIcons = {
+    "Pair Deals": "fa-handshake",
+    "Pizzas": "fa-pizza-slice",
+    "Specialties": "fa-star",
+    "Sides": "fa-hotdog",
+    "Desserts": "fa-ice-cream",
+    "Drinks": "fa-cocktail",
+    "Promotions": "fa-tags"
+};
+
 function escapeHTML(str) {
   if (typeof str !== 'string') return str;
   return str.replace(/[&<>"']/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': "&quot;", "'": '&#39;' }[match]));
@@ -60,10 +71,6 @@ async function loadFavorites(user) {
     renderFullMenu();
 }
 
-/**
- * ---- UPDATED FUNCTION ----
- * Features an improved, more visible "Customize" button.
- */
 function createMenuItemCard(item, categoryId, itemId) {
     const card = document.createElement('div');
     card.className = 'menu-item-card';
@@ -175,21 +182,46 @@ function renderFullMenu() {
 }
 
 
+/**
+ * ---- UPDATED FUNCTION ----
+ * Renders category tabs with icons and a leading filter icon.
+ */
 function renderCategoriesTabs() {
     const tabsContainer = document.getElementById('category-tabs');
     if (!tabsContainer) return;
     tabsContainer.innerHTML = '';
     if (!menuDataCache) return;
+
+    // Add a static filter icon tab at the beginning
+    const filterTab = document.createElement('a');
+    filterTab.href = "#";
+    filterTab.className = 'category-tab-special flex-shrink-0 flex items-center justify-center';
+    filterTab.innerHTML = `<i class="fas fa-sliders-h text-lg"></i>`;
+    filterTab.onclick = (e) => {
+        e.preventDefault();
+        alert("Filter functionality coming soon!");
+    };
+    tabsContainer.appendChild(filterTab);
+
     Object.entries(menuDataCache).forEach(([categoryId, categoryData]) => {
         const tab = document.createElement('a');
         tab.href = `#category-section-${categoryId}`;
-        tab.className = 'category-tab px-5 py-2 text-sm font-semibold whitespace-nowrap';
-        tab.textContent = escapeHTML(categoryData.category);
+        tab.className = 'category-tab px-4 py-2 text-sm font-semibold whitespace-nowrap flex items-center gap-2';
+        
+        const categoryName = escapeHTML(categoryData.category);
+        const iconClass = categoryIcons[categoryName] || 'fa-question-circle'; // Default icon
+        
+        tab.innerHTML = `<i class="fas ${iconClass} w-4 text-center"></i> <span>${categoryName}</span>`;
         tab.onclick = (e) => { e.preventDefault(); window.menuFunctions.scrollToCategory(categoryId); };
         tabsContainer.appendChild(tab);
     });
-    if (tabsContainer.firstElementChild) tabsContainer.firstElementChild.classList.add('active-tab');
+    
+    const firstCategoryTab = tabsContainer.querySelector('.category-tab');
+    if (firstCategoryTab) {
+        firstCategoryTab.classList.add('active-tab');
+    }
 }
+
 
 function showSlide(index) {
     const slidesWrapper = document.getElementById('slides-wrapper');

@@ -27,9 +27,31 @@
         #category-tabs-container { position: sticky; top: 132px; z-index: 20; background-color: #F9FAFB; padding: 0.75rem 0; }
         #category-tabs { -ms-overflow-style: none; scrollbar-width: none; }
         #category-tabs::-webkit-scrollbar { display: none; }
-        .category-tab { transition: all 0.2s; border-radius: 9999px; border: 1px solid var(--brand-red); background-color: white; color: var(--brand-red); }
-        .category-tab:hover { background-color: #FEF2F2; }
-        .category-tab.active-tab { background-color: var(--brand-red); color: white; }
+
+        /* --- NEW CATEGORY TAB STYLES --- */
+        .category-tab, .category-tab-special {
+            transition: all 0.2s ease-in-out;
+            border-radius: 0.75rem;
+            background-color: white;
+            color: #4B5563; /* gray-600 */
+            border: 1px solid #E5E7EB; /* gray-200 */
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            padding: 0.5rem 1rem;
+        }
+        .category-tab:hover, .category-tab-special:hover {
+            border-color: #D1D5DB; /* gray-300 */
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transform: translateY(-1px);
+        }
+        .category-tab.active-tab {
+            background-color: var(--brand-dark);
+            color: white;
+            border-color: var(--brand-dark);
+        }
+        .category-tab-special {
+            padding: 0.5rem 0.75rem;
+        }
+        /* --- END OF NEW STYLES --- */
 
         .menu-item-card {
             display: flex;
@@ -134,7 +156,17 @@
         </nav>
     </div>
     
-    <div id="search-container" class="bg-white p-3 border-b initial-hidden animate-fadeInUp" style="animation-delay: 100ms;"><div class="relative"><span class="absolute inset-y-0 left-0 flex items-center pl-4"><i class="fas fa-search text-gray-400"></i></span><input type="search" id="search-bar" class="w-full pl-12 pr-4 py-3 border-none bg-gray-100 rounded-full focus:ring-2 focus:ring-red-500" placeholder="Search for your favorite pizza..."></div></div>
+    <div id="search-container" class="bg-white p-3 border-b flex items-center gap-3 initial-hidden animate-fadeInUp" style="animation-delay: 100ms;">
+        <div class="relative flex-grow">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-4">
+                <i class="fas fa-search text-gray-400"></i>
+            </span>
+            <input type="search" id="search-bar" class="w-full pl-12 pr-4 py-3 border-none bg-gray-100 rounded-full focus:ring-2 focus:ring-red-500" placeholder="Search for your favorite pizza...">
+        </div>
+        <button id="filter-btn" class="flex-shrink-0 p-3 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
+            <i class="fas fa-sliders-h text-gray-600 text-lg"></i>
+        </button>
+    </div>
     
     <div id="offers-slideshow-container" class="relative w-full bg-gray-900 overflow-hidden initial-hidden animate-fadeInUp hidden" style="animation-delay: 200ms;">
         <div id="slides-wrapper" class="flex h-full transition-transform duration-700 ease-in-out"></div>
