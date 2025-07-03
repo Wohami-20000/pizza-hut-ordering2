@@ -1,4 +1,4 @@
-// auth.js - Refactored and Improved Version
+// auth.js - Final Corrected Version
 document.addEventListener('DOMContentLoaded', () => {
     // --- Initialize Firebase Services ---
     const auth = firebase.auth();
@@ -24,7 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
         signupLoginPrompt: document.getElementById('signup-login-prompt'),
         orSeparator: document.getElementById('or-separator'),
         googleBtnText: document.getElementById('google-btn-text'),
-        guestBtnText: document.getElementById('guest-btn-text'), // This will be null, which is fine
         termsLabel: document.getElementById('terms-label'),
         resetModalTitle: document.getElementById('reset-modal-title'),
         resetModalSubtext: document.getElementById('reset-modal-subtext'),
@@ -34,7 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
         loginErrorMessage: document.getElementById('login-error-message'),
         signupErrorMessage: document.getElementById('signup-error-message'),
         googleSigninBtn: document.getElementById('google-signin-btn'),
-        guestContinueBtn: document.getElementById('guest-continue-btn'), // This will be null
         resetErrorMessage: document.getElementById('reset-error-message'),
         resetSuccessMessage: document.getElementById('reset-success-message'),
         signupNameError: document.getElementById('signup-name-error'),
@@ -43,11 +41,11 @@ document.addEventListener('DOMContentLoaded', () => {
         signupPasswordError: document.getElementById('signup-password-error'),
     };
 
-    // --- Translations (Keep this simple for now, can be moved to a separate file later) ---
+    // --- Translations ---
     const translations = {
-        en: { loginTitle: "🍕 Welcome Back!", loginSubtext: "Log in to get your favorites delivered hot & fast.", loginCta: "→ Log In & Order Now", signupTitle: "🎉 Join the Pizza Party!", signupSubtext: "Sign up & get 20% OFF your first order.", signupCta: "→ Create Account", emailPlaceholder: "Email", passwordPlaceholder: "Password", confirmPasswordPlaceholder: "Confirm Password", forgotPassword: "Forgot password?", noAccountPrompt: "Don't have an account?", signupLink: "Sign Up", hasAccountPrompt: "Already have an account?", loginLink: "Login", orSeparator: "OR", googleBtn: "Sign in with Google", terms: 'I agree to the <a href="terms.html" class="text-blue-600 hover:underline">Terms and Conditions</a>.', resetTitle: "Reset Password", resetSubtext: "Enter your email and we'll send a reset link.", sendResetLink: "Send Reset Link", cancel: "Cancel", strength: { weak: "Weak", medium: "Medium", strong: "Strong" }, loadingLogin: "Logging in...", loadingSignup: "Creating Account...", errorInvalidEmail: "Please enter a valid email address.", errorUserNotFound: "No account found with this email.", errorWrongPassword: "Incorrect password. Please try again.", errorWeakPassword: "Password should be at least 6 characters.", errorEmailInUse: "This email address is already in use.", errorPhoneInUse: "This phone number is already in use.", errorGeneric: "An unexpected error occurred. Please try again.", errorFieldRequired: "This field is required." },
-        fr: { loginTitle: "🍕 Content de te revoir !", loginSubtext: "Connecte-toi pour commander ta pizza préférée.", loginCta: "→ Se connecter et commander", signupTitle: "🎉 Rejoins la famille Pizza !", signupSubtext: "Inscris-toi et reçois 20% de réduction.", signupCta: "→ Créer un compte", emailPlaceholder: "Adresse e-mail", passwordPlaceholder: "Mot de passe", confirmPasswordPlaceholder: "Confirmer le mot de passe", forgotPassword: "Mot de passe oublié ?", noAccountPrompt: "Pas encore de compte ?", signupLink: "S'inscrire", hasAccountPrompt: "Déjà un compte ?", loginLink: "Se connecter", orSeparator: "OU", googleBtn: "Se connecter avec Google", terms: 'J\'accepte les <a href="terms.html" class="text-blue-600 hover:underline">Termes et Conditions</a>.', resetTitle: "Réinitialiser le mot de passe", resetSubtext: "Entrez votre email et nous enverrons un lien.", sendResetLink: "Envoyer le lien", cancel: "Annuler", strength: { weak: "Faible", medium: "Moyen", strong: "Fort" }, loadingLogin: "Connexion...", loadingSignup: "Création du compte...", errorInvalidEmail: "Veuillez saisir une adresse e-mail valide.", errorUserNotFound: "Aucun compte trouvé avec cet e-mail.", errorWrongPassword: "Mot de passe incorrect. Veuillez réessayer.", errorWeakPassword: "Le mot de passe doit comporter au moins 6 caractères.", errorEmailInUse: "Cette adresse e-mail est déjà utilisée.", errorPhoneInUse: "Ce numéro de téléphone est déjà utilisé.", errorGeneric: "Une erreur inattendue est survenue. Veuillez réessayer.", errorFieldRequired: "Ce champ est requis." },
-        ar: { loginTitle: "🍕 مرحباً بعودتك!", loginSubtext: "سجّل الدخول واطلب بيتزاك المفضلة الآن.", loginCta: "→ تسجيل الدخول والطلب الآن", signupTitle: "🎉 انضم لعشاق البيتزا!", signupSubtext: "سجّل الآن واحصل على خصم 20٪.", signupCta: "→ إنشاء حساب", emailPlaceholder: "البريد الإلكتروني", passwordPlaceholder: "كلمة المرور", confirmPasswordPlaceholder: "تأكيد كلمة المرور", forgotPassword: "هل نسيت كلمة المرور؟", noAccountPrompt: "ليس لديك حساب؟", signupLink: "إنشاء حساب", hasAccountPrompt: "لديك حساب بالفعل؟", loginLink: "تسجيل الدخول", orSeparator: "أو", googleBtn: "تسجيل الدخول عبر جوجل", terms: 'أوافق على <a href="terms.html" class="text-blue-600 hover:underline">الشروط والأحكام</a>.', resetTitle: "إعادة تعيين كلمة المرور", resetSubtext: "أدخل بريدك الإلكتروني وسنرسل لك رابطًا.", sendResetLink: "إرسال الرابط", cancel: "إلغاء", strength: { weak: "ضعيف", medium: "متوسط", strong: "قوي" }, loadingLogin: "جاري تسجيل الدخول...", loadingSignup: "جاري إنشاء الحساب...", errorInvalidEmail: "يرجى إدخال بريد إلكتروني صالح.", errorUserNotFound: "لم يتم العثور على حساب بهذا البريد الإلكتروني.", errorWrongPassword: "كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.", errorWeakPassword: "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.", errorEmailInUse: "هذا البريد الإلكتروني مستخدم بالفعل.", errorPhoneInUse: "رقم الهاتف هذا مستخدم بالفعل.", errorGeneric: "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.", errorFieldRequired: "هذا الحقل مطلوب." }
+        en: { loginTitle: "🍕 Welcome Back!", loginSubtext: "Log in to get your favorites delivered hot & fast.", loginCta: "→ Log In & Order Now", signupTitle: "🎉 Join the Pizza Party!", signupSubtext: "Sign up & get 20% OFF your first order.", signupCta: "→ Create Account", emailPlaceholder: "Email", passwordPlaceholder: "Password", confirmPasswordPlaceholder: "Confirm Password", forgotPassword: "Forgot password?", noAccountPrompt: "Don't have an account?", signupLink: "Sign Up", hasAccountPrompt: "Already have an account?", loginLink: "Login", orSeparator: "OR", googleBtn: "Sign in with Google", terms: 'I agree to the <a href="terms.html" class="text-blue-600 hover:underline">Terms and Conditions</a>.', resetTitle: "Reset Password", resetSubtext: "Enter your email and we'll send a reset link.", sendResetLink: "Send Reset Link", cancel: "Cancel", strength: { weak: "Weak", medium: "Medium", strong: "Strong" }, loadingLogin: "Logging in...", loadingSignup: "Creating Account...", errorInvalidEmail: "Please enter a valid email address.", errorUserNotFound: "No account found with this email. Please sign up.", errorWrongPassword: "Incorrect password. Please try again.", errorWeakPassword: "Password should be at least 6 characters.", errorEmailInUse: "This email address is already in use.", errorPhoneInUse: "This phone number is already in use.", errorGeneric: "An unexpected error occurred. Please try again.", errorFieldRequired: "This field is required." },
+        fr: { loginTitle: "🍕 Content de te revoir !", loginSubtext: "Connecte-toi pour commander ta pizza préférée.", loginCta: "→ Se connecter et commander", signupTitle: "🎉 Rejoins la famille Pizza !", signupSubtext: "Inscris-toi et reçois 20% de réduction.", signupCta: "→ Créer un compte", emailPlaceholder: "Adresse e-mail", passwordPlaceholder: "Mot de passe", confirmPasswordPlaceholder: "Confirmer le mot de passe", forgotPassword: "Mot de passe oublié ?", noAccountPrompt: "Pas encore de compte ?", signupLink: "S'inscrire", hasAccountPrompt: "Déjà un compte ?", loginLink: "Se connecter", orSeparator: "OU", googleBtn: "Se connecter avec Google", terms: 'J\'accepte les <a href="terms.html" class="text-blue-600 hover:underline">Termes et Conditions</a>.', resetTitle: "Réinitialiser le mot de passe", resetSubtext: "Entrez votre email et nous enverrons un lien.", sendResetLink: "Envoyer le lien", cancel: "Annuler", strength: { weak: "Faible", medium: "Moyen", strong: "Fort" }, loadingLogin: "Connexion...", loadingSignup: "Création du compte...", errorInvalidEmail: "Veuillez saisir une adresse e-mail valide.", errorUserNotFound: "Aucun compte trouvé avec cet e-mail. Veuillez vous inscrire.", errorWrongPassword: "Mot de passe incorrect. Veuillez réessayer.", errorWeakPassword: "Le mot de passe doit comporter au moins 6 caractères.", errorEmailInUse: "Cette adresse e-mail est déjà utilisée.", errorPhoneInUse: "Ce numéro de téléphone est déjà utilisé.", errorGeneric: "Une erreur inattendue est survenue. Veuillez réessayer.", errorFieldRequired: "Ce champ est requis." },
+        ar: { loginTitle: "🍕 مرحباً بعودتك!", loginSubtext: "سجّل الدخول واطلب بيتزاك المفضلة الآن.", loginCta: "→ تسجيل الدخول والطلب الآن", signupTitle: "🎉 انضم لعشاق البيتزا!", signupSubtext: "سجّل الآن واحصل على خصم 20٪.", signupCta: "→ إنشاء حساب", emailPlaceholder: "البريد الإلكتروني", passwordPlaceholder: "كلمة المرور", confirmPasswordPlaceholder: "تأكيد كلمة المرور", forgotPassword: "هل نسيت كلمة المرور؟", noAccountPrompt: "ليس لديك حساب؟", signupLink: "إنشاء حساب", hasAccountPrompt: "لديك حساب بالفعل؟", loginLink: "تسجيل الدخول", orSeparator: "أو", googleBtn: "تسجيل الدخول عبر جوجل", terms: 'أوافق على <a href="terms.html" class="text-blue-600 hover:underline">الشروط والأحكام</a>.', resetTitle: "إعادة تعيين كلمة المرور", resetSubtext: "أدخل بريدك الإلكتروني وسنرسل لك رابطًا.", sendResetLink: "إرسال الرابط", cancel: "إلغاء", strength: { weak: "ضعيف", medium: "متوسط", strong: "قوي" }, loadingLogin: "جاري تسجيل الدخول...", loadingSignup: "جاري إنشاء الحساب...", errorInvalidEmail: "يرجى إدخال بريد إلكتروني صالح.", errorUserNotFound: "لم يتم العثور على حساب بهذا البريد الإلكتروني. الرجاء التسجيل.", errorWrongPassword: "كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.", errorWeakPassword: "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.", errorEmailInUse: "هذا البريد الإلكتروني مستخدم بالفعل.", errorPhoneInUse: "رقم الهاتف هذا مستخدم بالفعل.", errorGeneric: "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.", errorFieldRequired: "هذا الحقل مطلوب." }
     };
 
     // --- UI & Utility Functions ---
@@ -59,13 +57,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const clearErrors = () => {
-        elements.loginErrorMessage.textContent = '';
-        elements.signupErrorMessage.textContent = '';
-        elements.resetErrorMessage.textContent = '';
-        elements.signupNameError.textContent = '';
-        elements.signupEmailError.textContent = '';
-        elements.signupPhoneError.textContent = '';
-        elements.signupPasswordError.textContent = '';
+        Object.values(elements).forEach(el => {
+            if (el && el.classList && el.classList.contains('error-message')) {
+                el.textContent = '';
+            }
+        });
     };
 
     const setLoading = (button, isLoading, loadingTextKey) => {
@@ -91,17 +87,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.documentElement.lang = lang;
         document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
 
-        Object.keys(elements).forEach(key => {
-            if (elements[key] && elements[key].id) {
-                const element = elements[key];
-                const translationKey = element.id.replace(/-/g, '_');
+        // Set text content for elements with matching keys in translations
+        for (const key in elements) {
+            if (elements[key]) {
+                const translationKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
                 if (t[translationKey]) {
-                    element.textContent = t[translationKey];
+                    elements[key].textContent = t[translationKey];
                 }
             }
-        });
-
-        // Handle specific elements
+        }
+        
+        // Handle specific elements and placeholders
         elements.authTitle.textContent = t.loginTitle;
         elements.authSubtext.textContent = t.loginSubtext;
         elements.loginCtaBtn.querySelector('.btn-text').textContent = t.loginCta;
@@ -166,7 +162,6 @@ document.addEventListener('DOMContentLoaded', () => {
             this.attachShadow({ mode: 'open' });
             this.shadowRoot.innerHTML = `
                 <style>
-                    /* ... (All the styles from your original auth.js file) ... */
                     .password-group { display: flex; flex-direction: column; gap: 1rem; }
                     .password-wrapper { position: relative; }
                     input { box-sizing: border-box; width: 100%; padding: 0.75rem; padding-right: 2.5rem; border-radius: 0.5rem; transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out; background-color: #f3f4f6; border: 1px solid #d1d5db; color: #231F20; }
@@ -256,6 +251,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const phoneInput = document.querySelector("#signup-phone");
     const iti = window.intlTelInput(phoneInput, {
         utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js",
+        initialCountry: "auto",
+        geoIpLookup: callback => {
+            fetch("https://ipapi.co/json")
+                .then(res => res.json())
+                .then(data => callback(data.country_code))
+                .catch(() => callback("us"));
+        },
     });
 
     // --- Core Authentication Logic ---
@@ -282,8 +284,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const handleAuthError = (error, form) => {
-        console.log("Firebase Auth Error:", error); // <-- Add this line
+        let errorElement = form === 'login' ? elements.loginErrorMessage : elements.signupErrorMessage;
         let errorMessageKey = 'errorGeneric';
+
         switch (error.code) {
             case 'auth/user-not-found':
             case 'auth/invalid-credential':
@@ -293,16 +296,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 errorMessageKey = 'errorWrongPassword';
                 break;
             case 'auth/invalid-email':
+                errorElement = form === 'login' ? elements.loginEmailError : elements.signupEmailError;
                 errorMessageKey = 'errorInvalidEmail';
                 break;
             case 'auth/weak-password':
+                errorElement = elements.signupPasswordError;
                 errorMessageKey = 'errorWeakPassword';
                 break;
             case 'auth/email-already-in-use':
+                errorElement = elements.signupEmailError;
                 errorMessageKey = 'errorEmailInUse';
                 break;
         }
-        displayError(form === 'login' ? elements.loginErrorMessage : elements.signupErrorMessage, errorMessageKey);
+        displayError(errorElement, errorMessageKey);
     };
 
     // --- Event Listeners ---
@@ -331,58 +337,59 @@ document.addEventListener('DOMContentLoaded', () => {
         const phone = iti.getNumber();
         const passwordInputComponent = elements.signupForm.querySelector('password-input');
 
+        let isValid = true;
         if (!name) {
             displayError(elements.signupNameError, 'errorFieldRequired');
-            return;
+            isValid = false;
         }
         if (!email) {
             displayError(elements.signupEmailError, 'errorFieldRequired');
-            return;
+            isValid = false;
         }
         if (!phone) {
             displayError(elements.signupPhoneError, 'errorFieldRequired');
-            return;
+            isValid = false;
         }
         if (!passwordInputComponent.password) {
             displayError(elements.signupPasswordError, 'errorFieldRequired');
-            return;
+            isValid = false;
         }
         if (!passwordInputComponent.checkValidity()) {
             displayError(elements.signupPasswordError, 'Passwords do not match or are invalid.');
-            return;
+            isValid = false;
         }
-        if (!iti.isValidNumber()) {
+        if (phone && !iti.isValidNumber()) {
             displayError(elements.signupPhoneError, 'Invalid phone number for the selected country.');
-            return;
+            isValid = false;
         }
         if (!document.getElementById('terms-checkbox').checked) {
             displayError(elements.signupErrorMessage, 'You must agree to the terms and conditions.');
-            return;
+            isValid = false;
         }
+
+        if (!isValid) return;
         
         setLoading(elements.signupCtaBtn, true, 'loadingSignup');
 
-        // Check if email or phone already exist
         try {
-            const emailExists = await db.ref('users').orderByChild('email').equalTo(email).once('value');
-            if (emailExists.exists()) {
-                displayError(elements.signupEmailError, 'errorEmailInUse');
-                setLoading(elements.signupCtaBtn, false);
-                return;
-            }
+            // First, try to create the user with Firebase Auth. This will catch email-in-use errors.
+            const userCredential = await auth.createUserWithEmailAndPassword(email, passwordInputComponent.password);
+            const user = userCredential.user;
 
+            // Now, check for phone number uniqueness in the database.
             const phoneExists = await db.ref('users').orderByChild('phone').equalTo(phone).once('value');
             if (phoneExists.exists()) {
+                // If phone exists, delete the just-created auth user and show error.
+                await user.delete();
                 displayError(elements.signupPhoneError, 'errorPhoneInUse');
                 setLoading(elements.signupCtaBtn, false);
                 return;
             }
 
-            const userCredential = await auth.createUserWithEmailAndPassword(email, passwordInputComponent.password);
+            // If everything is fine, proceed to save user data and send verification email.
+            await user.sendEmailVerification();
 
-            await userCredential.user.sendEmailVerification();
-
-            await db.ref('users/' + userCredential.user.uid).set({
+            await db.ref('users/' + user.uid).set({
                 email: email,
                 name: name,
                 phone: phone,
@@ -391,7 +398,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             alert("A verification email has been sent to your address. Please verify your email to get full access.");
 
-            handleSuccessfulLogin(userCredential.user);
+            handleSuccessfulLogin(user);
+
         } catch (error) {
             handleAuthError(error, 'signup');
         } finally {
