@@ -257,8 +257,8 @@ const renderAddresses = () => {
                     <p class="text-sm text-gray-500">${address.phone}</p>
                 </div>
                 <div>
-                    <button class="edit-address-btn text-blue-500 hover:text-blue-700 p-2" data-id="${addressId}"><i class="fas fa-edit"></i></button>
-                    <button class="remove-address-btn text-red-500 hover:text-red-700 p-2" data-id="${addressId}"><i class="fas fa-trash"></i></button>
+                    <button class="edit-address-btn text-blue-500 hover:text-blue-700 p-2" data-id="${addressId}" aria-label="Edit address ${escapeHTML(address.label)}"><i class="fas fa-edit"></i></button>
+                    <button class="remove-address-btn text-red-500 hover:text-red-700 p-2" data-id="${addressId}" aria-label="Remove address ${escapeHTML(address.label)}"><i class="fas fa-trash"></i></button>
                 </div>
             `;
             addressesList.appendChild(addressCard);
@@ -320,8 +320,8 @@ const saveAddress = async (e) => {
         phone: elements.addressPhoneInput.value,
     };
 
-    const addressRef = addressId 
-        ? db.ref(`users/${user.uid}/addresses/${addressId}`) 
+    const addressRef = addressId
+        ? db.ref(`users/${user.uid}/addresses/${addressId}`)
         : db.ref(`users/${user.uid}/addresses`).push();
 
     await addressRef.set(addressData);

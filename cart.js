@@ -223,22 +223,22 @@ function renderCart() {
         <div class="cart-item-price-each">${itemPrice.toFixed(2)} <span class="font-semibold">MAD</span></div>
       </div>
       <div class="cart-item-controls">
-        <button 
-          onclick="window.cartFunctions.changeQuantity(${index}, -1)" 
+        <button
+          onclick="window.cartFunctions.changeQuantity(${index}, -1)"
           class="quantity-btn"
           aria-label="Decrease quantity of ${escapeHTML(item.name)}">
           -
         </button>
         <span class="font-bold text-lg w-6 text-center">${itemQuantity}</span>
-        <button 
-          onclick="window.cartFunctions.changeQuantity(${index}, 1)" 
+        <button
+          onclick="window.cartFunctions.changeQuantity(${index}, 1)"
           class="quantity-btn"
           aria-label="Increase quantity of ${escapeHTML(item.name)}">
           +
         </button>
       </div>
-      <button 
-          onclick="window.cartFunctions.removeItem(${index})" 
+      <button
+          onclick="window.cartFunctions.removeItem(${index})"
           class="remove-item-btn"
           aria-label="Remove ${escapeHTML(item.name)} from cart">
           <i class="fas fa-times-circle text-xl"></i>
