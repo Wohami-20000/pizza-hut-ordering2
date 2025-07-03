@@ -1,4 +1,4 @@
-// auth.js - Refactored and Improved Version
+// auth.js - Final Corrected Version
 document.addEventListener('DOMContentLoaded', () => {
     // --- Initialize Firebase Services ---
     const auth = firebase.auth();
@@ -369,16 +369,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // First, try to create the user with Firebase Auth. This will catch email-in-use errors.
             const userCredential = await auth.createUserWithEmailAndPassword(email, passwordInputComponent.password);
             const user = userCredential.user;
-
-            // Now, check for phone number uniqueness in the database.
-            const phoneExists = await db.ref('users').orderByChild('phone').equalTo(phone).once('value');
-            if (phoneExists.exists()) {
-                // If phone exists, delete the just-created auth user and show error.
-                await user.delete();
-                displayError(elements.signupPhoneError, 'errorPhoneInUse');
-                setLoading(elements.signupCtaBtn, false);
-                return;
-            }
 
             // If everything is fine, proceed to save user data and send verification email.
             await user.sendEmailVerification();
