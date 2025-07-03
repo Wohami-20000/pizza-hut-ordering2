@@ -41,12 +41,20 @@
             transform: translateY(20px);
             transition: opacity 0.4s ease-out, transform 0.4s ease-out, box-shadow 0.2s ease-out;
             position: relative;
+            border: 2px solid transparent; /* Add transparent border for smooth transition */
         }
         .menu-item-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 10px 20px rgba(0,0,0,0.1);
         }
         .menu-item-card.visible { opacity: 1; transform: translateY(0); }
+        
+        /* --- NEW STYLE FOR CHOSEN ITEMS --- */
+        .menu-item-card.chosen-card {
+            border: 2px solid var(--brand-yellow);
+            background-color: #fffbeb; /* Light yellow background */
+        }
+        /* --- END OF NEW STYLE --- */
 
         .fav-icon { color: #D1D5DB; cursor: pointer; transition: all 0.2s; }
         .fav-icon:hover { transform: scale(1.2); }

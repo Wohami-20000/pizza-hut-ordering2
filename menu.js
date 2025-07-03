@@ -62,7 +62,7 @@ async function loadFavorites(user) {
 
 /**
  * ---- UPDATED FUNCTION ----
- * Creates an item card with conditional quantity controls.
+ * Adds a 'chosen-card' class if the item is in the cart.
  */
 function createMenuItemCard(item, categoryId, itemId) {
     const card = document.createElement('div');
@@ -77,6 +77,11 @@ function createMenuItemCard(item, categoryId, itemId) {
     const standardQuantity = standardItemInCart ? standardItemInCart.quantity : 0;
     const customizedItems = cart.filter(ci => ci.id === itemId && ci.cartItemId !== `${itemId}-standard`);
     const customizedQuantity = customizedItems.reduce((sum, item) => sum + item.quantity, 0);
+
+    // Add 'chosen-card' class if item is in the cart
+    if (standardQuantity > 0 || customizedQuantity > 0) {
+        card.classList.add('chosen-card');
+    }
 
     // Determine which controls to show
     let controlsHtml = '';
@@ -255,10 +260,6 @@ function renderOffersSlideshow() {
 }
 
 window.menuFunctions = {
-    /**
-     * ---- UPDATED FUNCTION ----
-     * Handles quantity changes and redraws the card to show correct controls.
-     */
     updateItemQuantity: (itemId, change, buttonElement) => {
         const card = buttonElement.closest('.menu-item-card');
         if (!card) return;
@@ -284,10 +285,9 @@ window.menuFunctions = {
         localStorage.setItem("cart", JSON.stringify(cart));
         updateCartUI();
 
-        // Re-render the specific card that was changed to update its controls
         const newCard = createMenuItemCard(itemData, categoryId, itemId);
         card.parentNode.replaceChild(newCard, card);
-        newCard.classList.add('visible'); // Make sure it's visible after re-render
+        newCard.classList.add('visible');
     },
     navigateToItemDetails: (categoryId, itemId) => window.location.href = `item-details.html?categoryId=${categoryId}&itemId=${itemId}`,
     scrollToCategory: (categoryId) => {
