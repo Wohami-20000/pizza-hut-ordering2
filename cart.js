@@ -43,7 +43,7 @@ function generateShortId() {
  */
 async function getNextOrderNumber() {
     const counterRef = db.ref('dailyCounters/orders');
-    const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0]; // Format:YYYY-MM-DD
 
     try {
         const {

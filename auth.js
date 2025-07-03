@@ -450,12 +450,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- FINAL INITIALIZATION LOGIC ---
+
+    // Check for a 'mode' parameter in the URL to decide which form to show first
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');
+
+    if (mode === 'signup') {
+        // If the URL has ?mode=signup, show the signup form by default
+        elements.loginForm.classList.add('hidden-form');
+        elements.signupForm.classList.remove('hidden-form');
+    } else {
+        // Otherwise, ensure the login form is shown by default
+        elements.loginForm.classList.remove('hidden-form');
+        elements.signupForm.classList.add('hidden-form');
+    }
+
     // Store the referring URL when the page loads
     const referrer = document.referrer;
     if (referrer && !referrer.includes('auth.html')) {
         sessionStorage.setItem('redirectUrl', referrer);
     }
 
-    // Initial load
+    // Initial load of language translations, which will now respect the form visibility set above
     applyLanguage(getLang());
 });
