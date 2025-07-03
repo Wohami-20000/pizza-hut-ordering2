@@ -255,6 +255,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Core Authentication Logic ---
+    const redirectToPreviousPage = () => {
+        const redirectUrl = sessionStorage.getItem('redirectUrl');
+        sessionStorage.removeItem('redirectUrl'); // Clean up after use
+        if (redirectUrl) {
+            window.location.href = redirectUrl;
+        } else {
+            window.location.href = 'order-type-selection.html';
+        }
+    };
+
     const handleSuccessfulLogin = (user) => {
         user.getIdTokenResult().then((idTokenResult) => {
             const userRef = db.ref('users/' + user.uid);
@@ -270,10 +280,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (idTokenResult.claims.admin === true) {
                 window.location.href = 'admin.html';
             } else {
-                window.location.href = 'order-type-selection.html';
+                redirectToPreviousPage();
             }
         }).catch(() => {
-            window.location.href = 'order-type-selection.html'; // Default redirect on error
+            redirectToPreviousPage(); // Default redirect on error
         });
     };
 
@@ -439,6 +449,12 @@ document.addEventListener('DOMContentLoaded', () => {
             applyLanguage(lang);
         }
     });
+
+    // Store the referring URL when the page loads
+    const referrer = document.referrer;
+    if (referrer && !referrer.includes('auth.html')) {
+        sessionStorage.setItem('redirectUrl', referrer);
+    }
 
     // Initial load
     applyLanguage(getLang());
