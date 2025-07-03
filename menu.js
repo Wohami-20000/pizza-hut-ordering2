@@ -4,7 +4,7 @@ const authInstance = firebase.auth();
 
 let menuDataCache = {};
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
-let favorites = [];
+let favorites = []; // <-- Add this variable at the top
 
 // --- SLIDESHOW STATE ---
 let slideInterval;
@@ -30,24 +30,43 @@ function updateCartUI() {
     if(cartSummaryBar) cartSummaryBar.classList.toggle('translate-y-full', totalItems === 0);
 }
 
+/**
+ * Toggles an item's favorite status in localStorage and updates the UI.
+ * @param {string} itemId The ID of the item to favorite/unfavorite.
+ * @param {HTMLElement} heartIconEl The heart icon element that was clicked.
+ */
 async function toggleFavorite(itemId, heartIconEl) {
     const user = authInstance.currentUser;
+    // Toggles the 'active' class on the icon
     const isFavorited = heartIconEl.classList.toggle('active');
+
+    // For registered users, sync with Firebase
     if (user && !user.isAnonymous) {
         const favRef = dbInstance.ref(`users/${user.uid}/favorites/${itemId}`);
         if (isFavorited) {
-            await favRef.set(true);
+            await favRef.set(true); // Add to Firebase
             if (!favorites.includes(itemId)) favorites.push(itemId);
         } else {
-            await favRef.remove();
+            await favRef.remove(); // Remove from Firebase
             favorites = favorites.filter(id => id !== itemId);
         }
     } else {
-        favorites = isFavorited ? [...new Set([...favorites, itemId])] : favorites.filter(id => id !== itemId);
+        // For guests, use browser's localStorage
+        if (isFavorited) {
+            if (!favorites.includes(itemId)) {
+                favorites.push(itemId);
+            }
+        } else {
+            favorites = favorites.filter(id => id !== itemId);
+        }
         localStorage.setItem("favorites", JSON.stringify(favorites));
     }
 }
 
+/**
+ * Loads the user's favorites from Firebase (if logged in) or localStorage (if a guest).
+ * @param {object} user The current Firebase user object.
+ */
 async function loadFavorites(user) {
     if (user && !user.isAnonymous) {
         const favRef = dbInstance.ref(`users/${user.uid}/favorites`);
@@ -56,6 +75,7 @@ async function loadFavorites(user) {
     } else {
         favorites = JSON.parse(localStorage.getItem("favorites")) || [];
     }
+    // Re-render the menu to show the correct favorite states on the icons
     renderFullMenu();
 }
 
@@ -66,7 +86,7 @@ function createMenuItemCard(item, categoryId, itemId) {
     card.dataset.categoryId = categoryId;
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
     const totalQuantityInCart = cart.filter(ci => ci.id === itemId).reduce((sum, ci) => sum + ci.quantity, 0);
-    const isFavorite = favorites.includes(itemId);
+    const isFavorite = favorites.includes(itemId); // <-- This line is crucial
     card.innerHTML = `
         <div class="item-content-left flex flex-col">
             <div class="flex justify-between items-start">
@@ -365,5 +385,8 @@ document.addEventListener('DOMContentLoaded', () => {
 authInstance.onAuthStateChanged((user) => {
     isAuthReady = true;
     initialUser = user;
-    initializeApp(); // Try to initialize
+    // This call will load favorites before rendering the menu
+    loadFavorites(user).then(() => {
+        initializeApp();
+    });
 });
