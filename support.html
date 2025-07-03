@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Support - Pizza Hut</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
@@ -11,6 +11,8 @@
             --brand-red: #D71921;
         }
         body { background-color: #F9FAFB; }
+        .fa-spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="min-h-screen">
@@ -43,7 +45,7 @@
                         <textarea id="message" name="message" rows="4" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500" placeholder="How can we help you?"></textarea>
                     </div>
                     <div>
-                        <button type="submit" id="submit-button" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
                             Send Message
                         </button>
                     </div>
@@ -92,38 +94,13 @@
         </div>
     </main>
     
-    <script type="text/javascript"
-        src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js">
-    </script>
-    <script type="text/javascript">
-        (function(){
-            emailjs.init({
-                publicKey: "kQudxogsoBTYAfXIR",
-            });
-        })();
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const supportForm = document.getElementById('support-form');
-            const supportCard = document.getElementById('support-card');
-            const successMessage = document.getElementById('success-message');
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="firebase.js"></script>
 
-            supportForm.addEventListener('submit', function(event) {
-                event.preventDefault();
-                
-                const serviceID = 'service_kpjtcc5';
-                const templateID = 'template_x2t6vab';
-
-                emailjs.sendForm(serviceID, templateID, this)
-                    .then(() => {
-                        supportCard.style.display = 'none';
-                        successMessage.classList.remove('hidden');
-                    }, (err) => {
-                        alert('An error occurred while sending the message. Please try again later.');
-                        console.error('EmailJS Error:', err);
-                    });
-            });
-        });
-    </script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    
+    <script src="support.js"></script>
 </body>
 </html>
