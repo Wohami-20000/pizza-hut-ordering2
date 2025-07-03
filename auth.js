@@ -379,12 +379,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const userCredential = await auth.createUserWithEmailAndPassword(email, passwordInputComponent.password);
 
+            await userCredential.user.sendEmailVerification();
+
             await db.ref('users/' + userCredential.user.uid).set({
                 email: email,
                 name: name,
                 phone: phone,
                 createdAt: new Date().toISOString()
             });
+
+            alert("A verification email has been sent to your address. Please verify your email to get full access.");
+
             handleSuccessfulLogin(userCredential.user);
         } catch (error) {
             handleAuthError(error, 'signup');
