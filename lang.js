@@ -1,5 +1,10 @@
 const translations = {
   en: {
+    // ... existing translations
+    order_type_selection_title: "How will you get your order?",
+    order_type_selection_subtitle: "Choose one of the options below to start.",
+    order_type_to_go_desc: "Collect your order from the store.",
+    order_type_delivery_desc: "Get your order delivered to your door.",
     validation_error_title: "Validation Error",
     table_number_missing_error: "Please enter a valid table number.",
     cart_empty_order_error: "Your cart is empty. Please add items before placing an order.",
@@ -108,6 +113,11 @@ const translations = {
     toast_status_update: "Order #{{orderId}} is now {{status}}!"
   },
   fr: {
+    // ... existing translations
+    order_type_selection_title: "Comment voulez-vous votre commande ?",
+    order_type_selection_subtitle: "Choisissez une option pour commencer.",
+    order_type_to_go_desc: "Récupérez votre commande au restaurant.",
+    order_type_delivery_desc: "Faites-vous livrer votre commande.",
     validation_error_title: "Erreur de Validation",
     table_number_missing_error: "Veuillez entrer un numéro de table valide.",
     cart_empty_order_error: "Votre panier est vide. Veuillez ajouter des articles avant de passer commande.",
@@ -217,6 +227,11 @@ const translations = {
   },
 
   ar: {
+    // ... existing translations
+    order_type_selection_title: "كيف ستستلم طلبك؟",
+    order_type_selection_subtitle: "اختر إحدى الخيارات للبدء.",
+    order_type_to_go_desc: "استلم طلبك من المطعم.",
+    order_type_delivery_desc: "احصل على طلبك حتى باب منزلك.",
     validation_error_title: "خطأ في التحقق",
     table_number_missing_error: "الرجاء إدخال رقم طاولة صحيح.",
     cart_empty_order_error: "سلة التسوق فارغة. الرجاء إضافة عناصر قبل تقديم الطلب.",
