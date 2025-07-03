@@ -31,7 +31,6 @@
         .category-tab:hover { background-color: #FEF2F2; }
         .category-tab.active-tab { background-color: var(--brand-red); color: white; }
 
-        /* --- UPDATED CARD STYLES --- */
         .menu-item-card {
             display: flex;
             flex-direction: column;
@@ -48,16 +47,24 @@
             box-shadow: 0 10px 20px rgba(0,0,0,0.1);
         }
         .menu-item-card.visible { opacity: 1; transform: translateY(0); }
-        /* --- END OF UPDATED STYLES --- */
 
         .fav-icon { color: #D1D5DB; cursor: pointer; transition: all 0.2s; }
         .fav-icon:hover { transform: scale(1.2); }
         .fav-icon.active { color: var(--brand-red); animation: pop 0.4s ease; }
         @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1); } }
-        .customize-btn { font-size: 0.875rem; color: var(--brand-red); transition: color 0.2s; }
-        .customize-btn:hover { color: #000; }
-        .quantity-btn { width: 32px; height: 32px; border-radius: 50%; background-color: var(--brand-yellow); color: var(--brand-dark); font-weight: 600; transition: background-color 0.2s; }
-        .quantity-btn:hover { background-color: #facc15; }
+        
+        .quantity-btn { 
+            width: 32px; 
+            height: 32px; 
+            border-radius: 50%; 
+            background-color: #f3f4f6; 
+            color: #374151; 
+            font-weight: 600; 
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .quantity-btn:hover { background-color: #e5e7eb; }
+        .quantity-btn:active { transform: scale(0.9); }
+
         #cart-summary-bar .view-cart-btn { background-color: var(--brand-red); color: white; }
         #cart-summary-bar .summary-count-circle { background-color: var(--brand-yellow); color: var(--brand-dark); }
         #offers-slideshow-container { height: 50vh; max-height: 280px; }
@@ -85,13 +92,11 @@
     <div id="drawer-menu" class="fixed top-0 left-0 w-80 h-full bg-white shadow-xl z-50 transform -translate-x-full flex flex-col">
         <div class="p-6 border-b">
             <button id="close-drawer-btn" class="absolute top-4 right-4 text-gray-500 text-2xl">&times;</button>
-            
             <div id="guest-info-drawer">
                 <h2 class="text-xl font-bold mb-2">Welcome to Pizza Hut</h2>
                 <p class="text-sm text-gray-500 mb-4">Login to access your orders, favorites, and more.</p>
                 <a href="auth.html" class="w-full text-center block bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition">Login / Sign Up</a>
             </div>
-
             <div id="user-info-drawer" class="hidden flex items-center gap-4">
                 <i class="fas fa-user-circle text-5xl text-gray-400"></i>
                 <div>
@@ -100,7 +105,6 @@
                 </div>
             </div>
         </div>
-
         <nav id="drawer-nav" class="flex-grow overflow-y-auto p-6 space-y-2">
             <div id="authenticated-menu" class="hidden">
                 <h3 class="text-sm font-semibold text-red-600 px-2 uppercase">My Order</h3>
@@ -114,7 +118,6 @@
                     <a href="#" id="logout-btn" class="flex items-center gap-4 text-lg p-2 rounded-lg text-red-600 font-semibold"><i class="fas fa-sign-out-alt w-6 text-center"></i> Log Out</a>
                 </div>
             </div>
-
             <div id="guest-menu">
                 <h3 class="text-sm font-semibold text-red-600 px-2 uppercase">Help</h3>
                 <a href="feedback.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-comment-dots w-6 text-center text-gray-500"></i> Feedback</a>

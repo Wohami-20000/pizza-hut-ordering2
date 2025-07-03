@@ -62,7 +62,7 @@ async function loadFavorites(user) {
 
 /**
  * ---- UPDATED FUNCTION ----
- * Creates an item card with the new vertical design.
+ * Creates an item card with conditional quantity controls.
  */
 function createMenuItemCard(item, categoryId, itemId) {
     const card = document.createElement('div');
@@ -70,47 +70,62 @@ function createMenuItemCard(item, categoryId, itemId) {
     card.id = `item-card-${itemId}`;
     card.dataset.categoryId = categoryId;
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
-    
-    // Standard item quantity
+    const isFavorite = favorites.includes(itemId);
+
+    // Get quantities from cart
     const standardItemInCart = cart.find(ci => ci.cartItemId === `${itemId}-standard`);
     const standardQuantity = standardItemInCart ? standardItemInCart.quantity : 0;
-
-    // Customized item quantity
     const customizedItems = cart.filter(ci => ci.id === itemId && ci.cartItemId !== `${itemId}-standard`);
     const customizedQuantity = customizedItems.reduce((sum, item) => sum + item.quantity, 0);
 
-    const isFavorite = favorites.includes(itemId);
+    // Determine which controls to show
+    let controlsHtml = '';
+    if (standardQuantity > 0) {
+        controlsHtml = `
+            <div class="quantity-controls flex items-center justify-center gap-3">
+                <button class="quantity-btn" onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', -1, this)">-</button>
+                <span class="font-bold text-lg w-8 text-center">${standardQuantity}</span>
+                <button class="quantity-btn" onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', 1, this)">+</button>
+            </div>
+        `;
+    } else {
+        controlsHtml = `
+            <button onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', 1, this)" class="w-full bg-yellow-400 text-brand-dark font-bold py-2 px-4 rounded-full hover:bg-yellow-500 transition-all transform hover:scale-105">
+                Add
+            </button>
+        `;
+    }
+
+    const customizedIndicator = customizedQuantity > 0
+        ? `<div class="text-xs text-center text-red-600 font-semibold mt-1">+${customizedQuantity} customized</div>`
+        : '';
 
     card.innerHTML = `
         <button onclick="event.stopPropagation(); toggleFavorite('${itemId}', this.querySelector('i'))" class="absolute top-2 right-2 z-10 bg-white rounded-full h-8 w-8 flex items-center justify-center shadow-md hover:bg-gray-100 transition-colors">
             <i class="fas fa-heart fav-icon text-lg ${isFavorite ? 'active' : ''}"></i>
         </button>
-        
-        <a href="item-details.html?categoryId=${categoryId}&itemId=${itemId}" class="block cursor-pointer">
+
+        <a href="item-details.html?categoryId=${categoryId}&itemId=${itemId}" class="block cursor-pointer group">
             <div class="p-4 bg-white rounded-t-xl">
                  <img src="${escapeHTML(item.image_url || 'https://www.pizzahut.ma/images/Default_pizza.png')}" alt="${escapeHTML(item.name || 'Pizza')}" class="w-full h-32 object-contain transition-transform duration-300 group-hover:scale-105">
             </div>
         </a>
-        
-        <div class="p-3 text-center flex-grow flex flex-col">
+
+        <div class="p-3 pt-0 text-center flex-grow flex flex-col">
             <h3 class="font-semibold text-base text-gray-800 truncate flex-grow" title="${escapeHTML(item.name || 'Unknown Item')}">${escapeHTML(item.name || 'Unknown Item')}</h3>
-            <p class="text-xl font-extrabold text-red-600 mt-1">${itemPrice.toFixed(2)} MAD</p>
+            <a href="item-details.html?categoryId=${categoryId}&itemId=${itemId}" class="text-xs text-gray-500 hover:text-red-600 transition-colors">Customize</a>
+            <p class="text-xl font-extrabold text-red-600 mt-2">${itemPrice.toFixed(2)} MAD</p>
         </div>
-        
-        <div class="px-3 pb-4">
-            <button onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', 1, this)" class="w-full bg-yellow-400 text-brand-dark font-bold py-2 px-4 rounded-full hover:bg-yellow-500 transition-all transform hover:scale-105">
-                Add
-            </button>
+
+        <div class="px-3 pb-4 mt-auto">
+            ${controlsHtml}
+            ${customizedIndicator}
         </div>
     `;
     return card;
 }
 
 
-/**
- * ---- UPDATED FUNCTION ----
- * Renders the full menu with a responsive grid layout.
- */
 function renderFullMenu() {
     const menuContainer = document.getElementById("menu-container");
     const loadingPlaceholder = document.getElementById("loading-placeholder");
@@ -137,7 +152,6 @@ function renderFullMenu() {
         section.appendChild(title);
 
         const itemsContainer = document.createElement('div');
-        // This class creates the responsive grid
         itemsContainer.className = 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4';
 
         if (categoryData.items) {
@@ -241,12 +255,17 @@ function renderOffersSlideshow() {
 }
 
 window.menuFunctions = {
+    /**
+     * ---- UPDATED FUNCTION ----
+     * Handles quantity changes and redraws the card to show correct controls.
+     */
     updateItemQuantity: (itemId, change, buttonElement) => {
         const card = buttonElement.closest('.menu-item-card');
+        if (!card) return;
         const categoryId = card.dataset.categoryId;
         const itemData = menuDataCache[categoryId]?.items?.[itemId];
         if (!itemData) return;
-        
+
         let standardItemInCart = cart.find(i => i.cartItemId === `${itemId}-standard`);
 
         if (change > 0) {
@@ -264,14 +283,11 @@ window.menuFunctions = {
 
         localStorage.setItem("cart", JSON.stringify(cart));
         updateCartUI();
-        
-        // Re-render only the quantity on the card to avoid full redraw
-        const quantitySpan = card.querySelector('.quantity-controls span');
-        if (quantitySpan) {
-            const updatedItem = cart.find(i => i.cartItemId === `${itemId}-standard`);
-            quantitySpan.textContent = updatedItem ? updatedItem.quantity : 0;
-        }
-        
+
+        // Re-render the specific card that was changed to update its controls
+        const newCard = createMenuItemCard(itemData, categoryId, itemId);
+        card.parentNode.replaceChild(newCard, card);
+        newCard.classList.add('visible'); // Make sure it's visible after re-render
     },
     navigateToItemDetails: (categoryId, itemId) => window.location.href = `item-details.html?categoryId=${categoryId}&itemId=${itemId}`,
     scrollToCategory: (categoryId) => {
@@ -289,7 +305,7 @@ function filterMenu() {
     document.querySelectorAll('.menu-item-card').forEach(card => {
         const itemName = card.querySelector('h3').textContent.toLowerCase();
         const matches = itemName.includes(searchTerm);
-        card.style.display = matches ? 'flex' : 'none'; // Use flex for consistency
+        card.style.display = matches ? 'flex' : 'none';
         if (matches) hasResults = true;
     });
     document.querySelectorAll('.category-section').forEach(section => {
