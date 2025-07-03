@@ -62,7 +62,7 @@ async function loadFavorites(user) {
 
 /**
  * ---- UPDATED FUNCTION ----
- * Adds a 'chosen-card' class if the item is in the cart.
+ * Features an improved, more visible "Customize" button.
  */
 function createMenuItemCard(item, categoryId, itemId) {
     const card = document.createElement('div');
@@ -72,18 +72,15 @@ function createMenuItemCard(item, categoryId, itemId) {
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
     const isFavorite = favorites.includes(itemId);
 
-    // Get quantities from cart
     const standardItemInCart = cart.find(ci => ci.cartItemId === `${itemId}-standard`);
     const standardQuantity = standardItemInCart ? standardItemInCart.quantity : 0;
     const customizedItems = cart.filter(ci => ci.id === itemId && ci.cartItemId !== `${itemId}-standard`);
     const customizedQuantity = customizedItems.reduce((sum, item) => sum + item.quantity, 0);
 
-    // Add 'chosen-card' class if item is in the cart
     if (standardQuantity > 0 || customizedQuantity > 0) {
         card.classList.add('chosen-card');
     }
 
-    // Determine which controls to show
     let controlsHtml = '';
     if (standardQuantity > 0) {
         controlsHtml = `
@@ -116,10 +113,12 @@ function createMenuItemCard(item, categoryId, itemId) {
             </div>
         </a>
 
-        <div class="p-3 pt-0 text-center flex-grow flex flex-col">
-            <h3 class="font-semibold text-base text-gray-800 truncate flex-grow" title="${escapeHTML(item.name || 'Unknown Item')}">${escapeHTML(item.name || 'Unknown Item')}</h3>
-            <a href="item-details.html?categoryId=${categoryId}&itemId=${itemId}" class="text-xs text-gray-500 hover:text-red-600 transition-colors">Customize</a>
-            <p class="text-xl font-extrabold text-red-600 mt-2">${itemPrice.toFixed(2)} MAD</p>
+        <div class="p-3 pt-0 text-center flex-grow flex flex-col justify-center">
+            <h3 class="font-semibold text-base text-gray-800 truncate" title="${escapeHTML(item.name || 'Unknown Item')}">${escapeHTML(item.name || 'Unknown Item')}</h3>
+            <div class="my-2">
+                <a href="item-details.html?categoryId=${categoryId}&itemId=${itemId}" class="inline-block text-xs bg-gray-200 text-gray-700 font-semibold px-3 py-1 rounded-full hover:bg-gray-300 transition-colors">Customize</a>
+            </div>
+            <p class="text-xl font-extrabold text-red-600">${itemPrice.toFixed(2)} MAD</p>
         </div>
 
         <div class="px-3 pb-4 mt-auto">
