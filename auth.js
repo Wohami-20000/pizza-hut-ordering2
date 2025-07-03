@@ -1,4 +1,4 @@
-// auth.js - Final Corrected Version
+// auth.js - Refactored and Improved Version
 document.addEventListener('DOMContentLoaded', () => {
     // --- Initialize Firebase Services ---
     const auth = firebase.auth();
@@ -252,12 +252,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const iti = window.intlTelInput(phoneInput, {
         utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js",
         initialCountry: "auto",
-        geoIpLookup: callback => {
-            fetch("https://ipapi.co/json")
-                .then(res => res.json())
-                .then(data => callback(data.country_code))
-                .catch(() => callback("us"));
-        },
     });
 
     // --- Core Authentication Logic ---
