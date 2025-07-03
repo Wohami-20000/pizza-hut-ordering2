@@ -211,9 +211,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (/[A-Z]/.test(pass)) score++;
             if (/[0-9]/.test(pass)) score++;
             if (/[^A-Za-z0-9]/.test(pass)) score++;
-            
+
             const t = translations[getLang()].strength;
-            
+
             if (pass.length === 0) {
                 this.strengthBar.style.width = '0%';
                 this.strengthText.textContent = '';
@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 4: { width: '100%', color: '#22c55e', text: t.strong }
             };
             const level = strengthLevels[score] || { width: '10%', color: '#ef4444', text: t.weak };
-            
+
             this.strengthBar.style.width = level.width;
             this.strengthBar.style.backgroundColor = level.color;
             this.strengthText.textContent = level.text;
@@ -245,6 +245,11 @@ document.addEventListener('DOMContentLoaded', () => {
         customElements.define('password-input', PasswordInput);
     }
     
+    const phoneInput = document.querySelector("#signup-phone");
+    const iti = window.intlTelInput(phoneInput, {
+        utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js",
+    });
+
     // --- Core Authentication Logic ---
     const handleSuccessfulLogin = (user) => {
         user.getIdTokenResult().then((idTokenResult) => {
@@ -320,15 +325,19 @@ document.addEventListener('DOMContentLoaded', () => {
             displayError(elements.signupErrorMessage, 'Passwords do not match or are invalid.');
             return;
         }
+        if (!iti.isValidNumber()) {
+            displayError(elements.signupErrorMessage, 'Invalid phone number for the selected country.');
+            return;
+        }
         setLoading(elements.signupCtaBtn, true, 'loadingSignup');
         try {
             const email = document.getElementById('signup-email').value.trim();
             const userCredential = await auth.createUserWithEmailAndPassword(email, passwordInputComponent.password);
-            
+
             await db.ref('users/' + userCredential.user.uid).set({
                 email: email,
                 name: document.getElementById('signup-name').value.trim(),
-                phone: document.getElementById('signup-phone').value.trim(),
+                phone: iti.getNumber(),
                 createdAt: new Date().toISOString()
             });
             handleSuccessfulLogin(userCredential.user);
@@ -338,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setLoading(elements.signupCtaBtn, false);
         }
     });
-    
+
     elements.googleSigninBtn.addEventListener('click', async () => {
         try {
             const result = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
@@ -387,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
             applyLanguage(lang);
         }
     });
-    
+
     // Initial load
     applyLanguage(getLang());
 });
