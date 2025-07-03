@@ -354,12 +354,42 @@ async function renderOrderDetailsInput(user) {
             `;
         }
 
+        // --- UPDATED ADDRESS SECTION LOGIC ---
         let addressInputHtml = '';
         if (orderType === 'delivery') {
+            const userAddresses = userProfile.addresses || {};
+            let savedAddressesHtml = '<p class="text-sm text-gray-600 mb-2">Select a saved address or enter a new one below.</p>';
+
+            if (Object.keys(userAddresses).length > 0) {
+                savedAddressesHtml += '<div class="space-y-2 mb-4">';
+                for (const addressId in userAddresses) {
+                    const address = userAddresses[addressId];
+                    const fullAddress = `${address.street}, ${address.city}`;
+                    savedAddressesHtml += `
+                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                            <input type="radio" name="savedAddress" value="${escapeHTML(fullAddress)}" class="form-radio h-5 w-5 text-red-600">
+                            <span class="ml-3">
+                                <span class="font-semibold">${escapeHTML(address.label)}</span>
+                                <span class="block text-sm text-gray-500">${escapeHTML(fullAddress)}</span>
+                            </span>
+                        </label>
+                    `;
+                }
+                savedAddressesHtml += '</div>';
+            } else {
+                savedAddressesHtml += `
+                    <div class="text-center p-4 border-2 border-dashed rounded-lg mb-4">
+                         <p class="text-gray-500">No saved addresses found.</p>
+                         <a href="profile.html#addresses" class="text-sm text-blue-600 hover:underline">Add an address in your profile</a>
+                    </div>
+                `;
+            }
+
             addressInputHtml = `
                 <div>
-                    <label id="address-label" for="delivery-address" class="block mb-2 font-semibold text-gray-700" data-translate="delivery_address_label">Delivery Address</label>
-                    <input type="text" id="delivery-address" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500" placeholder="Enter your delivery address" required value="${escapeHTML(userProfile.address || '')}"/>
+                    <label id="address-label" class="block mb-2 font-semibold text-gray-700" data-translate="delivery_address_label">Delivery Address</label>
+                    ${savedAddressesHtml}
+                    <input type="text" id="delivery-address" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500" placeholder="Enter your delivery address" required value=""/>
                 </div>
                 <div class="mt-4">
                     <label for="delivery-instructions" class="block mb-2 font-semibold text-gray-700" data-translate="delivery_instructions_label">Delivery Instructions (Optional)</label>
@@ -367,6 +397,7 @@ async function renderOrderDetailsInput(user) {
                 </div>
             `;
         }
+        // --- END OF UPDATED ADDRESS SECTION ---
 
         orderDetailsInputDiv.innerHTML = `
             <div class="space-y-4">
@@ -383,6 +414,19 @@ async function renderOrderDetailsInput(user) {
             ${pickupOptionsHtml}
             <p class="text-center text-sm mt-6" data-translate="incorrect_info_prompt">Is your information incorrect? <a href="profile.html" class="text-blue-600 hover:underline font-semibold" data-translate="edit_profile_link">Edit Profile</a></p>
         `;
+
+        // Add event listeners after injecting HTML
+        if (orderType === 'delivery') {
+            const savedAddressRadios = document.querySelectorAll('input[name="savedAddress"]');
+            const deliveryAddressInput = document.getElementById('delivery-address');
+            savedAddressRadios.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        deliveryAddressInput.value = e.target.value;
+                    }
+                });
+            });
+        }
 
         if (orderType === 'pickup') {
             const pickupRadios = document.querySelectorAll('input[name="pickupTimeOption"]');
