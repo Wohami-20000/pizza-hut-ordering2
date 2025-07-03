@@ -282,6 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const handleAuthError = (error, form) => {
+        console.log("Firebase Auth Error:", error); // <-- Add this line
         let errorMessageKey = 'errorGeneric';
         switch (error.code) {
             case 'auth/user-not-found':
