@@ -56,30 +56,50 @@ function escapeHTML(str) {
  */
 async function loadAndRenderOffers(userId) {
     try {
-        // Fetch all promo codes and the user's used codes simultaneously
-        const [promoSnapshot, usedSnapshot] = await Promise.all([
+        // Fetch all necessary data in parallel
+        const [promoSnapshot, userOffersSnapshot, usedSnapshot] = await Promise.all([
             db.ref('promoCodes').once('value'),
+            db.ref(`users/${userId}/availableOffers`).once('value'),
             db.ref(`users/${userId}/usedPromoCodes`).once('value')
         ]);
 
         const allPromos = promoSnapshot.val() || {};
+        const userOfferIds = userOffersSnapshot.exists() ? Object.keys(userOffersSnapshot.val()) : [];
         const usedCodes = usedSnapshot.val() || {};
         const today = new Date();
-        today.setHours(23, 59, 59, 999); // Set time to end of day for comparison
+        today.setHours(23, 59, 59, 999);
 
-        const validOffers = Object.values(allPromos).filter(offer => {
-            const isUsed = usedCodes[offer.code];
-            const expiryDate = new Date(offer.expiryDate);
-            const isExpired = expiryDate < today;
+        const offersToShow = [];
+        const offerCodesAdded = new Set();
+
+        // Process all promo codes
+        for (const promoId in allPromos) {
+            const offer = allPromos[promoId];
             
-            return !isUsed && !isExpired;
-        });
+            // Condition to add an offer:
+            // 1. It's a global offer (not a welcome offer) OR
+            // 2. It's an offer specifically assigned to the user
+            const isGlobalOffer = !offer.isWelcomeOffer;
+            const isUserSpecificOffer = userOfferIds.includes(promoId);
+
+            if (isGlobalOffer || isUserSpecificOffer) {
+                // Check if not used and not expired
+                const isUsed = usedCodes[offer.code];
+                const expiryDate = new Date(offer.expiryDate);
+                const isExpired = expiryDate < today;
+
+                if (!isUsed && !isExpired && !offerCodesAdded.has(offer.code)) {
+                    offersToShow.push(offer);
+                    offerCodesAdded.add(offer.code);
+                }
+            }
+        }
 
         loadingState.style.display = 'none';
         offersContainer.innerHTML = ''; // Clear container
 
-        if (validOffers.length > 0) {
-            validOffers.forEach(offer => {
+        if (offersToShow.length > 0) {
+            offersToShow.forEach(offer => {
                 const card = createOfferCard(offer);
                 offersContainer.appendChild(card);
             });

@@ -390,6 +390,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 createdAt: new Date().toISOString()
             });
 
+            // Grant the welcome offer to the new user.
+            // Assumes a promo code with the ID "WELCOME20" exists in your database
+            await db.ref(`users/${user.uid}/availableOffers/WELCOME20`).set(true);
+
             alert("A verification email has been sent to your address. Please verify your email to get full access.");
 
             handleSuccessfulLogin(user);
