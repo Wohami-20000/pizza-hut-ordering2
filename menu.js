@@ -11,6 +11,10 @@ let slideInterval;
 let currentIndex = 0;
 let slides = [];
 let dots = [];
+let touchStartX = 0;
+let touchEndX = 0;
+const swipeThreshold = 50; // Min pixels for a swipe to register
+const SLIDE_GAP = '1rem'; // MUST match the 'gap' in the CSS style block
 
 const categoryEmojis = {
     "Pair Deals": "🤝",
@@ -135,14 +139,16 @@ function createMenuItemCard(item, categoryId, itemId) {
     return card;
 }
 
-// --- FIXED: ADDED MISSING SLIDESHOW FUNCTIONS ---
 function showSlide(index) {
     if (!slides.length) return;
     if (index >= slides.length) index = 0;
     if (index < 0) index = slides.length - 1;
 
     const slidesWrapper = document.getElementById('slides-wrapper');
-    if(slidesWrapper) slidesWrapper.style.transform = `translateX(-${index * 100}%)`;
+    if(slidesWrapper) {
+        // Updated calculation to account for the gap between slides
+        slidesWrapper.style.transform = `translateX(calc(-${index} * 100% - ${index} * ${SLIDE_GAP}))`;
+    }
 
     slides.forEach(slide => slide.classList.remove('active'));
     slides[index].classList.add('active');
@@ -157,7 +163,7 @@ function startSlideshow() {
     clearInterval(slideInterval);
     slideInterval = setInterval(() => {
         showSlide(currentIndex + 1);
-    }, 5000); // Change slide every 5 seconds
+    }, 5000);
 }
 
 function renderOffersSlideshow() {
@@ -186,9 +192,9 @@ function renderOffersSlideshow() {
                 const slide = document.createElement('a');
                 slide.href = `item-details.html?offerId=${key}`;
                 slide.className = 'slide';
-                slide.style.backgroundImage = `url('${escapeHTML(offer.imageURL)}')`;
 
                 slide.innerHTML = `
+                    <img src="${escapeHTML(offer.imageURL)}" alt="${escapeHTML(offer.name)}" class="slide-image">
                     <div class="slide-content">
                         <h2 class="slide-title">${escapeHTML(offer.name)}</h2>
                     </div>
@@ -198,7 +204,10 @@ function renderOffersSlideshow() {
 
                 const dot = document.createElement('div');
                 dot.className = 'slide-dot';
-                dot.addEventListener('click', () => showSlide(index));
+                dot.addEventListener('click', () => {
+                    showSlide(index);
+                    startSlideshow();
+                });
                 slidesDots.appendChild(dot);
                 dots.push(dot);
             }
@@ -216,7 +225,27 @@ function renderOffersSlideshow() {
         slideshowContainer.classList.add('hidden');
     });
 }
-// --- END OF FIX ---
+
+// --- SWIPE GESTURE HANDLERS ---
+function handleTouchStart(e) {
+    touchStartX = e.changedTouches[0].screenX;
+}
+
+function handleTouchEnd(e) {
+    touchEndX = e.changedTouches[0].screenX;
+    handleSwipeGesture();
+}
+
+function handleSwipeGesture() {
+    const swipeDistance = touchEndX - touchStartX;
+    if (swipeDistance > swipeThreshold) {
+        showSlide(currentIndex - 1); // Swiped Right
+        startSlideshow();
+    } else if (swipeDistance < -swipeThreshold) {
+        showSlide(currentIndex + 1); // Swiped Left
+        startSlideshow();
+    }
+}
 
 function renderFullMenu() {
     const menuContainer = document.getElementById("menu-container");
@@ -397,11 +426,18 @@ function initializeApp() {
     const drawerMenu = document.getElementById('drawer-menu');
     const drawerOverlay = document.getElementById('drawer-overlay');
     const logoutBtn = document.getElementById('logout-btn');
+    const slidesWrapper = document.getElementById('slides-wrapper');
     
     if (openDrawerBtn) openDrawerBtn.addEventListener('click', () => { drawerMenu.classList.add('open'); drawerOverlay.classList.remove('hidden'); });
     if (closeDrawerBtn) closeDrawerBtn.addEventListener('click', () => { drawerMenu.classList.remove('open'); drawerOverlay.classList.add('hidden'); });
     if (drawerOverlay) drawerOverlay.addEventListener('click', () => { drawerMenu.classList.remove('open'); drawerOverlay.classList.add('hidden'); });
     if (logoutBtn) logoutBtn.addEventListener('click', () => { authInstance.signOut().then(() => { localStorage.clear(); window.location.href = 'auth.html'; }); });
+    
+    // Add swipe listeners
+    if (slidesWrapper) {
+        slidesWrapper.addEventListener('touchstart', handleTouchStart, { passive: true });
+        slidesWrapper.addEventListener('touchend', handleTouchEnd, { passive: true });
+    }
     
     window.addEventListener('scroll', updateActiveTabOnScroll, { passive: true });
 }
