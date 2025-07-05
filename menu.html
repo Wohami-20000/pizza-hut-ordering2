@@ -47,6 +47,7 @@
             border-color: var(--brand-red);
         }
 
+        /* UPDATED CARD STYLES */
         .menu-item-card {
             display: flex;
             flex-direction: column;
@@ -55,7 +56,7 @@
             box-shadow: 0 4px 16px rgba(0,0,0,0.07);
             opacity: 0;
             transform: translateY(20px);
-            transition: opacity 0.4s ease-out, transform 0.4s ease-out, box-shadow 0.2s ease-out;
+            transition: opacity 0.4s ease-out, transform 0.4s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out;
             position: relative;
             border: 2px solid transparent;
         }
@@ -66,6 +67,7 @@
         }
         .menu-item-card.visible { opacity: 1; transform: translateY(0); }
         
+        /* Style for cards of items that are in the cart */
         .menu-item-card.chosen-card {
             border: 2px solid var(--brand-yellow);
             background-color: #fffbeb;
@@ -177,21 +179,19 @@
             </div>
         </div>
         <nav id="drawer-nav" class="flex-grow overflow-y-auto p-6 space-y-2">
+            <!-- UPDATED: Authenticated User Menu -->
             <div id="authenticated-menu" class="hidden">
-                <h3 class="text-sm font-semibold text-red-600 px-2 uppercase">My Order</h3>
+                <h3 class="text-sm font-semibold text-red-600 px-2 uppercase">My Account</h3>
+                <a href="profile.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-user-circle w-6 text-center text-gray-500"></i> Account Settings</a>
                 <a href="my-orders.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-box-open w-6 text-center text-gray-500"></i> My Orders</a>
                 <a href="favorites.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-heart w-6 text-center text-gray-500"></i> My Favorites</a>
                 <a href="offers.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-tags w-6 text-center text-gray-500"></i> Offers</a>
-                <div id="account-section-drawer">
-                    <h3 class="text-sm font-semibold text-red-600 px-2 pt-4 uppercase">My Account</h3>
-                    <a href="profile.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-user-circle w-6 text-center text-gray-500"></i> Account Settings</a>
-                    <hr class="my-2">
-                    <a href="#" id="logout-btn" class="flex items-center gap-4 text-lg p-2 rounded-lg text-red-600 font-semibold"><i class="fas fa-sign-out-alt w-6 text-center"></i> Log Out</a>
-                </div>
+                <hr class="my-2">
+                <a href="#" id="logout-btn" class="flex items-center gap-4 text-lg p-2 rounded-lg text-red-600 font-semibold"><i class="fas fa-sign-out-alt w-6 text-center"></i> Log Out</a>
             </div>
+            <!-- UPDATED: Guest Menu (Feedback Removed) -->
             <div id="guest-menu">
                 <h3 class="text-sm font-semibold text-red-600 px-2 uppercase">Help</h3>
-                <a href="feedback.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-comment-dots w-6 text-center text-gray-500"></i> Feedback</a>
                 <a href="support.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-life-ring w-6 text-center text-gray-500"></i> Support</a>
                 <a href="faq.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-question-circle w-6 text-center text-gray-500"></i> FAQ</a>
                 <a href="terms.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-file-contract w-6 text-center text-gray-500"></i> Terms & Conditions</a>

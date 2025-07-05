@@ -74,6 +74,13 @@ async function loadFavorites(user) {
     renderFullMenu();
 }
 
+/**
+ * UPDATED: Creates a redesigned, mobile-friendly menu item card.
+ * @param {object} item - The item data from Firebase.
+ * @param {string} categoryId - The ID of the item's category.
+ * @param {string} itemId - The ID of the item.
+ * @returns {HTMLElement} The created card element.
+ */
 function createMenuItemCard(item, categoryId, itemId) {
     const card = document.createElement('div');
     card.className = 'menu-item-card';
@@ -82,15 +89,18 @@ function createMenuItemCard(item, categoryId, itemId) {
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
     const isFavorite = favorites.includes(itemId);
 
+    // Check for both standard and customized versions of the item in the cart
     const standardItemInCart = cart.find(ci => ci.cartItemId === `${itemId}-standard`);
     const standardQuantity = standardItemInCart ? standardItemInCart.quantity : 0;
     const customizedItems = cart.filter(ci => ci.id === itemId && ci.cartItemId !== `${itemId}-standard`);
     const customizedQuantity = customizedItems.reduce((sum, item) => sum + item.quantity, 0);
 
+    // Add a class to highlight the card if the item is in the cart
     if (standardQuantity > 0 || customizedQuantity > 0) {
         card.classList.add('chosen-card');
     }
 
+    // Determine which controls to show (Add button or +/- controls)
     let controlsHtml = '';
     if (standardQuantity > 0) {
         controlsHtml = `
@@ -108,10 +118,12 @@ function createMenuItemCard(item, categoryId, itemId) {
         `;
     }
 
+    // Show a small indicator if there are customized versions of this item
     const customizedIndicator = customizedQuantity > 0
         ? `<div class="text-xs text-center text-red-600 font-semibold mt-1">+${customizedQuantity} customized</div>`
         : '';
 
+    // New vertical card structure
     card.innerHTML = `
         <button onclick="event.stopPropagation(); toggleFavorite('${itemId}', this.querySelector('i'))" class="absolute top-2 right-2 z-10 bg-white rounded-full h-8 w-8 flex items-center justify-center shadow-md hover:bg-gray-100 transition-colors">
             <i class="fas fa-heart fav-icon text-lg ${isFavorite ? 'active' : ''}"></i>
@@ -138,6 +150,7 @@ function createMenuItemCard(item, categoryId, itemId) {
     `;
     return card;
 }
+
 
 function showSlide(index) {
     if (!slides.length) return;
@@ -346,8 +359,10 @@ window.menuFunctions = {
         localStorage.setItem("cart", JSON.stringify(cart));
         updateCartUI();
 
+        // Replace the card to re-render it with the new state
         const newCard = createMenuItemCard(itemData, categoryId, itemId);
         card.parentNode.replaceChild(newCard, card);
+        // Make the new card visible immediately
         newCard.classList.add('visible');
     },
     navigateToItemDetails: (categoryId, itemId) => window.location.href = `item-details.html?categoryId=${categoryId}&itemId=${itemId}`,
@@ -397,6 +412,7 @@ function updateDrawerUI(user) {
         authenticatedMenu.classList.add('hidden');
         guestMenu.classList.remove('hidden');
         
+        // Show the guest login prompt unless they are a dine-in guest (anonymous)
         const isDineInGuest = user && user.isAnonymous;
         guestInfo.classList.toggle('hidden', isDineInGuest);
     }
