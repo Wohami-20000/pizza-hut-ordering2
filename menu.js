@@ -260,18 +260,14 @@ function filterMenu() {
     let hasResults = false;
 
     document.querySelectorAll('.menu-item-card').forEach(card => {
-        // Skip the no-results-message card if it ever gets .menu-item-card
-        if (card.id === "no-results-message") return;
-
-        const h3 = card.querySelector('h3');
-        if (!h3) return; // If no h3, skip this card
-
-        const itemName = h3.textContent.toLowerCase();
+        const itemName = card.querySelector('h3').textContent.toLowerCase();
         const matches = itemName.includes(searchTerm);
-
+        
         card.classList.toggle('hidden-by-filter', !matches);
-
-        if (matches) hasResults = true;
+        
+        if (matches) {
+            hasResults = true;
+        }
     });
 
     document.querySelectorAll('.category-section').forEach(section => {
