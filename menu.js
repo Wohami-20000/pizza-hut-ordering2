@@ -135,6 +135,89 @@ function createMenuItemCard(item, categoryId, itemId) {
     return card;
 }
 
+// --- FIXED: ADDED MISSING SLIDESHOW FUNCTIONS ---
+function showSlide(index) {
+    if (!slides.length) return;
+    if (index >= slides.length) index = 0;
+    if (index < 0) index = slides.length - 1;
+
+    const slidesWrapper = document.getElementById('slides-wrapper');
+    if(slidesWrapper) slidesWrapper.style.transform = `translateX(-${index * 100}%)`;
+
+    slides.forEach(slide => slide.classList.remove('active'));
+    slides[index].classList.add('active');
+
+    dots.forEach(dot => dot.classList.remove('active'));
+    dots[index].classList.add('active');
+
+    currentIndex = index;
+}
+
+function startSlideshow() {
+    clearInterval(slideInterval);
+    slideInterval = setInterval(() => {
+        showSlide(currentIndex + 1);
+    }, 5000); // Change slide every 5 seconds
+}
+
+function renderOffersSlideshow() {
+    const slideshowContainer = document.getElementById('offers-slideshow-container');
+    const slidesWrapper = document.getElementById('slides-wrapper');
+    const slidesDots = document.getElementById('slides-dots');
+
+    if (!slideshowContainer || !slidesWrapper || !slidesDots) return;
+
+    dbInstance.ref('offers').once('value').then(snapshot => {
+        if (!snapshot.exists()) {
+            slideshowContainer.classList.add('hidden');
+            return;
+        }
+
+        const offers = snapshot.val();
+        slidesWrapper.innerHTML = '';
+        slidesDots.innerHTML = '';
+        slides = [];
+        dots = [];
+        let offerKeys = Object.keys(offers);
+
+        offerKeys.forEach((key, index) => {
+            const offer = offers[key];
+            if (offer.imageURL && offer.name) {
+                const slide = document.createElement('a');
+                slide.href = `item-details.html?offerId=${key}`;
+                slide.className = 'slide';
+                slide.style.backgroundImage = `url('${escapeHTML(offer.imageURL)}')`;
+
+                slide.innerHTML = `
+                    <div class="slide-content">
+                        <h2 class="slide-title">${escapeHTML(offer.name)}</h2>
+                    </div>
+                `;
+                slidesWrapper.appendChild(slide);
+                slides.push(slide);
+
+                const dot = document.createElement('div');
+                dot.className = 'slide-dot';
+                dot.addEventListener('click', () => showSlide(index));
+                slidesDots.appendChild(dot);
+                dots.push(dot);
+            }
+        });
+
+        if (slides.length > 0) {
+            slideshowContainer.classList.remove('hidden');
+            showSlide(0);
+            startSlideshow();
+        } else {
+            slideshowContainer.classList.add('hidden');
+        }
+    }).catch(error => {
+        console.error("Error fetching offers for slideshow:", error);
+        slideshowContainer.classList.add('hidden');
+    });
+}
+// --- END OF FIX ---
+
 function renderFullMenu() {
     const menuContainer = document.getElementById("menu-container");
     const loadingPlaceholder = document.getElementById("loading-placeholder");
@@ -208,8 +291,6 @@ function renderCategoriesTabs() {
     }
 }
 
-// ... (slideshow and other functions remain the same)
-
 window.menuFunctions = {
     updateItemQuantity: (itemId, change, buttonElement) => {
         const card = buttonElement.closest('.menu-item-card');
@@ -246,38 +327,6 @@ window.menuFunctions = {
         if (section) window.scrollTo({ top: section.offsetTop - 200, behavior: 'smooth' });
     }
 };
-
-/**
- * ---- FIXED FUNCTION ----
- * Correctly filters menu items based on search input.
- */
-function filterMenu() {
-    const searchBar = document.getElementById("search-bar");
-    const noResultsMessage = document.getElementById("no-results-message");
-    if (!searchBar || !noResultsMessage) return;
-
-    const searchTerm = searchBar.value.toLowerCase().trim();
-    let hasResults = false;
-
-    document.querySelectorAll('.menu-item-card').forEach(card => {
-        const itemName = card.querySelector('h3').textContent.toLowerCase();
-        const matches = itemName.includes(searchTerm);
-        
-        card.classList.toggle('hidden-by-filter', !matches);
-        
-        if (matches) {
-            hasResults = true;
-        }
-    });
-
-    document.querySelectorAll('.category-section').forEach(section => {
-        const visibleItems = section.querySelectorAll('.menu-item-card:not(.hidden-by-filter)');
-        section.style.display = visibleItems.length > 0 ? 'block' : 'none';
-    });
-
-    noResultsMessage.style.display = hasResults ? 'none' : 'block';
-    updateActiveTabOnScroll();
-}
 
 function updateActiveTabOnScroll() {
     const scrollPosition = window.scrollY + 201;
@@ -348,13 +397,11 @@ function initializeApp() {
     const drawerMenu = document.getElementById('drawer-menu');
     const drawerOverlay = document.getElementById('drawer-overlay');
     const logoutBtn = document.getElementById('logout-btn');
-    const searchBar = document.getElementById('search-bar');
     
     if (openDrawerBtn) openDrawerBtn.addEventListener('click', () => { drawerMenu.classList.add('open'); drawerOverlay.classList.remove('hidden'); });
     if (closeDrawerBtn) closeDrawerBtn.addEventListener('click', () => { drawerMenu.classList.remove('open'); drawerOverlay.classList.add('hidden'); });
     if (drawerOverlay) drawerOverlay.addEventListener('click', () => { drawerMenu.classList.remove('open'); drawerOverlay.classList.add('hidden'); });
     if (logoutBtn) logoutBtn.addEventListener('click', () => { authInstance.signOut().then(() => { localStorage.clear(); window.location.href = 'auth.html'; }); });
-    if (searchBar) searchBar.addEventListener('input', filterMenu);
     
     window.addEventListener('scroll', updateActiveTabOnScroll, { passive: true });
 }

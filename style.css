@@ -636,11 +636,6 @@ video {
   inset: 0px;
 }
 
-.inset-y-0 {
-  top: 0px;
-  bottom: 0px;
-}
-
 .-right-1 {
   right: -0.25rem;
 }
@@ -1278,10 +1273,6 @@ video {
   border-style: dashed;
 }
 
-.border-none {
-  border-style: none;
-}
-
 .border-gray-100 {
   --tw-border-opacity: 1;
   border-color: rgb(243 244 246 / var(--tw-border-opacity, 1));
@@ -1613,14 +1604,6 @@ video {
 
 .pl-10 {
   padding-left: 2.5rem;
-}
-
-.pl-12 {
-  padding-left: 3rem;
-}
-
-.pl-4 {
-  padding-left: 1rem;
 }
 
 .pr-10 {
