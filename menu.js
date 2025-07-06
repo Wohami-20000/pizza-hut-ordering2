@@ -394,22 +394,26 @@ function updateDrawerUI(user) {
     const userNameSpan = document.getElementById('user-name-drawer');
     const authenticatedMenu = document.getElementById('authenticated-menu');
     const guestMenu = document.getElementById('guest-menu');
+    const logoutSection = document.getElementById('logout-section');
 
-    if (!guestInfo || !userInfo || !userNameSpan || !authenticatedMenu || !guestMenu) return;
+
+    if (!guestInfo || !userInfo || !userNameSpan || !authenticatedMenu || !guestMenu || !logoutSection) return;
 
     if (user && !user.isAnonymous) {
         guestInfo.classList.add('hidden');
         userInfo.classList.remove('hidden');
         authenticatedMenu.classList.remove('hidden');
         guestMenu.classList.remove('hidden');
+        logoutSection.classList.remove('hidden');
 
         dbInstance.ref(`users/${user.uid}/name`).once('value').then(snapshot => {
             userNameSpan.textContent = (snapshot.val() || 'Customer');
         }).catch(() => userNameSpan.textContent = 'Customer');
-    } 
+    }
     else {
         userInfo.classList.add('hidden');
         authenticatedMenu.classList.add('hidden');
+        logoutSection.classList.add('hidden');
         guestMenu.classList.remove('hidden');
         
         // Show the guest login prompt unless they are a dine-in guest (anonymous)
