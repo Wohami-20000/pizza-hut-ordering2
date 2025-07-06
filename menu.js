@@ -74,13 +74,6 @@ async function loadFavorites(user) {
     renderFullMenu();
 }
 
-/**
- * UPDATED: Creates a redesigned, mobile-friendly menu item card.
- * @param {object} item - The item data from Firebase.
- * @param {string} categoryId - The ID of the item's category.
- * @param {string} itemId - The ID of the item.
- * @returns {HTMLElement} The created card element.
- */
 function createMenuItemCard(item, categoryId, itemId) {
     const card = document.createElement('div');
     card.className = 'menu-item-card';
@@ -233,7 +226,6 @@ function renderOffersSlideshow() {
     });
 }
 
-// --- SWIPE GESTURE HANDLERS ---
 function handleTouchStart(e) {
     touchStartX = e.changedTouches[0].screenX;
 }
@@ -419,7 +411,9 @@ let isAuthReady = false;
 let initialUser = null;
 
 function initializeApp() {
-    if (!isDomReady || !isAuthReady) return;
+    if (!isDomReady || !isAuthReady) {
+        return;
+    }
     
     updateCartUI();
     updateDrawerUI(initialUser);
@@ -429,7 +423,7 @@ function initializeApp() {
         await loadFavorites(initialUser);
         renderCategoriesTabs();
         renderOffersSlideshow(); 
-        renderFullMenu(); 
+        renderFullMenu();
     }, error => console.error("Firebase data error:", error));
 
     const openDrawerBtn = document.getElementById('open-drawer-btn');
