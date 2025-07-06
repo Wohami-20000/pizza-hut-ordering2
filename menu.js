@@ -1,31 +1,10 @@
-// menu.js - Corrected and Robust Version
+// menu.js - Corrected and Robust Version (English Only)
 const dbInstance = firebase.database();
 const authInstance = firebase.auth();
 
 let menuDataCache = {};
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 let favorites = [];
-
-// --- Apply Language Function (Crucial Fix) ---
-function applyLanguage(lang, translations) {
-    if (!lang || !translations || !translations[lang]) {
-        console.warn("Language or translations not available for:", lang);
-        return;
-    }
-    document.querySelectorAll('[data-translate]').forEach(element => {
-        const key = element.getAttribute('data-translate');
-        if (translations[lang][key]) {
-            // Use innerHTML for keys that might contain HTML, like the terms link
-            if (key === 'terms') {
-                element.innerHTML = translations[lang][key];
-            } else {
-                element.textContent = translations[lang][key];
-            }
-        }
-    });
-    document.documentElement.lang = lang;
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-}
 
 // --- SLIDESHOW STATE ---
 let slideInterval;
@@ -110,18 +89,15 @@ function createMenuItemCard(item, categoryId, itemId) {
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
     const isFavorite = favorites.includes(itemId);
 
-    // Check for both standard and customized versions of the item in the cart
     const standardItemInCart = cart.find(ci => ci.cartItemId === `${itemId}-standard`);
     const standardQuantity = standardItemInCart ? standardItemInCart.quantity : 0;
     const customizedItems = cart.filter(ci => ci.id === itemId && ci.cartItemId !== `${itemId}-standard`);
     const customizedQuantity = customizedItems.reduce((sum, item) => sum + item.quantity, 0);
 
-    // Add a class to highlight the card if the item is in the cart
     if (standardQuantity > 0 || customizedQuantity > 0) {
         card.classList.add('chosen-card');
     }
 
-    // Determine which controls to show (Add button or +/- controls)
     let controlsHtml = '';
     if (standardQuantity > 0) {
         controlsHtml = `
@@ -133,18 +109,16 @@ function createMenuItemCard(item, categoryId, itemId) {
         `;
     } else {
         controlsHtml = `
-            <button onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', 1, this)" class="w-full bg-yellow-400 text-brand-dark font-bold py-2 px-4 rounded-full hover:bg-yellow-500 transition-all transform hover:scale-105" data-translate="add_to_cart">
+            <button onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', 1, this)" class="w-full bg-yellow-400 text-brand-dark font-bold py-2 px-4 rounded-full hover:bg-yellow-500 transition-all transform hover:scale-105">
                 Add
             </button>
         `;
     }
 
-    // Show a small indicator if there are customized versions of this item
     const customizedIndicator = customizedQuantity > 0
         ? `<div class="text-xs text-center text-red-600 font-semibold mt-1">+${customizedQuantity} customized</div>`
         : '';
 
-    // New vertical card structure
     card.innerHTML = `
         <button onclick="event.stopPropagation(); toggleFavorite('${itemId}', this.querySelector('i'))" class="absolute top-2 right-2 z-10 bg-white rounded-full h-8 w-8 flex items-center justify-center shadow-md hover:bg-gray-100 transition-colors">
             <i class="fas fa-heart fav-icon text-lg ${isFavorite ? 'active' : ''}"></i>
@@ -159,7 +133,7 @@ function createMenuItemCard(item, categoryId, itemId) {
         <div class="p-3 pt-0 text-center flex-grow flex flex-col justify-center">
             <h3 class="font-semibold text-base text-gray-800 truncate" title="${escapeHTML(item.name || 'Unknown Item')}">${escapeHTML(item.name || 'Unknown Item')}</h3>
             <div class="my-2">
-                <a href="item-details.html?categoryId=${categoryId}&itemId=${itemId}" class="inline-block text-xs bg-gray-200 text-gray-700 font-semibold px-3 py-1 rounded-full hover:bg-gray-300 transition-colors" data-translate="customize">Customize</a>
+                <a href="item-details.html?categoryId=${categoryId}&itemId=${itemId}" class="inline-block text-xs bg-gray-200 text-gray-700 font-semibold px-3 py-1 rounded-full hover:bg-gray-300 transition-colors">Customize</a>
             </div>
             <p class="text-xl font-extrabold text-red-600">${itemPrice.toFixed(2)} MAD</p>
         </div>
@@ -180,7 +154,6 @@ function showSlide(index) {
 
     const slidesWrapper = document.getElementById('slides-wrapper');
     if(slidesWrapper) {
-        // Updated calculation to account for the gap between slides
         slidesWrapper.style.transform = `translateX(calc(-${index} * 100% - ${index} * ${SLIDE_GAP}))`;
     }
 
@@ -273,10 +246,10 @@ function handleTouchEnd(e) {
 function handleSwipeGesture() {
     const swipeDistance = touchEndX - touchStartX;
     if (swipeDistance > swipeThreshold) {
-        showSlide(currentIndex - 1); // Swiped Right
+        showSlide(currentIndex - 1);
         startSlideshow();
     } else if (swipeDistance < -swipeThreshold) {
-        showSlide(currentIndex + 1); // Swiped Left
+        showSlide(currentIndex + 1);
         startSlideshow();
     }
 }
@@ -380,10 +353,8 @@ window.menuFunctions = {
         localStorage.setItem("cart", JSON.stringify(cart));
         updateCartUI();
 
-        // Replace the card to re-render it with the new state
         const newCard = createMenuItemCard(itemData, categoryId, itemId);
         card.parentNode.replaceChild(newCard, card);
-        // Make the new card visible immediately
         newCard.classList.add('visible');
     },
     navigateToItemDetails: (categoryId, itemId) => window.location.href = `item-details.html?categoryId=${categoryId}&itemId=${itemId}`,
@@ -437,7 +408,6 @@ function updateDrawerUI(user) {
         logoutSection.classList.add('hidden');
         guestMenu.classList.remove('hidden');
         
-        // Show the guest login prompt unless they are a dine-in guest (anonymous)
         const isDineInGuest = user && user.isAnonymous;
         guestInfo.classList.toggle('hidden', isDineInGuest);
     }
@@ -451,10 +421,6 @@ let initialUser = null;
 function initializeApp() {
     if (!isDomReady || !isAuthReady) return;
     
-    // --- Apply language on load ---
-    applyLanguage(localStorage.getItem('lang') || 'en', translations);
-    // -----------------------------
-
     updateCartUI();
     updateDrawerUI(initialUser);
 
@@ -478,7 +444,6 @@ function initializeApp() {
     if (drawerOverlay) drawerOverlay.addEventListener('click', () => { drawerMenu.classList.remove('open'); drawerOverlay.classList.add('hidden'); });
     if (logoutBtn) logoutBtn.addEventListener('click', () => { authInstance.signOut().then(() => { localStorage.clear(); window.location.href = 'auth.html'; }); });
     
-    // Add swipe listeners
     if (slidesWrapper) {
         slidesWrapper.addEventListener('touchstart', handleTouchStart, { passive: true });
         slidesWrapper.addEventListener('touchend', handleTouchEnd, { passive: true });
