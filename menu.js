@@ -6,6 +6,23 @@ let menuDataCache = {};
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 let favorites = [];
 
+// --- Add this new function ---
+function applyLanguage(lang, translations) {
+    if (!lang || !translations || !translations[lang]) {
+        console.warn("Language or translations not available for:", lang);
+        return;
+    }
+    document.querySelectorAll('[data-translate]').forEach(element => {
+        const key = element.getAttribute('data-translate');
+        if (translations[lang][key]) {
+            element.textContent = translations[lang][key];
+        }
+    });
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+}
+// -----------------------------
+
 // --- SLIDESHOW STATE ---
 let slideInterval;
 let currentIndex = 0;
@@ -430,6 +447,10 @@ let initialUser = null;
 function initializeApp() {
     if (!isDomReady || !isAuthReady) return;
     
+    // --- Add this line to apply language on load ---
+    applyLanguage(localStorage.getItem('lang') || 'en', window.translations);
+    // ---------------------------------------------
+
     updateCartUI();
     updateDrawerUI(initialUser);
 

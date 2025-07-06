@@ -166,35 +166,35 @@
         <div class="p-6 border-b">
             <button id="close-drawer-btn" class="absolute top-4 right-4 text-gray-500 text-2xl">&times;</button>
             <div id="guest-info-drawer">
-                <h2 class="text-xl font-bold mb-2">Welcome to Pizza Hut</h2>
-                <p class="text-sm text-gray-500 mb-4">Login to access your orders, favorites, and more.</p>
-                <a href="auth.html" class="w-full text-center block bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition">Login / Sign Up</a>
+                <h2 class="text-xl font-bold mb-2" data-translate="auth_welcome_title">Welcome to Pizza Hut</h2>
+                <p class="text-sm text-gray-500 mb-4" data-translate="auth_welcome_subtitle">Login to access your orders, favorites, and more.</p>
+                <a href="auth.html" class="w-full text-center block bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition" data-translate="auth_login_btn">Login / Sign Up</a>
             </div>
             <div id="user-info-drawer" class="hidden flex items-center gap-4">
                 <i class="fas fa-user-circle text-5xl text-gray-400"></i>
                 <div>
-                    <p class="text-sm text-gray-500">Welcome back,</p>
+                    <p class="text-sm text-gray-500" data-translate="auth_welcome_back">Welcome back,</p>
                     <h2 id="user-name-drawer" class="text-xl font-bold">User Name</h2>
                 </div>
             </div>
         </div>
         <nav id="drawer-nav" class="flex-grow overflow-y-auto p-6 space-y-2">
             <div id="authenticated-menu" class="hidden">
-                <h3 class="text-sm font-semibold text-red-600 px-2 uppercase">My Account</h3>
-                <a href="profile.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-user-circle w-6 text-center text-gray-500"></i> Account Settings</a>
-                <a href="my-orders.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-box-open w-6 text-center text-gray-500"></i> My Orders</a>
-                <a href="favorites.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-heart w-6 text-center text-gray-500"></i> My Favorites</a>
-                <a href="offers.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-tags w-6 text-center text-gray-500"></i> Offers</a>
+                <h3 class="text-sm font-semibold text-red-600 px-2 uppercase" data-translate="my_account">My Account</h3>
+                <a href="profile.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-user-circle w-6 text-center text-gray-500"></i> <span data-translate="tab_settings">Account Settings</span></a>
+                <a href="my-orders.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-box-open w-6 text-center text-gray-500"></i> <span data-translate="my_orders">My Orders</span></a>
+                <a href="favorites.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-heart w-6 text-center text-gray-500"></i> <span data-translate="my_favorites">My Favorites</span></a>
+                <a href="offers.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-tags w-6 text-center text-gray-500"></i> <span data-translate="offers">Offers</span></a>
                 <hr class="my-2">
             </div>
             <div id="guest-menu">
-                <h3 class="text-sm font-semibold text-red-600 px-2 uppercase">Help</h3>
-                <a href="support.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-life-ring w-6 text-center text-gray-500"></i> Support</a>
-                <a href="faq.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-question-circle w-6 text-center text-gray-500"></i> FAQ</a>
-                <a href="terms.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-file-contract w-6 text-center text-gray-500"></i> Terms & Conditions</a>
+                <h3 class="text-sm font-semibold text-red-600 px-2 uppercase" data-translate="help">Help</h3>
+                <a href="support.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-life-ring w-6 text-center text-gray-500"></i> <span data-translate="support">Support</span></a>
+                <a href="faq.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-question-circle w-6 text-center text-gray-500"></i> <span data-translate="faq">FAQ</span></a>
+                <a href="terms.html" class="flex items-center gap-4 text-lg p-2 rounded-lg"><i class="fas fa-file-contract w-6 text-center text-gray-500"></i> <span data-translate="terms">Terms & Conditions</span></a>
             </div>
              <div id="logout-section" class="hidden">
-                <a href="#" id="logout-btn" class="flex items-center gap-4 text-lg p-2 rounded-lg text-red-600 font-semibold"><i class="fas fa-sign-out-alt w-6 text-center"></i> Log Out</a>
+                <a href="#" id="logout-btn" class="flex items-center gap-4 text-lg p-2 rounded-lg text-red-600 font-semibold"><i class="fas fa-sign-out-alt w-6 text-center"></i> <span data-translate="logout_button">Log Out</span></a>
             </div>
         </nav>
     </div>
@@ -205,8 +205,8 @@
     </div>
 
     <div id="category-tabs-container" class="border-b border-gray-200 initial-hidden animate-fadeInUp" style="animation-delay: 300ms;"><nav id="category-tabs" class="flex overflow-x-auto px-4 gap-3"></nav></div>
-    <main id="menu-container" class="flex-1 px-4 py-5 pb-[120px]"><p id="loading-placeholder" class="text-gray-500 col-span-full text-center py-10">Loading menu...</p><div id="no-results-message" class="hidden text-center py-10"><p class="text-xl font-semibold text-gray-700">No results found</p><p class="text-gray-500 mt-2">Try searching for something else.</p></div></main>
-    <div id="cart-summary-bar" class="fixed bottom-0 left-0 right-0 p-3 z-20 transform translate-y-full transition-transform"><div class="max-w-screen-xl mx-auto flex justify-between items-center bg-white rounded-lg p-3 shadow-2xl"><div class="flex items-center space-x-3"><span id="summary-cart-count" class="summary-count-circle text-sm font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span><span class="text-lg font-semibold text-gray-800" id="summary-total-price">0.00 MAD</span></div><a href="cart.html" class="view-cart-btn px-5 py-2 rounded-full font-bold text-lg hover:opacity-90 transition-opacity">View Cart</a></div></div>
+    <main id="menu-container" class="flex-1 px-4 py-5 pb-[120px]"><p id="loading-placeholder" class="text-gray-500 col-span-full text-center py-10" data-translate="loading_menu">Loading menu...</p><div id="no-results-message" class="hidden text-center py-10"><p class="text-xl font-semibold text-gray-700" data-translate="no_results_found">No results found</p><p class="text-gray-500 mt-2" data-translate="try_searching_else">Try searching for something else.</p></div></main>
+    <div id="cart-summary-bar" class="fixed bottom-0 left-0 right-0 p-3 z-20 transform translate-y-full transition-transform"><div class="max-w-screen-xl mx-auto flex justify-between items-center bg-white rounded-lg p-3 shadow-2xl"><div class="flex items-center space-x-3"><span id="summary-cart-count" class="summary-count-circle text-sm font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span><span class="text-lg font-semibold text-gray-800" id="summary-total-price">0.00 MAD</span></div><a href="cart.html" class="view-cart-btn px-5 py-2 rounded-full font-bold text-lg hover:opacity-90 transition-opacity" data-translate="view_cart">View Cart</a></div></div>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script><script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script><script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script><script src="firebase.js"></script><script src="lang.js"></script><script src="menu.js"></script>
 </body>
