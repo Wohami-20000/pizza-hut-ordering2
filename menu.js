@@ -6,7 +6,7 @@ let menuDataCache = {};
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 let favorites = [];
 
-// --- Add this new function ---
+// --- Apply Language Function (Crucial Fix) ---
 function applyLanguage(lang, translations) {
     if (!lang || !translations || !translations[lang]) {
         console.warn("Language or translations not available for:", lang);
@@ -15,13 +15,17 @@ function applyLanguage(lang, translations) {
     document.querySelectorAll('[data-translate]').forEach(element => {
         const key = element.getAttribute('data-translate');
         if (translations[lang][key]) {
-            element.textContent = translations[lang][key];
+            // Use innerHTML for keys that might contain HTML, like the terms link
+            if (key === 'terms') {
+                element.innerHTML = translations[lang][key];
+            } else {
+                element.textContent = translations[lang][key];
+            }
         }
     });
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
 }
-// -----------------------------
 
 // --- SLIDESHOW STATE ---
 let slideInterval;
@@ -129,7 +133,7 @@ function createMenuItemCard(item, categoryId, itemId) {
         `;
     } else {
         controlsHtml = `
-            <button onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', 1, this)" class="w-full bg-yellow-400 text-brand-dark font-bold py-2 px-4 rounded-full hover:bg-yellow-500 transition-all transform hover:scale-105">
+            <button onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', 1, this)" class="w-full bg-yellow-400 text-brand-dark font-bold py-2 px-4 rounded-full hover:bg-yellow-500 transition-all transform hover:scale-105" data-translate="add_to_cart">
                 Add
             </button>
         `;
@@ -155,7 +159,7 @@ function createMenuItemCard(item, categoryId, itemId) {
         <div class="p-3 pt-0 text-center flex-grow flex flex-col justify-center">
             <h3 class="font-semibold text-base text-gray-800 truncate" title="${escapeHTML(item.name || 'Unknown Item')}">${escapeHTML(item.name || 'Unknown Item')}</h3>
             <div class="my-2">
-                <a href="item-details.html?categoryId=${categoryId}&itemId=${itemId}" class="inline-block text-xs bg-gray-200 text-gray-700 font-semibold px-3 py-1 rounded-full hover:bg-gray-300 transition-colors">Customize</a>
+                <a href="item-details.html?categoryId=${categoryId}&itemId=${itemId}" class="inline-block text-xs bg-gray-200 text-gray-700 font-semibold px-3 py-1 rounded-full hover:bg-gray-300 transition-colors" data-translate="customize">Customize</a>
             </div>
             <p class="text-xl font-extrabold text-red-600">${itemPrice.toFixed(2)} MAD</p>
         </div>
@@ -447,9 +451,9 @@ let initialUser = null;
 function initializeApp() {
     if (!isDomReady || !isAuthReady) return;
     
-    // --- Add this line to apply language on load ---
-    applyLanguage(localStorage.getItem('lang') || 'en', window.translations);
-    // ---------------------------------------------
+    // --- Apply language on load ---
+    applyLanguage(localStorage.getItem('lang') || 'en', translations);
+    // -----------------------------
 
     updateCartUI();
     updateDrawerUI(initialUser);
