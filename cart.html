@@ -65,7 +65,7 @@
 
   <header class="bg-white text-gray-800 p-4 shadow-sm sticky top-0 z-20">
     <div class="container mx-auto flex justify-between items-center max-w-3xl">
-        <a href="menu.html" class="p-2 text-xl text-gray-600"><i class="fas fa-arrow-left"></i></a>
+        <button onclick="history.back()" class="p-2 text-xl text-gray-600"><i class="fas fa-arrow-left"></i></button>
         <h1 class="text-xl font-bold tracking-tight">Your Order</h1>
         <a href="cart.html" id="cart-btn" class="relative p-2 text-xl text-red-600">
             <i class="fas fa-shopping-cart"></i>
@@ -131,6 +131,10 @@
         </div>
         
         <div id="order-details-input" class="space-y-4"></div>
+        <div id="allergy-info-section" class="mt-4">
+            <label for="allergy-info" class="block mb-2 font-semibold text-gray-700" data-translate="allergy_info_label">Allergies or Special Instructions (Optional)</label>
+            <textarea id="allergy-info" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500" placeholder="e.g., Allergic to peanuts" data-translate="allergy_info_placeholder"></textarea>
+        </div>
       </div>
       
       <div id="summary-section" class="border-t pt-6">

@@ -582,47 +582,25 @@ async function renderSuggestions() {
             return;
         }
 
-        const cartItemIds = new Set(cart.map(item => item.id));
-        const suggestions = [];
-        const suggestionIds = new Set();
+        const cartItemIds = cart.map(item => item.id);
+        let potentialItems = [];
 
-        // 1. Add a favorite item if available and not in cart
-        if (favorites.length > 0) {
-            const shuffledFavorites = [...favorites].sort(() => 0.5 - Math.random());
-            for (const favId of shuffledFavorites) {
-                if (!cartItemIds.has(favId)) {
-                    for (const categoryId in menuData) {
-                        if (menuData[categoryId].items && menuData[categoryId].items[favId]) {
-                            const item = menuData[categoryId].items[favId];
-                            suggestions.push({ ...item, id: favId, categoryId });
-                            suggestionIds.add(favId);
-                            break; // Add only one favorite
-                        }
-                    }
-                }
-                if (suggestions.length > 0) break;
-            }
-        }
-
-        // 2. Fill remaining spots with other items
-        const potentialItems = [];
         for (const categoryId in menuData) {
             const category = menuData[categoryId];
             if (category.items) {
                 for (const itemId in category.items) {
-                    if (!cartItemIds.has(itemId) && !suggestionIds.has(itemId)) {
-                         potentialItems.push({ ...category.items[itemId], id: itemId, categoryId });
+                    const item = category.items[itemId];
+                    if (item.price < 30 && !cartItemIds.includes(itemId)) {
+                        potentialItems.push({ ...item,
+                            id: itemId,
+                            categoryId: categoryId
+                        });
                     }
                 }
             }
         }
 
-        potentialItems.sort(() => 0.5 - Math.random());
-        
-        while (suggestions.length < 3 && potentialItems.length > 0) {
-            suggestions.push(potentialItems.shift());
-        }
-
+        const suggestions = potentialItems.sort(() => 0.5 - Math.random()).slice(0, 3);
 
         container.innerHTML = '';
         if (suggestions.length > 0) {
@@ -645,7 +623,6 @@ async function renderSuggestions() {
         container.classList.add('hidden');
     }
 }
-
 
 Object.assign(window.cartFunctions, {
     toggleFavorite: (itemId, heartIconEl) => {
@@ -779,6 +756,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const currentOrderType = localStorage.getItem("orderType");
 
+                const allergyInfo = document.getElementById('allergy-info') ? document.getElementById('allergy-info').value.trim() : '';
+
                 // --- Step 1: Validate inputs and gather data ---
                 if (currentOrderType === 'dineIn') {
                     const tableNumberInput = document.getElementById('table-number');
@@ -890,7 +869,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     status: "pending",
                     timestamp: new Date().toISOString(),
                     customerInfo,
-                    ...orderSpecifics // Adds table, address, etc.
+                    ...orderSpecifics, // Adds table, address, etc.
+                    allergyInfo: allergyInfo || ''
                 };
 
                 // --- Step 4: Save to Firebase and Redirect ---
