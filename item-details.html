@@ -12,74 +12,136 @@
     <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <style>
-      .detail-section + .detail-section { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb; }
-      @keyframes spin { to { transform: rotate(360deg); } }
-      .fa-spinner { animation: spin 1s linear infinite; }
-      .quantity-btn { width: 32px; height: 32px; border-radius: 50%; background-color: #F3F4F6; color: #374151; font-weight: 600; }
+        :root {
+            --brand-red: #D71921;
+            --brand-yellow: #FFC72C;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        .customization-option {
+            transition: all 0.2s ease-in-out;
+        }
+
+        .customization-option input:checked + label {
+            border-color: var(--brand-red);
+            background-color: #FEF2F2;
+            color: var(--brand-red);
+            box-shadow: 0 0 0 2px var(--brand-red);
+        }
+
+        .add-to-cart-footer {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            padding: 1rem;
+            z-index: 10;
+        }
+        
+        .quantity-selector {
+            display: flex;
+            align-items: center;
+            border: 1px solid #d1d5db;
+            border-radius: 9999px;
+            overflow: hidden;
+            background-color: white;
+        }
+        .selector-btn {
+            background-color: transparent;
+            border: none;
+            color: var(--brand-red);
+            font-weight: bold;
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 44px;
+            height: 44px;
+            transition: background-color 0.2s;
+        }
+        .selector-btn:hover {
+            background-color: #fef2f2;
+        }
+        .selector-btn:disabled {
+            color: #9ca3af;
+            cursor: not-allowed;
+        }
+        .selector-value {
+            font-size: 1.25rem;
+            font-weight: bold;
+            padding: 0 0.5rem;
+            min-width: 40px;
+            text-align: center;
+        }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gray-100">
 
-  <header class="flex items-center justify-between px-4 py-3 bg-white text-gray-800 shadow-sm sticky top-0 z-30">
-    <a href="menu.html" class="p-2 text-xl text-gray-600"><i class="fas fa-arrow-left"></i></a>
-    <span class="font-bold text-lg tracking-tight">Item Details</span>
-    <a href="cart.html" id="cart-btn" class="relative p-2 text-xl text-gray-600">
-        <i class="fas fa-shopping-cart"></i>
-        <span id="cart-count" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
-    </a>
-  </header>
+    <header class="flex items-center justify-between px-4 py-3 bg-white text-gray-800 shadow-sm sticky top-0 z-20">
+        <a href="menu.html" class="p-2 text-xl text-gray-600"><i class="fas fa-arrow-left"></i></a>
+        <span class="font-bold text-lg tracking-tight">Customize Your Item</span>
+        <a href="cart.html" id="cart-btn" class="relative p-2 text-xl text-gray-600">
+            <i class="fas fa-shopping-cart"></i>
+            <span id="cart-count" class="absolute -top-1 -right-1 bg-brand-yellow text-red-800 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+        </a>
+    </header>
 
-  <main id="item-details-container" class="container mx-auto max-w-2xl p-4 mt-4 mb-8">
-    <div id="loading-state" class="text-center py-20"><i class="fas fa-spinner fa-spin text-red-600 text-5xl"></i><p class="text-gray-600 text-lg mt-4">Loading item details...</p></div>
-    <article id="item-content" class="hidden bg-white rounded-xl shadow-lg overflow-hidden">
-      <div id="item-image-wrapper" class="bg-gray-200 h-64 flex items-center justify-center"></div>
-      <div class="p-6">
-        <h1 id="item-name" class="text-3xl font-extrabold text-gray-800 mb-2">Item Name</h1>
-        <p id="item-short-desc" class="text-gray-600 mb-5 text-base">Short item description.</p>
-        <div class="mb-6 pb-6 border-b border-gray-200"><span id="item-price" class="text-4xl font-bold text-red-600">0.00 MAD</span></div>
-
-        <div id="long-desc-section" class="detail-section">
-            <h2 class="text-xl font-semibold text-gray-700 mb-3">Details</h2>
-            <p id="item-long-desc" class="text-base text-gray-700 leading-relaxed"></p>
+    <main id="item-details-container" class="container mx-auto max-w-4xl p-4 mt-4 mb-32">
+        <div id="loading-state" class="text-center py-20">
+            <i class="fas fa-spinner fa-spin text-brand-red text-5xl"></i>
+            <p class="text-gray-600 text-lg mt-4">Loading ...</p>
         </div>
-        
-        <div id="customization-section" class="detail-section">
-            <h2 class="text-xl font-semibold text-gray-700 mb-3">Customize Your Pizza</h2>
-            <div class="space-y-2">
-                <label class="flex items-center">
-                    <input type="checkbox" name="extra-topping" value="pepperoni" data-price="10" class="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500">
-                    <span class="ml-2 text-gray-700">Extra Pepperoni (+10.00 MAD)</span>
-                </label>
-                <label class="flex items-center">
-                    <input type="checkbox" name="extra-topping" value="cheese" data-price="12" class="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500">
-                    <span class="ml-2 text-gray-700">Extra Cheese (+12.00 MAD)</span>
-                </label>
+
+        <div id="item-content" class="hidden">
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="fade-in">
+                    <div class="bg-white rounded-xl shadow-lg p-4">
+                        <img id="item-image" src="" alt="Item Image" class="w-full h-auto object-contain">
+                    </div>
+                </div>
+
+                <div class="fade-in" style="animation-delay: 100ms;">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h1 id="item-name" class="text-3xl font-extrabold text-gray-800 mb-2"></h1>
+                        <p id="item-description" class="text-gray-600 mb-6"></p>
+
+                        <div id="customization-section">
+                            <div id="size-options" class="mb-6"></div>
+                            <div id="recipe-options" class="mb-6"></div>
+                            <div id="addon-options" class="mb-6"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+        <div id="error-state" class="hidden text-center py-20 bg-white p-8 rounded-xl shadow-xl">
+            <i class="fas fa-exclamation-triangle text-red-500 text-5xl mb-4"></i>
+            <p class="text-red-600 text-xl font-semibold">Sorry, the item could not be found.</p>
+        </div>
+    </main>
 
-        <div class="detail-section flex items-center justify-between">
-            <h2 class="text-xl font-semibold text-gray-700">Quantity</h2>
-            <div class="flex items-center gap-4">
-                <button id="decrease-qty-btn" class="quantity-btn" aria-label="Decrease quantity">-</button>
-                <span id="item-quantity" class="font-bold text-2xl">1</span>
-                <button id="increase-qty-btn" class="quantity-btn" aria-label="Increase quantity">+</button>
+    <footer id="add-to-cart-footer" class="add-to-cart-footer hidden">
+        <div class="container mx-auto max-w-4xl flex items-center justify-between">
+            <div class="quantity-selector">
+                <button id="decrease-qty-btn" class="selector-btn">-</button>
+                <span id="item-quantity" class="selector-value">1</span>
+                <button id="increase-qty-btn" class="selector-btn">+</button>
             </div>
+            <button id="add-to-cart-details-btn" class="bg-brand-red text-white py-3 px-8 rounded-full text-lg font-semibold flex-grow ml-4">
+                Add to Cart - <span id="total-price">0.00</span> MAD
+            </button>
         </div>
-        <div class="mt-10">
-          <button id="add-to-cart-details-btn" class="w-full bg-red-600 text-white py-3.5 px-6 rounded-lg text-lg font-semibold hover:bg-red-700 transition shadow-lg">
-            <i class="fas fa-cart-plus mr-2"></i><span>Add to Cart</span>
-          </button>
-        </div>
-      </div>
-    </article>
-    <div id="error-state" class="hidden text-center py-20 bg-white p-8 rounded-xl shadow-xl"><i class="fas fa-exclamation-triangle text-red-500 text-5xl mb-4"></i><p class="text-red-600 text-xl font-semibold">Sorry, the item could not be found.</p></div>
-  </main>
-  
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <script src="firebase.js"></script>
-  <script>
-    // The JavaScript for this page will be in a separate block below
-  </script>
+    </footer>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="firebase.js"></script>
+    <script src="item-details.js"></script>
 </body>
 </html>

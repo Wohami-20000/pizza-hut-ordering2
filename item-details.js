@@ -2,54 +2,134 @@
 
 const db = firebase.database();
 let currentItemData = null;
+let selectedSize = null;
+let selectedRecipe = null;
+let selectedAddons = [];
 let quantity = 1;
 
 // --- Element References ---
 const loadingStateDiv = document.getElementById('loading-state');
-const itemContentArticle = document.getElementById('item-content');
+const itemContentDiv = document.getElementById('item-content');
 const errorStateDiv = document.getElementById('error-state');
-const itemImageWrapper = document.getElementById('item-image-wrapper');
+const itemImage = document.getElementById('item-image');
 const itemNameH1 = document.getElementById('item-name');
-const itemShortDescP = document.getElementById('item-short-desc');
-const itemLongDescP = document.getElementById('item-long-desc');
-const longDescSection = document.getElementById('long-desc-section');
-const itemPriceSpan = document.getElementById('item-price');
-const addToCartBtn = document.getElementById('add-to-cart-details-btn');
-const cartCountSpan = document.getElementById('cart-count');
+const itemDescriptionP = document.getElementById('item-description');
+const sizeOptionsDiv = document.getElementById('size-options');
+const recipeOptionsDiv = document.getElementById('recipe-options');
+const addonOptionsDiv = document.getElementById('addon-options');
 const decreaseQtyBtn = document.getElementById('decrease-qty-btn');
 const increaseQtyBtn = document.getElementById('increase-qty-btn');
 const quantitySpan = document.getElementById('item-quantity');
-
-function escapeHTML(str) {
-  if (typeof str !== 'string') return str;
-  return str.replace(/[&<>"']/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': "&quot;", "'": '&#39;' }[match]));
-}
+const totalPriceSpan = document.getElementById('total-price');
+const addToCartBtn = document.getElementById('add-to-cart-details-btn');
+const cartFooter = document.getElementById('add-to-cart-footer');
 
 function updateCartCount() {
     const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    if (cartCountSpan) cartCountSpan.textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const cartCountSpan = document.getElementById('cart-count');
+    if (cartCountSpan) {
+        cartCountSpan.textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
+    }
+}
+
+function updatePrice() {
+    if (!currentItemData) return;
+
+    let basePrice = 0;
+    if (selectedSize && selectedSize.price) {
+        basePrice = selectedSize.price;
+    } else if (currentItemData.price) {
+        basePrice = currentItemData.price;
+    }
+
+    const addonsPrice = selectedAddons.reduce((total, addon) => total + addon.price.Triple, 0);
+    const total = (basePrice + addonsPrice) * quantity;
+    totalPriceSpan.textContent = total.toFixed(2);
+}
+
+function renderCustomizations() {
+    // Sizes
+    if (currentItemData.sizes && currentItemData.sizes.length > 0) {
+        let sizeHtml = '<h3 class="text-lg font-semibold mb-2">Size</h3><div class="flex gap-2">';
+        currentItemData.sizes.forEach((size, index) => {
+            sizeHtml += `
+                <div class="customization-option flex-1">
+                    <input type="radio" id="size_${index}" name="size" value='${JSON.stringify(size)}' class="hidden" ${index === 0 ? 'checked' : ''}>
+                    <label for="size_${index}" class="block text-center border-2 rounded-lg p-2 cursor-pointer">${size.size}</label>
+                </div>
+            `;
+        });
+        sizeHtml += '</div>';
+        sizeOptionsDiv.innerHTML = sizeHtml;
+        selectedSize = currentItemData.sizes[0];
+
+        document.querySelectorAll('input[name="size"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                selectedSize = JSON.parse(e.target.value);
+                updatePrice();
+            });
+        });
+    }
+
+    // Recipes
+    if (currentItemData.recipes && currentItemData.recipes.length > 0) {
+        let recipeHtml = '<h3 class="text-lg font-semibold mb-2">Recipe</h3><select id="recipe-select" class="w-full p-2 border rounded-lg">';
+        currentItemData.recipes.forEach(recipe => {
+            recipeHtml += `<option value="${recipe}">${recipe}</option>`;
+        });
+        recipeHtml += '</select>';
+        recipeOptionsDiv.innerHTML = recipeHtml;
+        selectedRecipe = currentItemData.recipes[0];
+
+        document.getElementById('recipe-select').addEventListener('change', (e) => {
+            selectedRecipe = e.target.value;
+        });
+    }
+
+    // Add-ons
+    if (currentItemData.options && currentItemData.options.length > 0) {
+        let addonHtml = '<h3 class="text-lg font-semibold mb-2">Add-ons</h3><div class="space-y-2">';
+        currentItemData.options.forEach((addon, index) => {
+            addonHtml += `
+                <div class="customization-option">
+                    <input type="checkbox" id="addon_${index}" name="addon" value='${JSON.stringify(addon)}' class="form-checkbox h-5 w-5 text-brand-red rounded">
+                    <label for="addon_${index}" class="ml-2">${addon.name} (+${addon.price.Triple} MAD)</label>
+                </div>
+            `;
+        });
+        addonHtml += '</div>';
+        addonOptionsDiv.innerHTML = addonHtml;
+
+        document.querySelectorAll('input[name="addon"]').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const addon = JSON.parse(e.target.value);
+                if (e.target.checked) {
+                    selectedAddons.push(addon);
+                } else {
+                    selectedAddons = selectedAddons.filter(a => a.name !== addon.name);
+                }
+                updatePrice();
+            });
+        });
+    }
 }
 
 function displayItemDetails(itemData) {
     currentItemData = itemData;
     const itemName = itemData.name || 'Item';
-    const itemPrice = typeof itemData.price === 'number' ? itemData.price : 0;
-    
-    document.title = `${escapeHTML(itemName)} - Pizza Hut`;
-    itemImageWrapper.innerHTML = `<img src="${escapeHTML(itemData.imageURL || itemData.image_url || '')}" alt="${escapeHTML(itemName)}" class="w-full h-full object-contain p-4">`;
-    itemNameH1.textContent = escapeHTML(itemName);
-    itemShortDescP.textContent = escapeHTML(itemData.description || itemData.shortDesc || '');
-    
-    if (itemData.longDesc) {
-        itemLongDescP.textContent = escapeHTML(itemData.longDesc);
-        longDescSection.style.display = 'block';
-    } else {
-        longDescSection.style.display = 'none';
-    }
 
-    itemPriceSpan.textContent = `${itemPrice.toFixed(2)} MAD`;
+    document.title = `${itemName} - Pizza Hut`;
+    itemImage.src = itemData.image_url || 'https://www.pizzahut.ma/images/Default_pizza.png';
+    itemImage.alt = itemName;
+    itemNameH1.textContent = itemName;
+    itemDescriptionP.textContent = itemData.desc || '';
+
+    renderCustomizations();
+    updatePrice();
+
     loadingStateDiv.style.display = 'none';
-    itemContentArticle.style.display = 'block';
+    itemContentDiv.style.display = 'block';
+    cartFooter.classList.remove('hidden');
 }
 
 function showError() {
@@ -60,6 +140,7 @@ function showError() {
 function updateQuantityDisplay() {
     quantitySpan.textContent = quantity;
     decreaseQtyBtn.disabled = quantity <= 1;
+    updatePrice();
 }
 
 increaseQtyBtn.addEventListener('click', () => {
@@ -78,78 +159,62 @@ addToCartBtn.addEventListener('click', () => {
     if (!currentItemData) return;
     let cart = JSON.parse(localStorage.getItem("cart")) || [];
     
-    const selectedToppings = Array.from(document.querySelectorAll('input[name="extra-topping"]:checked'))
-        .map(checkbox => ({
-            name: checkbox.nextElementSibling.textContent.split('(')[0].trim(),
-            price: parseFloat(checkbox.dataset.price)
-        }));
-
-    let finalPrice = currentItemData.price;
-    selectedToppings.forEach(topping => {
-        finalPrice += topping.price;
-    });
-
-    // Generate a unique ID for customized items
-    const cartItemId = selectedToppings.length > 0
-        ? `${currentItemData.id}-${Date.now()}`
-        : `${currentItemData.id}-standard`;
+    const itemNameWithCustomizations = `${currentItemData.name}${selectedSize ? ` (${selectedSize.size})` : ''}${selectedRecipe ? ` - ${selectedRecipe}` : ''}`;
+    const cartItemId = `${currentItemData.id}-${Date.now()}`;
 
     const newItem = {
-        cartItemId: cartItemId, 
-        id: currentItemData.id, 
-        name: currentItemData.name,
-        image: currentItemData.imageURL || currentItemData.image_url,
-        price: finalPrice, 
+        cartItemId: cartItemId,
+        id: currentItemData.id,
+        name: itemNameWithCustomizations,
+        image: currentItemData.image_url,
+        price: parseFloat(totalPriceSpan.textContent) / quantity,
         quantity: quantity,
-        options: selectedToppings
+        options: selectedAddons.map(a => a.name)
     };
     
-    let existingItem = cart.find(item => item.cartItemId === cartItemId);
-    
-    if (existingItem) {
-         existingItem.quantity += quantity;
-    } else {
-        cart.push(newItem);
-    }
-    
+    cart.push(newItem);
     localStorage.setItem("cart", JSON.stringify(cart));
     updateCartCount();
     
-    const btn = document.getElementById('add-to-cart-details-btn');
-    btn.textContent = 'Added! Returning to menu...';
-    btn.disabled = true;
-    btn.classList.remove('bg-red-600', 'hover:bg-red-700');
-    btn.classList.add('bg-green-600');
+    addToCartBtn.textContent = 'Added! ✓';
+    addToCartBtn.classList.add('bg-green-500');
     
     setTimeout(() => {
         window.location.href = 'menu.html';
-    }, 1000);
+    }, 800);
 });
 
 document.addEventListener('DOMContentLoaded', () => {
     updateCartCount();
     updateQuantityDisplay();
+
     const params = new URLSearchParams(window.location.search);
     const categoryId = params.get('categoryId');
     const itemId = params.get('itemId');
-    const offerId = params.get('offerId');
 
-    let itemRef;
-
-    if (offerId) {
-        itemRef = db.ref(`offers/${offerId}`);
-    } else if (categoryId && itemId) {
-        itemRef = db.ref(`menu/${categoryId}/items/${itemId}`);
-    } else {
+    if (!categoryId || !itemId) {
         showError();
         return;
     }
 
-    itemRef.once('value')
+    db.ref(`menu/${categoryId}`).once('value')
         .then(snapshot => {
-            const itemData = snapshot.val();
+            const categoryData = snapshot.val();
+            let itemData = null;
+
+            if (categoryData.items && categoryData.items[itemId]) {
+                itemData = categoryData.items[itemId];
+            } else if (categoryData.subcategories) {
+                for (const subcatId in categoryData.subcategories) {
+                    const subcat = categoryData.subcategories[subcatId];
+                    if (subcat.id === itemId) {
+                        itemData = { ...subcat, id: itemId };
+                        break;
+                    }
+                }
+            }
+            
             if (itemData) {
-                itemData.id = snapshot.key;
                 displayItemDetails(itemData);
             } else {
                 showError();
