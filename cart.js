@@ -411,11 +411,11 @@ async function renderOrderDetailsInput(user) {
                 <div>
                     <label id="address-label" class="block mb-2 font-semibold text-gray-700" data-translate="delivery_address_label">Delivery Address</label>
                     ${savedAddressesHtml}
-                    <input type="text" id="delivery-address" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500" placeholder="Enter your delivery address" required value=""/>
+                    <input type="text" id="delivery-address" class="input-field-style w-full" placeholder="Enter your delivery address" required value=""/>
                 </div>
                 <div class="mt-4">
                     <label for="delivery-instructions" class="block mb-2 font-semibold text-gray-700" data-translate="delivery_instructions_label">Delivery Instructions (Optional)</label>
-                    <textarea id="delivery-instructions" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500" placeholder="e.g. Leave at front door, call upon arrival..."></textarea>
+                    <textarea id="delivery-instructions" rows="2" class="input-field-style w-full" placeholder="e.g. Leave at front door, call upon arrival..."></textarea>
                 </div>
             `;
         }

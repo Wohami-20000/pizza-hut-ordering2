@@ -65,6 +65,8 @@
     #checkout-details-section.expanded { max-height: 1000px; /* Adjust as needed */ }
     .output-field { background-color: #f9fafb; border: 1px solid #e5e7eb; padding: 0.75rem; border-radius: 0.5rem; margin-top: 0.25rem; }
     .output-field strong { color: #1f2937; }
+    .input-field-style { background-color: #fef2f2; border: 1px solid #fecaca; padding: 0.75rem; border-radius: 0.5rem; margin-top: 0.25rem; transition: all 0.2s; }
+    .input-field-style:focus { outline: none; border-color: var(--brand-red); box-shadow: 0 0 0 3px rgba(215, 25, 33, 0.2); }
   </style>
 </head>
 <body class="bg-gray-100 text-gray-900 min-h-screen flex flex-col">
@@ -140,7 +142,7 @@
           <div id="order-details-input" class="space-y-4"></div>
            <div id="allergy-info-section" class="mt-4">
             <label for="allergy-info" class="block mb-2 font-semibold text-gray-700" data-translate="allergy_info_label">Allergies or Special Instructions (Optional)</label>
-            <textarea id="allergy-info" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500" placeholder="e.g., Allergic to peanuts" data-translate="allergy_info_placeholder"></textarea>
+            <textarea id="allergy-info" rows="2" class="input-field-style w-full" placeholder="e.g., Allergic to peanuts" data-translate="allergy_info_placeholder"></textarea>
           </div>
         </div>
         
