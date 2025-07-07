@@ -1,4 +1,4 @@
-// menu.js - Corrected and Robust Version (English Only)
+// menu.js - Corrected and Robust Version
 const dbInstance = firebase.database();
 const authInstance = firebase.auth();
 
@@ -71,7 +71,6 @@ async function loadFavorites(user) {
     } else {
         favorites = JSON.parse(localStorage.getItem("favorites")) || [];
     }
-    renderFullMenu();
 }
 
 function createMenuItemCard(item, categoryId, itemId) {
@@ -406,25 +405,11 @@ function updateDrawerUI(user) {
 }
 
 // --- ROBUST INITIALIZATION LOGIC ---
-let isDomReady = false;
-let isAuthReady = false;
-let initialUser = null;
-
-function initializeApp() {
-    if (!isDomReady || !isAuthReady) {
-        return;
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    // This function will run once the document is fully loaded and parsed.
     
+    // Initialize UI components that don't depend on Firebase data first.
     updateCartUI();
-    updateDrawerUI(initialUser);
-
-    dbInstance.ref('menu').on('value', async (snapshot) => {
-        menuDataCache = snapshot.val() || {};
-        await loadFavorites(initialUser);
-        renderCategoriesTabs();
-        renderOffersSlideshow(); 
-        renderFullMenu();
-    }, error => console.error("Firebase data error:", error));
 
     const openDrawerBtn = document.getElementById('open-drawer-btn');
     const closeDrawerBtn = document.getElementById('close-drawer-btn');
@@ -444,15 +429,22 @@ function initializeApp() {
     }
     
     window.addEventListener('scroll', updateActiveTabOnScroll, { passive: true });
-}
 
-document.addEventListener('DOMContentLoaded', () => {
-    isDomReady = true;
-    initializeApp();
-});
+    // Now, set up the listener for Firebase authentication state changes.
+    authInstance.onAuthStateChanged((user) => {
+        // This part runs when auth state is known, which could be before or after DOM is ready.
+        // But since it's nested in DOMContentLoaded, we know the DOM is ready.
 
-authInstance.onAuthStateChanged((user) => {
-    isAuthReady = true;
-    initialUser = user;
-    initializeApp();
+        // Update UI based on user's login status
+        updateDrawerUI(user);
+
+        // Fetch menu and favorites data. This is the main data loading step.
+        dbInstance.ref('menu').on('value', async (snapshot) => {
+            menuDataCache = snapshot.val() || {};
+            await loadFavorites(user); // Load favorites for the current user
+            renderCategoriesTabs();
+            renderOffersSlideshow(); 
+            renderFullMenu(); // This function will now find the necessary elements
+        }, error => console.error("Firebase data error:", error));
+    });
 });
