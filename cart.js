@@ -84,7 +84,7 @@ async function getNextOrderNumber() {
 
 // --- EXISTING UI AND HELPER FUNCTIONS (Corrected Syntax) ---
 
-function showMessageBox(titleKey, messageKey, isError = false) {
+function showMessageBox(titleKey, messageKey, isError = false, iconClass = '') {
     // CORRECTED SYNTAX
     let translatedTitle = (translations && translations[currentLang] && translations[currentLang][titleKey]) || titleKey;
     let translatedMessage = (translations && translations[currentLang] && translations[currentLang][messageKey]) || messageKey;
@@ -96,6 +96,19 @@ function showMessageBox(titleKey, messageKey, isError = false) {
     messageBoxOkBtn.onclick = () => {
         messageBox.style.display = 'none';
     };
+
+    const iconElement = messageBox.querySelector('i');
+    if (iconClass) {
+        if(!iconElement) {
+            const newIconElement = document.createElement('i');
+            messageBox.insertBefore(newIconElement, messageBoxTitle);
+        }
+        messageBox.querySelector('i').className = iconClass;
+        messageBox.querySelector('i').style.display = 'block';
+    } else if (iconElement) {
+        iconElement.style.display = 'none';
+    }
+
     if (isError) {
         messageBoxTitle.classList.add('text-red-600');
         messageBoxOkBtn.classList.add('bg-red-600');
@@ -448,7 +461,7 @@ async function renderOrderDetailsInput(user) {
             const newPhoneNumber = customerPhoneInput.value.trim();
             if(newPhoneNumber && newPhoneNumber !== customerPhone) {
                 await db.ref(`users/${user.uid}`).update({ phone: newPhoneNumber });
-                showMessageBox('Success', 'Phone number updated successfully.');
+                showMessageBox('Success!', 'Phone number updated successfully.', false, 'fas fa-check-circle text-5xl text-green-500 mb-4');
             }
             togglePhoneEditMode(false);
         });
