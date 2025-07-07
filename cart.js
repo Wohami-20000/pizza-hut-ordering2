@@ -448,7 +448,7 @@ async function renderOrderDetailsInput(user) {
             const newPhoneNumber = customerPhoneInput.value.trim();
             if(newPhoneNumber && newPhoneNumber !== customerPhone) {
                 await db.ref(`users/${user.uid}`).update({ phone: newPhoneNumber });
-                showMessageBox('Success!', 'Phone number updated successfully.');
+                showMessageBox('Success', 'Phone number updated successfully.');
             }
             togglePhoneEditMode(false);
         });
