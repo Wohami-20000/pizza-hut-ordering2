@@ -10,10 +10,10 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
   <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml"> 
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <style>
-    :root { 
-        --brand-red: #D71921; 
+    :root {
+        --brand-red: #D71921;
         --brand-yellow: #FFC72C;
     }
     .cart-item-card, .menu-item-card { display: flex; align-items: center; gap: 1rem; padding: 1rem; background-color: #fff; border-radius: 0.75rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); transition: transform 0.2s ease-in-out; }
@@ -29,6 +29,7 @@
     .cart-item-details { flex-grow: 1; min-width: 0; }
     .cart-item-name { font-weight: 600; font-size: 1.125rem; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .cart-item-price-each { font-size: 0.875rem; color: #4b5563; }
+    .cart-item-customizations { font-size: 0.8rem; color: #4b5563; background-color: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 0.25rem; margin-top: 0.5rem; }
     .cart-item-controls { display: flex; align-items: center; gap: 0.75rem; }
     .quantity-btn { background-color: #f3f4f6; color: #1f2937; width: 28px; height: 28px; border-radius: 50%; font-weight: 600; transition: background-color 0.15s ease-in-out, transform 0.15s; }
     .quantity-btn:hover { background-color: #e5e7eb; transform: scale(1.1); }
@@ -60,6 +61,8 @@
     .order-type-button.disabled { background-color: #f3f4f6; color: #9ca3af; cursor: not-allowed; opacity: 0.7; }
     .order-type-button.disabled:hover { border-color: #e5e7eb; }
     .order-type-button i { font-size: 1.25rem; margin-bottom: 0.25rem; display: block; }
+    #checkout-details-section { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-in-out; }
+    #checkout-details-section.expanded { max-height: 1000px; /* Adjust as needed */ }
   </style>
 </head>
 <body class="bg-gray-100 text-gray-900 min-h-screen flex flex-col">
@@ -102,7 +105,7 @@
       
       <div id="suggestion-section" class="border-t pt-6"></div>
 
-      <div id="checkout-details-section" class="hidden space-y-6">
+      <div id="checkout-details-section" class="space-y-6">
         <div id="promo-code-section" class="border-t pt-6">
            <label for="promo-code-input" class="block font-semibold text-gray-700 mb-2" data-translate="promo_code_label">Have a promo code?</label>
            <div class="flex space-x-2">

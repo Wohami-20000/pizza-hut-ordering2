@@ -227,6 +227,7 @@ function renderCart() {
     cart.forEach((item, index) => {
         const itemQuantity = parseInt(item.quantity) || 0;
         const itemPrice = parseFloat(item.price) || 0;
+        const customizations = item.options ? item.options.join(', ') : '';
 
         const itemDiv = document.createElement("div");
         itemDiv.className = "cart-item-card";
@@ -241,6 +242,7 @@ function renderCart() {
             ${item.categoryId && item.id ? `<a href="item-details.html?categoryId=${item.categoryId}&itemId=${item.id}" class="edit-item-btn" aria-label="Edit ${escapeHTML(item.name)}"><i class="fas fa-pencil-alt"></i></a>` : ''}
         </div>
         <div class="cart-item-price-each">${itemPrice.toFixed(2)} <span class="font-semibold">MAD</span></div>
+        ${customizations ? `<div class="cart-item-customizations">${escapeHTML(customizations)}</div>` : ''}
       </div>
       <div class="cart-item-controls">
         <button
@@ -754,17 +756,17 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePlaceOrderButtonState();
     handlePromoCode();
     renderSuggestions();
-    
+
     const checkoutDetailsSection = document.getElementById('checkout-details-section');
     const proceedToCheckoutBtn = document.getElementById('proceed-to-checkout-btn');
     const placeOrderBtn = document.getElementById('place-order');
 
     proceedToCheckoutBtn.addEventListener('click', () => {
-        checkoutDetailsSection.classList.remove('hidden');
+        checkoutDetailsSection.classList.add('expanded');
         proceedToCheckoutBtn.classList.add('hidden');
         placeOrderBtn.classList.remove('hidden');
     });
-
+    
     const orderTypeButtons = document.querySelectorAll('.order-type-button');
     orderTypeButtons.forEach(button => {
         button.addEventListener('click', () => {
