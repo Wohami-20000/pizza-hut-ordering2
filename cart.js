@@ -19,6 +19,7 @@ const messageBoxText = document.getElementById('message-box-text');
 const messageBoxOkBtn = document.getElementById('message-box-ok-btn');
 
 let currentLang = localStorage.getItem('lang') || 'en';
+let phoneInputInstance;
 
 // --- NEW HELPER FUNCTIONS ---
 
@@ -407,15 +408,52 @@ async function renderOrderDetailsInput(user) {
                 </div>
                 <div>
                     <label id="customer-phone-label" for="customer-phone" class="block mb-2 font-semibold text-gray-700" data-translate="phone_number_label">Your Phone</label>
-                    <input type="tel" id="customer-phone" class="w-full border bg-gray-100 border-gray-300 rounded-lg p-3 text-lg" value="${escapeHTML(customerPhone)}" readonly />
+                    <div class="flex items-center gap-2 mt-1">
+                        <input type="tel" id="customer-phone" class="w-full border bg-gray-100 border-gray-300 rounded-lg p-3 text-lg" value="${escapeHTML(customerPhone)}" readonly />
+                        <button type="button" id="change-phone-btn" class="px-4 py-2 bg-gray-200 rounded-lg text-sm font-semibold hover:bg-gray-300">Change</button>
+                        <button type="button" id="save-phone-btn" class="hidden px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700">Save</button>
+                        <button type="button" id="cancel-phone-btn" class="hidden px-4 py-2 bg-gray-500 text-white rounded-lg text-sm font-semibold hover:bg-gray-600">Cancel</button>
+                    </div>
                 </div>
                 ${addressInputHtml}
             </div>
             ${pickupOptionsHtml}
-            <p class="text-center text-sm mt-6" data-translate="incorrect_info_prompt">Is your information incorrect? <a href="profile.html" class="text-blue-600 hover:underline font-semibold" data-translate="edit_profile_link">Edit Profile</a></p>
         `;
 
         // Add event listeners after injecting HTML
+        const changePhoneBtn = document.getElementById('change-phone-btn');
+        const savePhoneBtn = document.getElementById('save-phone-btn');
+        const cancelPhoneBtn = document.getElementById('cancel-phone-btn');
+        const customerPhoneInput = document.getElementById('customer-phone');
+        
+        const togglePhoneEditMode = (isEditing) => {
+            customerPhoneInput.readOnly = !isEditing;
+            changePhoneBtn.classList.toggle('hidden', isEditing);
+            savePhoneBtn.classList.toggle('hidden', !isEditing);
+            cancelPhoneBtn.classList.toggle('hidden', !isEditing);
+            if(isEditing) {
+                customerPhoneInput.classList.remove('bg-gray-100');
+                customerPhoneInput.focus();
+            } else {
+                customerPhoneInput.classList.add('bg-gray-100');
+            }
+        };
+
+        changePhoneBtn.addEventListener('click', () => togglePhoneEditMode(true));
+        cancelPhoneBtn.addEventListener('click', () => {
+            customerPhoneInput.value = customerPhone;
+            togglePhoneEditMode(false)
+        });
+        savePhoneBtn.addEventListener('click', async () => {
+            const newPhoneNumber = customerPhoneInput.value.trim();
+            if(newPhoneNumber && newPhoneNumber !== customerPhone) {
+                await db.ref(`users/${user.uid}`).update({ phone: newPhoneNumber });
+                showMessageBox('Success!', 'Phone number updated successfully.');
+            }
+            togglePhoneEditMode(false);
+        });
+
+
         if (orderType === 'delivery') {
             const savedAddressRadios = document.querySelectorAll('input[name="savedAddress"]');
             const deliveryAddressInput = document.getElementById('delivery-address');
@@ -582,25 +620,47 @@ async function renderSuggestions() {
             return;
         }
 
-        const cartItemIds = cart.map(item => item.id);
-        let potentialItems = [];
+        const cartItemIds = new Set(cart.map(item => item.id));
+        const suggestions = [];
+        const suggestionIds = new Set();
 
+        // 1. Add a favorite item if available and not in cart
+        if (favorites.length > 0) {
+            const shuffledFavorites = [...favorites].sort(() => 0.5 - Math.random());
+            for (const favId of shuffledFavorites) {
+                if (!cartItemIds.has(favId)) {
+                    for (const categoryId in menuData) {
+                        if (menuData[categoryId].items && menuData[categoryId].items[favId]) {
+                            const item = menuData[categoryId].items[favId];
+                            suggestions.push({ ...item, id: favId, categoryId });
+                            suggestionIds.add(favId);
+                            break; // Add only one favorite
+                        }
+                    }
+                }
+                if (suggestions.length > 0) break;
+            }
+        }
+
+        // 2. Fill remaining spots with other items
+        const potentialItems = [];
         for (const categoryId in menuData) {
             const category = menuData[categoryId];
             if (category.items) {
                 for (const itemId in category.items) {
-                    const item = category.items[itemId];
-                    if (item.price < 30 && !cartItemIds.includes(itemId)) {
-                        potentialItems.push({ ...item,
-                            id: itemId,
-                            categoryId: categoryId
-                        });
+                    if (!cartItemIds.has(itemId) && !suggestionIds.has(itemId)) {
+                         potentialItems.push({ ...category.items[itemId], id: itemId, categoryId });
                     }
                 }
             }
         }
 
-        const suggestions = potentialItems.sort(() => 0.5 - Math.random()).slice(0, 3);
+        potentialItems.sort(() => 0.5 - Math.random());
+        
+        while (suggestions.length < 3 && potentialItems.length > 0) {
+            suggestions.push(potentialItems.shift());
+        }
+
 
         container.innerHTML = '';
         if (suggestions.length > 0) {
@@ -623,6 +683,7 @@ async function renderSuggestions() {
         container.classList.add('hidden');
     }
 }
+
 
 Object.assign(window.cartFunctions, {
     toggleFavorite: (itemId, heartIconEl) => {
@@ -755,7 +816,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let validationError = false;
 
                 const currentOrderType = localStorage.getItem("orderType");
-
+                
                 const allergyInfo = document.getElementById('allergy-info') ? document.getElementById('allergy-info').value.trim() : '';
 
                 // --- Step 1: Validate inputs and gather data ---
@@ -870,7 +931,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     timestamp: new Date().toISOString(),
                     customerInfo,
                     ...orderSpecifics, // Adds table, address, etc.
-                    allergyInfo: allergyInfo || ''
+                    allergyInfo: allergyInfo
                 };
 
                 // --- Step 4: Save to Firebase and Redirect ---
