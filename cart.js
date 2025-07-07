@@ -756,7 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePlaceOrderButtonState();
     handlePromoCode();
     renderSuggestions();
-
+    
     const checkoutDetailsSection = document.getElementById('checkout-details-section');
     const proceedToCheckoutBtn = document.getElementById('proceed-to-checkout-btn');
     const placeOrderBtn = document.getElementById('place-order');
