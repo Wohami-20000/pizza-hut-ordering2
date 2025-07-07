@@ -754,6 +754,16 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePlaceOrderButtonState();
     handlePromoCode();
     renderSuggestions();
+    
+    const checkoutDetailsSection = document.getElementById('checkout-details-section');
+    const proceedToCheckoutBtn = document.getElementById('proceed-to-checkout-btn');
+    const placeOrderBtn = document.getElementById('place-order');
+
+    proceedToCheckoutBtn.addEventListener('click', () => {
+        checkoutDetailsSection.classList.remove('hidden');
+        proceedToCheckoutBtn.classList.add('hidden');
+        placeOrderBtn.classList.remove('hidden');
+    });
 
     const orderTypeButtons = document.querySelectorAll('.order-type-button');
     orderTypeButtons.forEach(button => {
@@ -779,8 +789,6 @@ document.addEventListener('DOMContentLoaded', () => {
             renderOrderDetailsInput(user);
         });
     });
-
-    const placeOrderBtn = document.getElementById("place-order");
 
     auth.onAuthStateChanged(async (user) => {
         const dineInOption = document.getElementById('dineInOption');

@@ -47,11 +47,12 @@
     .order-summary-bar-button { background-color: var(--brand-yellow); color: #374151; padding: 0.8rem 1.5rem; border-radius: 0.75rem; font-weight: 700; font-size: 1.125rem; transition: background-color 0.15s ease-in-out, transform 0.15s ease-in-out; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); width: 100%; }
     .order-summary-bar-button:hover { background-color: #fde047; transform: translateY(-2px); }
      .order-summary-bar-button:disabled { background-color: #d1d5db; color: #6b7280; cursor: not-allowed; }
-    .message-box { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #fff; padding: 2rem; border-radius: 0.75rem; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); z-index: 1000; text-align: center; width: 90%; max-width: 400px; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; }
-    .message-box h3 { font-size: 1.5rem; font-weight: bold; color: #333; }
-    .message-box p { color: #555; margin-bottom: 1rem; }
-    .message-box button { background-color: var(--brand-red); color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; transition: background-color 0.15s ease-in-out; }
-    .message-box button:hover { background-color: #b91c1c; }
+    .message-box { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .message-box-content { background-color: white; padding: 2rem; border-radius: 0.75rem; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); text-align: center; width: 90%; max-width: 400px; }
+    .message-box-content h3 { font-size: 1.5rem; font-weight: bold; color: #333; }
+    .message-box-content p { color: #555; margin-top: 0.5rem; margin-bottom: 1.5rem; }
+    .message-box-content button { background-color: var(--brand-red); color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; transition: background-color 0.15s; }
+    .message-box-content button:hover { background-color: #b91c1c; }
     .order-type-selection-wrapper { display: flex; gap: 0.75rem; }
     .order-type-button { flex: 1; padding: 0.75rem 0.5rem; border: 2px solid #e5e7eb; border-radius: 0.75rem; background-color: #f9fafb; text-align: center; font-weight: 600; color: #4b5563; cursor: pointer; transition: all 0.2s ease-in-out; }
     .order-type-button:hover { border-color: #fca5a5; }
@@ -101,64 +102,65 @@
       
       <div id="suggestion-section" class="border-t pt-6"></div>
 
-      <div id="promo-code-section" class="border-t pt-6">
-         <label for="promo-code-input" class="block font-semibold text-gray-700 mb-2" data-translate="promo_code_label">Have a promo code?</label>
-         <div class="flex space-x-2">
-            <input type="text" id="promo-code-input" placeholder="Enter code" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500">
-            <button id="apply-promo-btn" class="px-6 py-3 font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors" data-translate="promo_code_apply">Apply</button>
-         </div>
-         <div id="promo-message" class="text-sm mt-2 font-semibold"></div>
-      </div>
-
-      <div id="order-details-section" class="border-t pt-6">
-        <h2 class="text-2xl font-bold mb-4 text-gray-800" data-translate="order_details_title">Order Details</h2>
-        <div class="mb-4">
-            <label class="block mb-2 font-semibold text-gray-700" data-translate="order_type_title">Order Type</label>
-            <div class="order-type-selection-wrapper">
-                <button class="order-type-button" id="dineInOption" data-value="dineIn">
-                    <i class="fas fa-utensils"></i>
-                    <span data-translate="order_type_dine_in">Dine In</span>
-                </button>
-                <button class="order-type-button" id="pickupOption" data-value="pickup">
-                    <i class="fas fa-shopping-bag"></i>
-                    <span data-translate="order_type_to_go">Self Pick Up</span>
-                </button>
-                <button class="order-type-button" id="deliveryOption" data-value="delivery">
-                    <i class="fas fa-motorcycle"></i>
-                    <span data-translate="order_type_delivery">Delivery</span>
-                </button>
-            </div>
+      <div id="checkout-details-section" class="hidden space-y-6">
+        <div id="promo-code-section" class="border-t pt-6">
+           <label for="promo-code-input" class="block font-semibold text-gray-700 mb-2" data-translate="promo_code_label">Have a promo code?</label>
+           <div class="flex space-x-2">
+              <input type="text" id="promo-code-input" placeholder="Enter code" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500">
+              <button id="apply-promo-btn" class="px-6 py-3 font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors" data-translate="promo_code_apply">Apply</button>
+           </div>
+           <div id="promo-message" class="text-sm mt-2 font-semibold"></div>
         </div>
-        
-        <div id="order-details-input" class="space-y-4"></div>
-        <div id="allergy-info-section" class="mt-4">
+
+        <div id="order-details-section" class="border-t pt-6">
+          <h2 class="text-2xl font-bold mb-4 text-gray-800" data-translate="order_details_title">Order Details</h2>
+          <div class="mb-4">
+              <label class="block mb-2 font-semibold text-gray-700" data-translate="order_type_title">Order Type</label>
+              <div class="order-type-selection-wrapper">
+                  <button class="order-type-button" id="dineInOption" data-value="dineIn">
+                      <i class="fas fa-utensils"></i>
+                      <span data-translate="order_type_dine_in">Dine In</span>
+                  </button>
+                  <button class="order-type-button" id="pickupOption" data-value="pickup">
+                      <i class="fas fa-shopping-bag"></i>
+                      <span data-translate="order_type_to_go">Self Pick Up</span>
+                  </button>
+                  <button class="order-type-button" id="deliveryOption" data-value="delivery">
+                      <i class="fas fa-motorcycle"></i>
+                      <span data-translate="order_type_delivery">Delivery</span>
+                  </button>
+              </div>
+          </div>
+          
+          <div id="order-details-input" class="space-y-4"></div>
+           <div id="allergy-info-section" class="mt-4">
             <label for="allergy-info" class="block mb-2 font-semibold text-gray-700" data-translate="allergy_info_label">Allergies or Special Instructions (Optional)</label>
             <textarea id="allergy-info" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500" placeholder="e.g., Allergic to peanuts" data-translate="allergy_info_placeholder"></textarea>
+          </div>
+        </div>
+        
+        <div id="summary-section" class="border-t pt-6">
+          <h2 class="text-2xl font-bold mb-4 text-gray-800">Summary</h2>
+          <div class="space-y-2 text-lg">
+              <div class="summary-row flex justify-between">
+                  <span data-translate="summary_subtotal">Subtotal</span>
+                  <span id="summary-subtotal">0.00 MAD</span>
+              </div>
+              <div id="delivery-row" class="summary-row hidden flex justify-between">
+                  <span data-translate="summary_delivery_fee">Delivery Fee</span>
+                  <span id="delivery-amount">0.00 MAD</span>
+              </div>
+              <div id="discount-row" class="summary-row discount hidden flex justify-between">
+                  <span data-translate="summary_discount">Discount (<span id="discount-code-display"></span>)</span>
+                  <span>- <span id="discount-amount">0.00</span> MAD</span>
+              </div>
+              <div class="summary-row font-extrabold text-xl flex justify-between border-t pt-3 mt-3">
+                  <span data-translate="summary_total">Total</span>
+                  <span id="summary-total">0.00 MAD</span>
+              </div>
+          </div>
         </div>
       </div>
-      
-      <div id="summary-section" class="border-t pt-6">
-        <h2 class="text-2xl font-bold mb-4 text-gray-800">Summary</h2>
-        <div class="space-y-2 text-lg">
-            <div class="summary-row flex justify-between">
-                <span data-translate="summary_subtotal">Subtotal</span>
-                <span id="summary-subtotal">0.00 MAD</span>
-            </div>
-            <div id="delivery-row" class="summary-row hidden flex justify-between">
-                <span data-translate="summary_delivery_fee">Delivery Fee</span>
-                <span id="delivery-amount">0.00 MAD</span>
-            </div>
-            <div id="discount-row" class="summary-row discount hidden flex justify-between">
-                <span data-translate="summary_discount">Discount (<span id="discount-code-display"></span>)</span>
-                <span>- <span id="discount-amount">0.00</span> MAD</span>
-            </div>
-            <div class="summary-row font-extrabold text-xl flex justify-between border-t pt-3 mt-3">
-                <span data-translate="summary_total">Total</span>
-                <span id="summary-total">0.00 MAD</span>
-            </div>
-        </div>
-      </div>
-
     </div>
   </main>
 
@@ -168,16 +170,20 @@
             <span class="font-semibold text-lg">Total:</span>
             <span class="order-summary-bar-total"><span id="cart-total">0.00</span> MAD</span>
         </div>
-        <button id="place-order" class="order-summary-bar-button" data-translate="place_order_button" disabled>
+        <button id="proceed-to-checkout-btn" class="order-summary-bar-button" data-translate="proceed_to_checkout_button">Proceed to Checkout</button>
+        <button id="place-order" class="order-summary-bar-button hidden" data-translate="place_order_button" disabled>
             Place Order
         </button>
     </div>
   </div>
 
   <div id="custom-message-box" class="message-box">
-    <h3 id="message-box-title"></h3>
-    <p id="message-box-text"></p>
-    <button id="message-box-ok-btn" data-translate="message_box_ok">OK</button>
+    <div class="message-box-content">
+        <i class=""></i>
+        <h3 id="message-box-title"></h3>
+        <p id="message-box-text"></p>
+        <button id="message-box-ok-btn" data-translate="message_box_ok">OK</button>
+    </div>
   </div>
 
 
