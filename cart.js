@@ -340,14 +340,11 @@ async function renderOrderDetailsInput(user) {
     if (orderType === 'dineIn') {
         const tableNumber = localStorage.getItem('tableNumber') || '';
         orderDetailsInputDiv.innerHTML = `
-            <label id="table-label" for="table-number" class="block mb-2 font-semibold text-gray-700" data-translate="table_number_label">Table Number</label>
-            <input type="number" id="table-number" class="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500 focus:border-red-500" placeholder="Enter your table number" inputmode="numeric" value="${escapeHTML(tableNumber)}" data-translate="table_number_placeholder" />
+            <div>
+                <label id="table-label" class="block mb-2 font-semibold text-gray-700" data-translate="table_number_label">Table Number</label>
+                <div class="output-field"><strong>${escapeHTML(tableNumber)}</strong></div>
+            </div>
         `;
-        const tableNumberInputEl = document.getElementById("table-number");
-        if (tableNumber && tableNumberInputEl) {
-            tableNumberInputEl.value = tableNumber;
-        }
-
     } else if (orderType === 'pickup' || orderType === 'delivery') {
         if (!user || user.isAnonymous) {
             window.location.href = 'auth.html';
@@ -851,9 +848,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // --- Step 1: Validate inputs and gather data ---
                 if (currentOrderType === 'dineIn') {
-                    const tableNumberInput = document.getElementById('table-number');
-                    const tableNumber = tableNumberInput ? tableNumberInput.value.trim() : '';
-                    if (!tableNumber || isNaN(parseInt(tableNumber)) || parseInt(tableNumber) <= 0) {
+                    const tableNumber = localStorage.getItem('tableNumber') || '';
+                    if (!tableNumber) {
                         showMessageBox('validation_error_title', 'table_number_missing_error', true);
                         validationError = true;
                     } else {
