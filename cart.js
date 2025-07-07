@@ -85,10 +85,16 @@ async function getNextOrderNumber() {
 // --- EXISTING UI AND HELPER FUNCTIONS (Corrected Syntax) ---
 
 function showMessageBox(titleKey, messageKey, isError = false, iconClass = '') {
-    // CORRECTED SYNTAX
-    let translatedTitle = (translations && translations[currentLang] && translations[currentLang][titleKey]) || titleKey;
-    let translatedMessage = (translations && translations[currentLang] && translations[currentLang][messageKey]) || messageKey;
-    let translatedOk = (translations && translations[currentLang] && translations[currentLang].message_box_ok) || "OK";
+    let translatedTitle, translatedMessage, translatedOk;
+    if (typeof translations !== 'undefined' && translations[currentLang]) {
+        translatedTitle = translations[currentLang][titleKey] || titleKey;
+        translatedMessage = translations[currentLang][messageKey] || messageKey;
+        translatedOk = translations[currentLang].message_box_ok || "OK";
+    } else {
+        translatedTitle = titleKey;
+        translatedMessage = messageKey;
+        translatedOk = "OK";
+    }
 
     messageBoxTitle.textContent = translatedTitle;
     messageBoxText.textContent = translatedMessage;
