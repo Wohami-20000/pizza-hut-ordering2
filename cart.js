@@ -424,13 +424,14 @@ async function renderOrderDetailsInput(user) {
         orderDetailsInputDiv.innerHTML = `
             <div class="space-y-4">
                 <div>
-                    <label id="customer-name-label" for="customer-name" class="block mb-2 font-semibold text-gray-700" data-translate="customer_name_label">Your Name</label>
-                    <input type="text" id="customer-name" class="w-full border bg-gray-100 border-gray-300 rounded-lg p-3 text-lg" value="${escapeHTML(customerName)}" readonly />
+                    <label id="customer-name-label" class="block mb-2 font-semibold text-gray-700" data-translate="customer_name_label">Your Name</label>
+                    <div class="output-field"><strong>${escapeHTML(customerName)}</strong></div>
                 </div>
                 <div>
                     <label id="customer-phone-label" for="customer-phone" class="block mb-2 font-semibold text-gray-700" data-translate="phone_number_label">Your Phone</label>
                     <div class="flex items-center gap-2 mt-1">
-                        <input type="tel" id="customer-phone" class="w-full border bg-gray-100 border-gray-300 rounded-lg p-3 text-lg" value="${escapeHTML(customerPhone)}" readonly />
+                        <div id="customer-phone-display" class="output-field flex-grow"><strong>${escapeHTML(customerPhone)}</strong></div>
+                        <input type="tel" id="customer-phone-input" class="hidden w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-red-500" value="${escapeHTML(customerPhone)}" />
                         <button type="button" id="change-phone-btn" class="px-4 py-2 bg-gray-200 rounded-lg text-sm font-semibold hover:bg-gray-300">Change</button>
                         <button type="button" id="save-phone-btn" class="hidden px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700">Save</button>
                         <button type="button" id="cancel-phone-btn" class="hidden px-4 py-2 bg-gray-500 text-white rounded-lg text-sm font-semibold hover:bg-gray-600">Cancel</button>
@@ -445,30 +446,30 @@ async function renderOrderDetailsInput(user) {
         const changePhoneBtn = document.getElementById('change-phone-btn');
         const savePhoneBtn = document.getElementById('save-phone-btn');
         const cancelPhoneBtn = document.getElementById('cancel-phone-btn');
-        const customerPhoneInput = document.getElementById('customer-phone');
+        const customerPhoneDisplay = document.getElementById('customer-phone-display');
+        const customerPhoneInput = document.getElementById('customer-phone-input');
         
         const togglePhoneEditMode = (isEditing) => {
-            customerPhoneInput.readOnly = !isEditing;
+            customerPhoneDisplay.classList.toggle('hidden', isEditing);
+            customerPhoneInput.classList.toggle('hidden', !isEditing);
             changePhoneBtn.classList.toggle('hidden', isEditing);
             savePhoneBtn.classList.toggle('hidden', !isEditing);
             cancelPhoneBtn.classList.toggle('hidden', !isEditing);
             if(isEditing) {
-                customerPhoneInput.classList.remove('bg-gray-100');
                 customerPhoneInput.focus();
-            } else {
-                customerPhoneInput.classList.add('bg-gray-100');
             }
         };
 
         changePhoneBtn.addEventListener('click', () => togglePhoneEditMode(true));
         cancelPhoneBtn.addEventListener('click', () => {
             customerPhoneInput.value = customerPhone;
-            togglePhoneEditMode(false)
+            togglePhoneEditMode(false);
         });
         savePhoneBtn.addEventListener('click', async () => {
             const newPhoneNumber = customerPhoneInput.value.trim();
             if(newPhoneNumber && newPhoneNumber !== customerPhone) {
                 await db.ref(`users/${user.uid}`).update({ phone: newPhoneNumber });
+                customerPhoneDisplay.querySelector('strong').textContent = newPhoneNumber;
                 showMessageBox('Success!', 'Phone number updated successfully.', false, 'fas fa-check-circle text-5xl text-green-500 mb-4');
             }
             togglePhoneEditMode(false);
