@@ -2,36 +2,91 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>My Favorites - Pizza Hut</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
     <link rel="stylesheet" href="style.css" />
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <style>
-        /* Re-using styles from menu.html for consistency */
-        :root { --brand-red: #D71921; }
-        body { background-color: #F9FAFB; }
-        .menu-item-card { display: grid; grid-template-columns: 1fr 100px; gap: 1rem; background-color: white; border-radius: 1rem; box-shadow: 0 4px 16px rgba(0,0,0,0.07); padding: 1rem; }
-        .item-image-right img { width: 100px; height: 100px; object-fit: contain; }
-        .customize-btn { font-size: 0.875rem; color: var(--brand-red); }
+        :root { 
+            --brand-red: #D71921; 
+            --brand-yellow: #FFC72C;
+        }
+        body { 
+            background-color: #f7fafc; /* Lighter gray background */
+            font-family: 'Poppins', sans-serif;
+        }
+        /* Card animation */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeInUp {
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+        .fav-item-card {
+            will-change: transform, box-shadow;
+            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+        }
+        .fav-item-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
+        }
+        /* Modal styles */
+        .modal-overlay {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-box {
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
     </style>
 </head>
 <body class="min-h-screen">
-    <header class="flex items-center justify-between px-4 py-3 bg-white text-gray-800 shadow-sm sticky top-0 z-30 h-[60px]">
-        <button onclick="history.back()" class="p-2 text-xl text-gray-600"><i class="fas fa-arrow-left"></i></button>
+
+    <header class="flex items-center justify-between px-4 py-3 bg-white text-gray-800 shadow-md sticky top-0 z-30 h-[60px]">
+        <button onclick="history.back()" class="p-2 text-xl text-gray-600 hover:text-brand-red transition-colors"><i class="fas fa-arrow-left"></i></button>
         <h1 class="font-bold text-xl tracking-tight">My Favorites</h1>
-        <a href="cart.html" id="cart-btn" class="relative p-2 text-xl">
+        <a href="cart.html" id="cart-btn" class="relative p-2 text-xl text-brand-red">
             <i class="fas fa-shopping-cart"></i>
-            <span id="cart-count" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+            <span id="cart-count" class="absolute -top-1 -right-1 bg-brand-yellow text-red-800 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center hidden">0</span>
         </a>
     </header>
 
-    <main id="favorites-container" class="flex-1 px-4 py-5 pb-[80px]">
-        <p class="text-center text-gray-500 mt-10">Loading your favorites...</p>
+    <main id="favorites-page-content" class="flex-1 p-4 sm:p-6 pb-[80px]">
+        <div id="favorites-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Favorite items will be injected here by JS -->
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="text-center py-20">
+            <i class="fas fa-spinner fa-spin text-brand-red text-4xl"></i>
+            <p class="mt-4 text-gray-600">Loading your favorites...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="hidden text-center py-20 px-6 bg-white rounded-2xl shadow-lg animate-fadeInUp">
+            <svg class="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+            <h2 class="mt-4 text-2xl font-bold text-gray-800">No Favorites Yet!</h2>
+            <p class="mt-2 text-gray-500">Looks like you haven't added any items to your favorites. Click the heart icon on any item in the menu to save it here.</p>
+            <a href="menu.html" class="mt-6 inline-block bg-brand-red text-white font-bold py-3 px-8 rounded-full hover:bg-red-700 transition-transform transform hover:scale-105">
+                Go to Menu
+            </a>
+        </div>
     </main>
+
+    <!-- Generic Modal/Pop-in -->
+    <div id="message-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4 modal-overlay opacity-0">
+        <div class="modal-box bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm text-center transform scale-95 opacity-0">
+            <h3 id="modal-title" class="text-xl font-bold text-gray-800"></h3>
+            <p id="modal-message" class="text-gray-600 my-4"></p>
+            <button id="modal-ok-btn" class="w-full bg-brand-red text-white font-bold py-2 px-6 rounded-full hover:bg-red-700 transition">OK</button>
+        </div>
+    </div>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script> <!-- This line was missing -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="firebase.js"></script>
     <script src="favorites.js"></script>
