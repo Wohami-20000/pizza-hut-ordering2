@@ -1,0 +1,31 @@
+name: Clean Expired Offers
+
+on:
+  schedule:
+    # This runs the job at 2 AM UTC every day.
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # This allows you to run the job manually from the GitHub Actions tab.
+
+jobs:
+  delete-offers:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      # ---- NEW STEP ADDED HERE ----
+      - name: Create Firebase Service Account Key file
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > serviceAccountKey.json
+
+      - name: Run the offer cleanup script
+        run: npm run clean-offers

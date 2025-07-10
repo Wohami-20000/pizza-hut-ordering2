@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "cart.js",
   "scripts": {
-    "dev": "npx tailwindcss -i ./src/input.css -o ./style.css --watch"
+    "dev": "npx tailwindcss -i ./src/input.css -o ./style.css --watch",
+    "clean-offers": "node deleteExpiredOffers.js"
   },
   "repository": {
     "type": "git",
