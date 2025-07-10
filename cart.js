@@ -336,15 +336,29 @@ async function renderOrderDetailsInput(user) {
     const orderType = localStorage.getItem('orderType') || 'dineIn';
     updateOrderTypeSelectionUI();
     updateTotalsUI();
+    
+    // Check for the reorder flag
+    const requiresNewTable = localStorage.getItem('reorderRequiresNewTable') === 'true';
 
     if (orderType === 'dineIn') {
-        const tableNumber = localStorage.getItem('tableNumber') || '';
-        orderDetailsInputDiv.innerHTML = `
-            <div>
-                <label id="table-label" class="block mb-2 font-semibold text-gray-700" data-translate="table_number_label">Table Number</label>
-                <div class="output-field"><strong>${escapeHTML(tableNumber)}</strong></div>
-            </div>
-        `;
+        if (requiresNewTable) {
+            orderDetailsInputDiv.innerHTML = `
+                <div>
+                    <label for="new-table-input" class="block mb-2 font-semibold text-gray-700" data-translate="new_table_number_label">Enter New Table Number</label>
+                    <input type="number" id="new-table-input" class="input-field-style w-full" placeholder="e.g., 15" required />
+                </div>
+            `;
+            // Clean up the flag so it's only used once per attempt
+            localStorage.removeItem('reorderRequiresNewTable');
+        } else {
+             const tableNumber = localStorage.getItem('tableNumber') || '';
+             orderDetailsInputDiv.innerHTML = `
+                <div>
+                    <label id="table-label" class="block mb-2 font-semibold text-gray-700" data-translate="table_number_label">Table Number</label>
+                    <div class="output-field"><strong>${escapeHTML(tableNumber)}</strong></div>
+                </div>
+            `;
+        }
     } else if (orderType === 'pickup' || orderType === 'delivery') {
         if (!user || user.isAnonymous) {
             window.location.href = 'auth.html';
@@ -372,8 +386,7 @@ async function renderOrderDetailsInput(user) {
                 </div>
             `;
         }
-
-        // --- UPDATED ADDRESS SECTION LOGIC ---
+        
         let addressInputHtml = '';
         if (orderType === 'delivery') {
             const userAddresses = userProfile.addresses || {};
@@ -416,7 +429,6 @@ async function renderOrderDetailsInput(user) {
                 </div>
             `;
         }
-        // --- END OF UPDATED ADDRESS SECTION ---
 
         orderDetailsInputDiv.innerHTML = `
             <div class="space-y-4">
@@ -798,28 +810,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tableNumber = localStorage.getItem('tableNumber');
 
-        // Hide CTA by default
         guestCtaSection.classList.add('hidden');
 
-        // *** UPDATED LOGIC BLOCK ***
         if (tableNumber) {
-            // Case 1: Dine-in user (from NFC scan)
             localStorage.setItem('orderType', 'dineIn');
             pickupOption.disabled = true;
             pickupOption.classList.add('disabled');
             deliveryOption.disabled = true;
             deliveryOption.classList.add('disabled');
-            // Show CTA if they are a guest
             if (user && user.isAnonymous) {
                 guestCtaSection.classList.remove('hidden');
             }
         } else if (user && !user.isAnonymous) {
-            // Case 2: Logged-in user (not from NFC)
             dineInOption.disabled = true;
             dineInOption.classList.add('disabled');
         } else {
-            // Case 3: New user without an account (should have been redirected to auth, but as a fallback)
-            // Or a guest from a previous session who is trying to order delivery/pickup
             if (localStorage.getItem('orderType') !== 'dineIn') {
                 showRedirectMessageBox('Login Required', 'Pickup and Delivery orders require an account. Please log in or create an account to continue.', 'auth.html');
             }
@@ -834,7 +839,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 placeOrderBtn.removeEventListener("click", oldClickListener);
             }
 
-            // *** REWRITTEN "PLACE ORDER" CLICK LISTENER ***
             const newClickListener = async () => {
                 if (placeOrderBtn.disabled) return;
 
@@ -846,40 +850,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const allergyInfo = document.getElementById('allergy-info') ? document.getElementById('allergy-info').value.trim() : '';
 
-                // --- Step 1: Validate inputs and gather data ---
                 if (currentOrderType === 'dineIn') {
-                    const tableNumber = localStorage.getItem('tableNumber') || '';
-                    if (!tableNumber) {
-                        showMessageBox('validation_error_title', 'table_number_missing_error', true);
-                        validationError = true;
-                    } else {
-                        orderSpecifics.table = tableNumber;
+                    const newTableInput = document.getElementById('new-table-input');
+                    let tableNumber = '';
+
+                    if (newTableInput) { // Reorder conflict scenario
+                        tableNumber = newTableInput.value.trim();
+                        if (!tableNumber || isNaN(parseInt(tableNumber))) {
+                            showMessageBox('validation_error_title', 'Please enter a valid new table number.', true);
+                            validationError = true;
+                        } else {
+                            orderSpecifics.table = tableNumber;
+                        }
+                    } else { // Normal dine-in scenario
+                        tableNumber = localStorage.getItem('tableNumber') || '';
+                        if (!tableNumber) {
+                            showMessageBox('validation_error_title', 'table_number_missing_error', true);
+                            validationError = true;
+                        } else {
+                            orderSpecifics.table = tableNumber;
+                        }
                     }
-                    if (user && !user.isAnonymous) { // Logged-in user at a table
+                    if (user && !user.isAnonymous) {
                         const profile = (await db.ref(`users/${user.uid}`).once('value')).val() || {};
-                        customerInfo = {
-                            userId: user.uid,
-                            name: profile.name || 'N/A',
-                            phone: profile.phone || 'N/A'
-                        };
-                    } else { // Guest user at a table
-                        customerInfo = {
-                            userId: user ? user.uid : 'guest',
-                            name: 'Dine-in Guest',
-                            phone: ''
-                        };
+                        customerInfo = { userId: user.uid, name: profile.name || 'N/A', phone: profile.phone || 'N/A' };
+                    } else {
+                        customerInfo = { userId: user ? user.uid : 'guest', name: 'Dine-in Guest', phone: '' };
                     }
                 } else if (currentOrderType === 'pickup' || currentOrderType === 'delivery') {
                     if (!user || user.isAnonymous) {
                         showRedirectMessageBox('Login Required', 'You must be logged in for this order type.', 'auth.html');
-                        return; // Stop execution
+                        return;
                     }
                     const profile = (await db.ref(`users/${user.uid}`).once('value')).val() || {};
-                    customerInfo = {
-                        userId: user.uid,
-                        name: profile.name || 'N/A',
-                        phone: profile.phone || 'N/A'
-                    };
+                    customerInfo = { userId: user.uid, name: profile.name || 'N/A', phone: profile.phone || 'N/A' };
 
                     if (currentOrderType === 'delivery') {
                         const addressInput = document.getElementById('delivery-address');
@@ -919,7 +923,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 placeOrderBtn.disabled = true;
                 placeOrderBtn.textContent = "Placing Order...";
 
-                // --- Step 2: Generate IDs and Calculate Prices ---
                 const orderNumber = await getNextOrderNumber();
                 if (orderNumber === null) {
                     showMessageBox('order_error_title', 'Could not generate order number. Please try again.', true);
@@ -940,7 +943,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 const finalTotal = itemsTotal + taxes + deliveryFee - discount;
 
-                // --- Step 3: Construct the Final Order Object ---
                 const orderData = {
                     orderNumber,
                     orderId,
@@ -956,13 +958,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     status: "pending",
                     timestamp: new Date().toISOString(),
                     customerInfo,
-                    ...orderSpecifics, // Adds table, address, etc.
+                    ...orderSpecifics,
                     allergyInfo: allergyInfo
                 };
 
-                // --- Step 4: Save to Firebase and Redirect ---
                 try {
-                    // Use the new short orderId as the key
                     await db.ref("orders/" + orderId).set(orderData);
 
                     if (customerInfo.userId && customerInfo.userId !== 'guest') {
@@ -970,12 +970,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     localStorage.setItem("lastOrderId", orderId);
-
-                    // Clear the cart for the next order
                     localStorage.removeItem("cart");
                     localStorage.removeItem("appliedPromo");
 
-                    // Redirect to confirmation page with the new short ID
                     window.location.href = `confirm.html?orderId=${orderId}`;
                 } catch (error) {
                     console.error("Firebase error during order placement:", error);
