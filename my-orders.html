@@ -72,6 +72,15 @@
     <div id="toast-container" class="fixed bottom-5 right-5 z-50"></div>
     <audio id="notification-sound" src="https://actions.google.com/sounds/v1/alarms/notification_sound.ogg" preload="auto"></audio>
     
+    <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
+            <h3 id="modal-title" class="text-xl font-bold text-gray-900 dark:text-white">Confirmation</h3>
+            <p id="modal-message" class="text-sm text-gray-600 dark:text-gray-300 my-4">Are you sure?</p>
+            <div id="modal-buttons" class="mt-4 flex flex-col sm:flex-row-reverse gap-3">
+                </div>
+        </div>
+    </div>
+    
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>

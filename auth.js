@@ -30,7 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
         signupPhoneError: document.getElementById('signup-phone-error'),
         signupPasswordError: document.getElementById('signup-password-error'),
         resetEmailInput: document.getElementById('reset-email'),
-        sendResetLinkBtn: document.getElementById('send-reset-link-btn')
+        sendResetLinkBtn: document.getElementById('send-reset-link-btn'),
+        logoutBtn: document.getElementById('logout-btn') 
     };
 
     // --- UI & Utility Functions ---
@@ -83,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.attachShadow({ mode: 'open' });
             this.shadowRoot.innerHTML = `
                 <style>
-                    /* ... (styles from previous version, no changes needed) ... */
+                    /* ... (styles from previous version) ... */
                 </style>
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
                 <div class="password-group">
@@ -125,22 +126,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (/[A-Z]/.test(pass)) score++;
             if (/[0-9]/.test(pass)) score++;
             if (/[^A-Za-z0-9]/.test(pass)) score++;
-
             const strengthLevels = {
                 1: { width: '33.33%', color: '#ef4444', text: "Weak" },
                 2: { width: '33.33%', color: '#ef4444', text: "Weak" },
                 3: { width: '66.66%', color: '#f59e0b', text: "Medium" },
                 4: { width: '100%', color: '#22c55e', text: "Strong" }
             };
-
             if (pass.length === 0) {
                 this.strengthBar.style.width = '0%';
                 this.strengthText.textContent = '';
                 return;
             }
-
             const level = strengthLevels[score] || { width: '10%', color: '#ef4444', text: "Weak" };
-
             this.strengthBar.style.width = level.width;
             this.strengthBar.style.backgroundColor = level.color;
             this.strengthText.textContent = level.text;
@@ -168,11 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const redirectToPreviousPage = () => {
         const redirectUrl = sessionStorage.getItem('redirectUrl');
         sessionStorage.removeItem('redirectUrl');
-        if (redirectUrl) {
-            window.location.href = redirectUrl;
-        } else {
-            window.location.href = 'order-type-selection.html';
-        }
+        window.location.href = redirectUrl || 'order-type-selection.html';
     };
 
     const handleSuccessfulLogin = (user) => {
@@ -186,28 +179,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 userRef.update(userUpdate);
             });
-
             if (idTokenResult.claims.admin === true) {
                 window.location.href = 'admin.html';
             } else {
                 redirectToPreviousPage();
             }
-        }).catch(() => {
-            redirectToPreviousPage();
         });
     };
 
     const handleAuthError = (error, form) => {
         let errorElement = form === 'login' ? elements.loginErrorMessage : elements.signupErrorMessage;
-        let errorMessage = "An unexpected error occurred. Please try again.";
-
+        let errorMessage = "An unexpected error occurred.";
         switch (error.code) {
             case 'auth/user-not-found':
             case 'auth/invalid-credential':
-                errorMessage = "No account found with this email. Please sign up.";
+                errorMessage = "No account found with this email.";
                 break;
             case 'auth/wrong-password':
-                errorMessage = "Incorrect password. Please try again.";
+                errorMessage = "Incorrect password.";
                 break;
             case 'auth/invalid-email':
                 errorElement = form === 'login' ? elements.loginEmailError : elements.signupEmailError;
@@ -224,8 +213,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         displayError(errorElement, errorMessage);
     };
-
-    // --- Event Listeners ---
+    
+    const handleLogout = () => {
+        const user = auth.currentUser;
+        if (user) {
+            // Clear the cache specific to this user upon logout
+            localStorage.removeItem(`ordersCache_${user.uid}`);
+        }
+        auth.signOut().then(() => {
+            localStorage.removeItem('statusConfig');
+            localStorage.removeItem('cart');
+            localStorage.removeItem('appliedPromo');
+            localStorage.removeItem('favorites');
+            sessionStorage.clear();
+            window.location.href = 'auth.html';
+        }).catch((error) => {
+            console.error("Logout Error:", error);
+            alert("Failed to log out. Please try again.");
+        });
+    };
+    
+    if (elements.logoutBtn) {
+        elements.logoutBtn.addEventListener('click', handleLogout);
+    }
+    
     elements.loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         clearErrors();
@@ -245,58 +256,29 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.signupForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         clearErrors();
-        
         const name = document.getElementById('signup-name').value.trim();
         const email = document.getElementById('signup-email').value.trim();
         const phone = iti.getNumber();
         const passwordInputComponent = elements.signupForm.querySelector('password-input');
-
         let isValid = true;
-        if (!name) {
-            displayError(elements.signupNameError, 'This field is required.');
-            isValid = false;
-        }
-        if (!email) {
-            displayError(elements.signupEmailError, 'This field is required.');
-            isValid = false;
-        }
-        if (!phone) {
-            displayError(elements.signupPhoneError, 'This field is required.');
-            isValid = false;
-        }
-        if (!passwordInputComponent.password) {
-            displayError(elements.signupPasswordError, 'This field is required.');
-            isValid = false;
-        }
-        if (!passwordInputComponent.checkValidity()) {
-            displayError(elements.signupPasswordError, 'Passwords do not match or are invalid.');
-            isValid = false;
-        }
-        if (phone && !iti.isValidNumber()) {
-            displayError(elements.signupPhoneError, 'Invalid phone number for the selected country.');
-            isValid = false;
-        }
-        if (!document.getElementById('terms-checkbox').checked) {
-            displayError(elements.signupErrorMessage, 'You must agree to the terms and conditions.');
-            isValid = false;
-        }
-
+        if (!name) { displayError(elements.signupNameError, 'This field is required.'); isValid = false; }
+        if (!email) { displayError(elements.signupEmailError, 'This field is required.'); isValid = false; }
+        if (!phone) { displayError(elements.signupPhoneError, 'This field is required.'); isValid = false; }
+        if (!passwordInputComponent.password) { displayError(elements.signupPasswordError, 'This field is required.'); isValid = false; }
+        if (!passwordInputComponent.checkValidity()) { displayError(elements.signupPasswordError, 'Passwords do not match or are invalid.'); isValid = false; }
+        if (phone && !iti.isValidNumber()) { displayError(elements.signupPhoneError, 'Invalid phone number.'); isValid = false; }
+        if (!document.getElementById('terms-checkbox').checked) { displayError(elements.signupErrorMessage, 'You must agree to the terms.'); isValid = false; }
         if (!isValid) return;
-        
         setLoading(elements.signupCtaBtn, true, 'Creating Account...');
-
         try {
             const userCredential = await auth.createUserWithEmailAndPassword(email, passwordInputComponent.password);
             const user = userCredential.user;
             await user.sendEmailVerification();
             await db.ref('users/' + user.uid).set({
-                email: email,
-                name: name,
-                phone: phone,
-                createdAt: new Date().toISOString()
+                email: email, name: name, phone: phone, createdAt: new Date().toISOString()
             });
             await db.ref(`users/${user.uid}/availableOffers/WELCOME20`).set(true);
-            alert("A verification email has been sent. Please verify your email to get full access.");
+            alert("Verification email sent. Please check your inbox.");
             handleSuccessfulLogin(user);
         } catch (error) {
             handleAuthError(error, 'signup');
@@ -314,7 +296,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Modal Listeners
     elements.forgotPasswordLink.addEventListener('click', (e) => {
         e.preventDefault();
         elements.forgotPasswordModal.classList.remove('hidden');
@@ -333,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearErrors();
         try {
             await auth.sendPasswordResetEmail(email);
-            elements.resetSuccessMessage.textContent = 'Password reset link sent! Check your inbox.';
+            elements.resetSuccessMessage.textContent = 'Password reset link sent!';
         } catch (error) {
             if (error.code === 'auth/user-not-found') {
                 displayError(elements.resetErrorMessage, 'No account found with this email.');
@@ -343,20 +324,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Init listeners
     elements.showSignupBtn.addEventListener('click', (e) => { e.preventDefault(); switchForms(elements.signupForm, elements.loginForm); });
     elements.showLoginBtn.addEventListener('click', (e) => { e.preventDefault(); switchForms(elements.loginForm, elements.signupForm); });
     
-    // --- FINAL INITIALIZATION LOGIC ---
     const urlParams = new URLSearchParams(window.location.search);
-    const mode = urlParams.get('mode');
-
-    if (mode === 'signup') {
-        elements.loginForm.classList.add('hidden-form');
-        elements.signupForm.classList.remove('hidden-form');
-    } else {
-        elements.loginForm.classList.remove('hidden-form');
-        elements.signupForm.classList.add('hidden-form');
+    if (urlParams.get('mode') === 'signup') {
+        switchForms(elements.signupForm, elements.loginForm);
     }
 
     const referrer = document.referrer;
