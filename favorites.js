@@ -1,16 +1,17 @@
 // favorites.js
 const db = firebase.database();
+const auth = firebase.auth(); // Added Firebase Auth
 const favoritesContainer = document.getElementById('favorites-container');
 const cartCountSpan = document.getElementById('cart-count');
 
 function escapeHTML(str) {
     if (typeof str !== 'string') return str;
-    return str.replace(/[&<>"']/g, match => ({ 
-        '&': '&amp;', 
-        '<': '&lt;', 
-        '>': '&gt;', 
-        '"': "&quot;", 
-        "'": '&#39;' 
+    return str.replace(/[&<>"']/g, match => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': "&quot;",
+        "'": '&#39;'
     }[match]));
 }
 
@@ -41,12 +42,12 @@ function createFavoriteItemCard(item, categoryId, itemId) {
     return card;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    updateCartCount();
-    // Get favorites from localStorage, which is synced for both guests and users
-    const favorites = JSON.parse(localStorage.getItem("favorites")) || [];
-    
-    if (favorites.length === 0) {
+/**
+ * Renders the favorite items on the page after fetching them.
+ * @param {string[]} favoriteIds - An array of favorite item IDs.
+ */
+function renderFavorites(favoriteIds) {
+    if (favoriteIds.length === 0) {
         favoritesContainer.innerHTML = `<p class="text-center text-gray-500 mt-10">You haven't added any favorites yet.</p>`;
         return;
     }
@@ -63,19 +64,38 @@ document.addEventListener('DOMContentLoaded', () => {
         container.className = 'space-y-4';
         
         // Loop through saved favorite IDs and find them in the menu data
-        favorites.forEach(favId => {
+        favoriteIds.forEach(favId => {
             let itemFound = false;
             for (const categoryId in menuData) {
                 if (menuData[categoryId].items && menuData[categoryId].items[favId]) {
                     const item = menuData[categoryId].items[favId];
                     container.appendChild(createFavoriteItemCard(item, categoryId, favId));
                     itemFound = true;
-                    break; 
+                    break;
                 }
             }
         });
         
         favoritesContainer.innerHTML = ''; // Clear "Loading..."
         favoritesContainer.appendChild(container);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    updateCartCount();
+
+    // Use onAuthStateChanged to handle both logged-in and guest users
+    auth.onAuthStateChanged(user => {
+        if (user && !user.isAnonymous) {
+            // User is logged in, fetch favorites from the database
+            db.ref(`users/${user.uid}/favorites`).once('value', snapshot => {
+                const favorites = snapshot.exists() ? Object.keys(snapshot.val()) : [];
+                renderFavorites(favorites);
+            });
+        } else {
+            // User is a guest or not logged in, get favorites from localStorage
+            const favorites = JSON.parse(localStorage.getItem("favorites")) || [];
+            renderFavorites(favorites);
+        }
     });
 });
