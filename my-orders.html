@@ -12,68 +12,88 @@
     <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <style>
-        :root { --brand-red: #D71921; }
-        html.dark { --brand-red: #F87171; }
-        .tab-button.active { border-color: var(--brand-red); color: var(--brand-red); }
-        .toast-notification { transition: all 0.5s ease-in-out; }
-        .order-card { animation: fadeIn 0.5s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        body { font-family: 'Poppins', sans-serif; background-color: #f7f7f7; }
+        html.dark body { background-color: #111827; }
+
+        /* Animations */
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeInUp { animation: fadeInUp 0.5s ease-out forwards; }
+        .order-card { will-change: transform, box-shadow; transition: transform 0.2s ease-out, box-shadow 0.2s ease-out; }
+        .order-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); }
+        
+        /* Tab Styling */
+        .tab-button {
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            border: 2px solid transparent;
+            transition: all 0.2s ease-in-out;
+        }
+        .tab-button.active {
+            background-color: #FEF2F2; /* brand-red-light */
+            border-color: #D71921; /* brand-red-DEFAULT */
+            color: #D71921; /* brand-red-DEFAULT */
+            font-weight: 600;
+        }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-800 dark:text-gray-200">
+<body class="bg-brand-cream dark:bg-gray-900 min-h-screen text-brand-dark dark:text-gray-200">
 
     <header class="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-30 h-[60px]">
-        <button onclick="history.back()" aria-label="Back to previous page" class="p-2 text-xl"><i class="fas fa-arrow-left"></i></button>
+        <button onclick="history.back()" aria-label="Back to previous page" class="p-2 text-xl text-gray-600 hover:text-brand-red-dark transition-colors"><i class="fas fa-arrow-left"></i></button>
         <h1 class="font-bold text-xl tracking-tight">My Orders</h1>
         <div class="w-8"></div>
     </header>
 
     <main class="max-w-4xl mx-auto p-4 mt-6">
-        <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
-            <nav class="flex space-x-4" aria-label="Tabs">
-                <button id="active-orders-tab" type="button" role="tab" aria-controls="active-orders-panel" aria-selected="true" class="tab-button active font-semibold px-4 py-2 border-b-2 border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition">
+        <div class="mb-6 bg-white p-2 rounded-full shadow-md w-full sm:w-auto sm:inline-flex animate-fadeInUp">
+            <nav class="flex space-x-2" aria-label="Tabs">
+                <button id="active-orders-tab" type="button" role="tab" aria-controls="active-orders-panel" aria-selected="true" class="tab-button active">
                     Active Orders
                 </button>
-                <button id="past-orders-tab" type="button" role="tab" aria-controls="past-orders-panel" aria-selected="false" class="tab-button font-semibold px-4 py-2 border-b-2 border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition">
+                <button id="past-orders-tab" type="button" role="tab" aria-controls="past-orders-panel" aria-selected="false" class="tab-button">
                     Past Orders
                 </button>
             </nav>
         </div>
 
-        <div class="mb-6 flex flex-col md:flex-row gap-4">
+        <div class="mb-6 flex flex-col sm:flex-row gap-4 animate-fadeInUp" style="animation-delay: 100ms;">
             <div class="relative flex-grow">
-                <input type="search" id="order-search-input" placeholder="Search by Order ID..." class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-red-500">
-                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                <input type="search" id="order-search-input" placeholder="Search by Order ID..." class="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-lg bg-white dark:bg-gray-800 focus:border-brand-yellow focus:ring-0">
             </div>
-            <select id="sort-select" aria-label="Sort orders" class="w-full md:w-48 p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-red-500">
-                <option value="date_desc">Newest First</option>
-                <option value="date_asc">Oldest First</option>
-                <option value="price_desc">Price: High to Low</option>
-                <option value="price_asc">Price: Low to High</option>
-            </select>
+            <select id="sort-select" aria-label="Sort orders" class="w-full sm:w-48 p-3 border-2 border-gray-200 rounded-lg bg-white dark:bg-gray-800 focus:border-brand-yellow focus:ring-0">
+                </select>
         </div>
 
-        <div id="orders-panels">
+        <div id="orders-panels" class="animate-fadeInUp" style="animation-delay: 200ms;">
             <div id="active-orders-panel" role="tabpanel" class="space-y-4"></div>
             <div id="past-orders-panel" role="tabpanel" class="space-y-4 hidden"></div>
         </div>
         
         <div id="loading-state" class="text-center py-10">
-            <i class="fas fa-spinner fa-spin text-red-500 text-4xl"></i>
+            <i class="fas fa-spinner fa-spin text-brand-red text-4xl"></i>
         </div>
         <div id="sentinel" class="h-10"></div>
 
-        <div id="logged-out-state" class="hidden text-center bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
-             </div>
-        <div id="no-orders-state" class="hidden text-center bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
-             </div>
+        <div id="logged-out-state" class="hidden text-center bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg animate-fadeInUp">
+             <i class="fas fa-user-lock text-5xl text-gray-400 mb-4"></i>
+             <h2 class="text-2xl font-bold">Please Log In</h2>
+             <p class="text-gray-500 mt-2 mb-6">You must be logged in to view your order history.</p>
+             <a href="auth.html" class="inline-block bg-brand-red text-white font-bold py-3 px-8 rounded-lg hover:bg-brand-red-dark transition">Log In</a>
+        </div>
+        <div id="no-orders-state" class="hidden text-center bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg animate-fadeInUp">
+             <i class="fas fa-receipt text-5xl text-gray-400 mb-4"></i>
+             <h2 class="text-2xl font-bold">No Orders Yet</h2>
+             <p class="text-gray-500 mt-2 mb-6">Looks like you haven't placed an order. Let's fix that!</p>
+             <a href="menu.html" class="inline-block bg-brand-red text-white font-bold py-3 px-8 rounded-lg hover:bg-brand-red-dark transition">Order Now</a>
+        </div>
     </main>
 
     <div id="toast-container" class="fixed bottom-5 right-5 z-50"></div>
     <audio id="notification-sound" src="https://actions.google.com/sounds/v1/alarms/notification_sound.ogg" preload="auto"></audio>
-    
-    <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
+
+    <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden p-4 z-50">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl w-full max-w-sm text-center">
             <h3 id="modal-title" class="text-xl font-bold text-gray-900 dark:text-white">Confirmation</h3>
             <p id="modal-message" class="text-sm text-gray-600 dark:text-gray-300 my-4">Are you sure?</p>
             <div id="modal-buttons" class="mt-4 flex flex-col sm:flex-row-reverse gap-3">

@@ -51,48 +51,57 @@ function showPopin(title, message, buttons) {
 
 const createOrderCard = (orderId, orderData) => {
     const card = document.createElement('div');
-    card.className = 'order-card p-5 bg-white dark:bg-gray-800 rounded-lg shadow-md mb-4';
+    card.className = 'order-card bg-white dark:bg-gray-800 rounded-2xl shadow-lg';
     card.dataset.orderId = orderId;
     card.dataset.status = orderData.status;
 
     const date = new Date(orderData.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const time = new Date(orderData.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    const statusInfo = statusConfig[orderData.status] || { label: orderData.status, color: { bg: '#E5E7EB', text: '#374151' }, icon: 'fa-question-circle' };
+    const statusInfo = statusConfig[orderData.status] || { label: orderData.status, color: { bg: 'bg-gray-200', text: 'text-gray-800' }, icon: 'fa-question-circle' };
     
     const isCancellable = orderData.status === 'pending';
     const canBeRated = ['delivered', 'completed'].includes(orderData.status);
     const hasBeenRated = orderData.rated === true;
     const isPastOrder = ['delivered', 'completed', 'cancelled'].includes(orderData.status);
 
-    let actionButton = '';
+    let actionButtonHtml = '';
+    const baseButtonClass = "w-full sm:w-auto text-sm font-bold py-2 px-4 rounded-lg transition-transform hover:scale-105";
+
     if (canBeRated && !hasBeenRated) {
-        actionButton = `<button aria-label="Leave Feedback" onclick="rateOrder('${orderId}')" class="feedback-btn bg-brand-yellow hover:opacity-90 text-brand-dark font-bold py-2 px-4 rounded-lg shadow-sm"><i class="fas fa-comment-dots mr-2"></i>Leave Feedback</button>`;
+        actionButtonHtml = `<button aria-label="Leave Feedback" onclick="rateOrder('${orderId}')" class="${baseButtonClass} bg-brand-yellow text-brand-dark"><i class="fas fa-comment-dots mr-2"></i>Leave Feedback</button>`;
     } else if (hasBeenRated) {
-        actionButton = `<span class="text-sm text-green-600 font-semibold"><i class="fas fa-check-circle mr-2"></i>Feedback Submitted</span>`;
+        actionButtonHtml = `<span class="text-sm text-green-600 font-semibold"><i class="fas fa-check-circle mr-2"></i>Feedback Submitted</span>`;
     } else if (isPastOrder) {
-        actionButton = `<button aria-label="Reorder" onclick="reorder('${orderId}')" class="reorder-btn bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"><i class="fas fa-redo-alt mr-2"></i>Reorder</button>`;
+        actionButtonHtml = `<button aria-label="Reorder" onclick="reorder('${orderId}')" class="${baseButtonClass} bg-green-600 text-white"><i class="fas fa-redo-alt mr-2"></i>Reorder</button>`;
     } else if (isCancellable) {
-        actionButton = `<button aria-label="Cancel Order" onclick="cancelOrder('${orderId}')" class="cancel-btn bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"><i class="fas fa-times mr-2"></i>Cancel</button>`;
+        actionButtonHtml = `<button aria-label="Cancel Order" onclick="cancelOrder('${orderId}')" class="${baseButtonClass} bg-brand-red text-white"><i class="fas fa-times mr-2"></i>Cancel</button>`;
     }
 
     card.innerHTML = `
-        <a href="order-details.html?orderId=${orderId}" class="block">
+        <div class="p-5 border-b border-gray-100 dark:border-gray-700">
             <div class="flex justify-between items-start">
                 <div>
-                    <p class="font-bold text-lg text-gray-800 dark:text-white">Order #${orderData.orderNumber}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">ID: ${orderId.slice(-6).toUpperCase()}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${date} at ${time}</p>
+                    <p class="font-bold text-lg text-brand-dark dark:text-white">Order #${orderData.orderNumber}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">ID: ${orderId.slice(-6).toUpperCase()}</p>
                 </div>
-                <span class="py-1 px-3 rounded-full text-xs font-semibold" style="background-color: ${statusInfo.color.bg}; color: ${statusInfo.color.text};">
+                <span class="py-1 px-3 rounded-full text-xs font-semibold ${statusInfo.color.bg} ${statusInfo.color.text}">
                     <i class="fas ${statusInfo.icon} mr-1"></i> ${statusInfo.label}
                 </span>
             </div>
-            <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                <p class="text-sm text-gray-600 dark:text-gray-300">${orderData.items.length} item(s)</p>
-                <p class="font-bold text-xl text-gray-900 dark:text-white">${orderData.priceDetails.finalTotal.toFixed(2)} MAD</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${date} at ${time}</p>
+        </div>
+        <div class="p-5">
+            <div class="flex flex-col sm:flex-row justify-between items-center">
+                <div>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">${orderData.items.length} item(s)</p>
+                    <p class="font-extrabold text-2xl text-brand-dark dark:text-white">${orderData.priceDetails.finalTotal.toFixed(2)} MAD</p>
+                </div>
+                <div class="w-full sm:w-auto mt-4 sm:mt-0 flex flex-col sm:flex-row gap-2">
+                     <a href="order-details.html?orderId=${orderId}" class="${baseButtonClass} bg-gray-200 dark:bg-gray-700 text-center">View Details</a>
+                    ${actionButtonHtml}
+                </div>
             </div>
-        </a>
-        <div class="mt-4 text-right">${actionButton}</div>
+        </div>
     `;
     return card;
 };
@@ -250,18 +259,13 @@ const populateStatusFilter = () => {
     `;
 };
 
-/**
- * Loads data from localStorage cache first, then fetches updates.
- */
 function loadAndListenForOrders(userId) {
-    // 1. Load from cache immediately
     const cachedOrders = localStorage.getItem(`ordersCache_${userId}`);
     if (cachedOrders) {
         allOrdersCache = JSON.parse(cachedOrders);
         renderOrders(true);
     }
 
-    // 2. Listen for Firebase updates
     const userOrdersRef = db.ref(`users/${userId}/orders`);
     userOrdersRef.on('value', snapshot => {
         if (!snapshot.exists()) {
@@ -283,10 +287,9 @@ function loadAndListenForOrders(userId) {
                         showToast(`Order #${orderData.orderNumber} is now ${statusConfig[orderData.status]?.label || orderData.status}!`);
                     }
                     
-                    // Merge new data into the cache
                     allOrdersCache[orderData.orderId] = { ...existingOrder, ...orderData };
                     localStorage.setItem(`ordersCache_${userId}`, JSON.stringify(allOrdersCache));
-                    renderOrders(true); // Re-render to reflect any changes
+                    renderOrders(true);
                 }
             });
         });
