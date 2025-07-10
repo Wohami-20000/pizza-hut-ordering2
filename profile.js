@@ -1,4 +1,4 @@
-// profile.js - Enhanced with new features and feedback messages
+// profile.js - Enhanced with new features, feedback messages, and CORS fix
 
 const auth = firebase.auth();
 const db = firebase.database();
@@ -454,7 +454,7 @@ const initializePhoneInput = () => {
     if (!phoneInputEl) return;
     phoneInputInstance = window.intlTelInput(phoneInputEl, {
         initialCountry: "auto",
-        geoIpLookup: cb => fetch("https://ipapi.co/json").then(r => r.json()).then(d => cb(d.country_code)).catch(() => cb("us")),
+        geoIpLookup: cb => fetch("https://api.allorigins.win/raw?url=https://ipapi.co/json").then(r => r.json()).then(d => cb(d.country_code)).catch(() => cb("us")),
         utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js",
     });
 };
