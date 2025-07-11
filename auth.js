@@ -84,7 +84,60 @@ document.addEventListener('DOMContentLoaded', () => {
             this.attachShadow({ mode: 'open' });
             this.shadowRoot.innerHTML = `
                 <style>
-                    /* ... (styles from previous version) ... */
+                    .password-group { display: flex; flex-direction: column; gap: 0.75rem; }
+                    .password-wrapper { position: relative; }
+                    input[type="password"], input[type="text"] {
+                        width: 100%;
+                        padding: 0.75rem;
+                        padding-right: 2.5rem; /* Space for the icon */
+                        background-color: #F9FAFB; /* bg-gray-50 */
+                        border: 1px solid #D1D5DB; /* border-gray-300 */
+                        border-radius: 0.5rem; /* rounded-lg */
+                        color: #231F20; /* brand-dark */
+                        transition: border-color 0.2s, box-shadow 0.2s;
+                        box-sizing: border-box; /* Important for padding */
+                    }
+                    input[type="password"]:focus, input[type="text"]:focus {
+                        outline: none;
+                        border-color: #FFC72C; /* brand-yellow */
+                        box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.5);
+                    }
+                    .toggle-password {
+                        position: absolute;
+                        top: 50%;
+                        right: 0.75rem;
+                        transform: translateY(-50%);
+                        cursor: pointer;
+                        color: #9ca3af;
+                    }
+                    .strength-meter {
+                        height: 6px;
+                        width: 100%;
+                        background-color: #e5e7eb;
+                        border-radius: 3px;
+                        overflow: hidden;
+                        margin-top: 2px;
+                    }
+                    .strength-bar {
+                        height: 100%;
+                        width: 0%;
+                        background-color: #ef4444; /* red-500 */
+                        transition: width 0.3s, background-color 0.3s;
+                    }
+                    .strength-text {
+                        font-size: 0.75rem;
+                        text-align: right;
+                        min-height: 1rem;
+                    }
+                    .error-message {
+                        color: #dc2626; /* red-600 */
+                        font-size: 0.875rem;
+                        min-height: 1rem;
+                        display: none; /* Hidden by default */
+                    }
+                    .error-message.visible {
+                        display: block;
+                    }
                 </style>
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
                 <div class="password-group">
@@ -98,8 +151,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input type="password" id="confirm-password" required placeholder="Confirm Password"/>
                         <i class="fas fa-eye toggle-password" data-target="confirm-password"></i>
                     </div>
+                    <p id="password-error" class="error-message">Passwords do not match.</p>
                 </div>
-                <p id="password-error" class="error-message">Passwords do not match.</p>
             `;
              this.passwordInput = this.shadowRoot.getElementById('password');
             this.confirmPasswordInput = this.shadowRoot.getElementById('confirm-password');
