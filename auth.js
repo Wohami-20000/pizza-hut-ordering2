@@ -1,4 +1,4 @@
-// auth.js - Final Corrected Version
+// auth.js - Debugging Version
 document.addEventListener('DOMContentLoaded', () => {
     // --- Initialize Firebase Services ---
     const auth = firebase.auth();
@@ -35,13 +35,19 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Handle Redirect Result from Google Sign-In ---
+    console.log("Checking for redirect result...");
     auth.getRedirectResult()
         .then((result) => {
+            console.log("Redirect Result:", result);
             if (result.user) {
+                console.log("User found in result:", result.user);
                 // This means the user has successfully signed in via redirect.
                 handleSuccessfulLogin(result.user);
+            } else {
+                console.log("No user found in redirect result. This is normal if the page was loaded without a redirect.");
             }
         }).catch((error) => {
+            console.error("Error getting redirect result:", error);
             // Handle Errors here.
             handleAuthError(error, 'login');
         });
