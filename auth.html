@@ -27,6 +27,26 @@
         .error-message { color: #dc2626; font-size: 0.875rem; margin-top: 0.25rem; min-height: 1.25rem; }
         .spinner { border: 3px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; width: 1.25rem; height: 1.25rem; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- STYLES FOR THE TELEPHONE INPUT --- */
+        .iti { width: 100%; } /* Make the container full-width */
+        #signup-phone {
+            box-sizing: border-box; /* Ensure padding is included in width */
+            width: 100%;
+            padding-top: 0.75rem;
+            padding-bottom: 0.75rem;
+            background-color: #F3F4F6;
+            border: 1px solid #D1D5DB;
+            border-radius: 0.5rem;
+            color: #231F20;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            height: 48px; /* Match other inputs */
+        }
+        .iti--allow-dropdown input:focus, 
+        .iti--allow-dropdown input:focus-within {
+            border-color: #FFC72C;
+            box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.5);
+        }
     </style>
 </head>
 <body class="bg-brand-red">
@@ -78,8 +98,7 @@
                         <p id="signup-email-error" class="error-message"></p>
                     </div>
                     <div>
-                        <input type="tel" id="signup-phone" class="w-full" />
-                        <p id="signup-phone-error" class="error-message"></p>
+                        <input type="tel" id="signup-phone" /> <p id="signup-phone-error" class="error-message"></p>
                     </div>
                     <div>
                         <password-input></password-input>
