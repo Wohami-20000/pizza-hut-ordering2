@@ -1,4 +1,4 @@
-// auth.js - Final Corrected Version (English Only)
+// auth.js - Final Corrected Version
 document.addEventListener('DOMContentLoaded', () => {
     // --- Initialize Firebase Services ---
     const auth = firebase.auth();
@@ -31,8 +31,21 @@ document.addEventListener('DOMContentLoaded', () => {
         signupPasswordError: document.getElementById('signup-password-error'),
         resetEmailInput: document.getElementById('reset-email'),
         sendResetLinkBtn: document.getElementById('send-reset-link-btn'),
-        logoutBtn: document.getElementById('logout-btn') 
+        logoutBtn: document.getElementById('logout-btn')
     };
+
+    // --- Handle Redirect Result from Google Sign-In ---
+    auth.getRedirectResult()
+        .then((result) => {
+            if (result.user) {
+                // This means the user has successfully signed in via redirect.
+                handleSuccessfulLogin(result.user);
+            }
+        }).catch((error) => {
+            // Handle Errors here.
+            handleAuthError(error, 'login');
+        });
+
 
     // --- UI & Utility Functions ---
     const displayError = (element, message) => {
@@ -81,7 +94,9 @@ document.addEventListener('DOMContentLoaded', () => {
     class PasswordInput extends HTMLElement {
         constructor() {
             super();
-            this.attachShadow({ mode: 'open' });
+            this.attachShadow({
+                mode: 'open'
+            });
             this.shadowRoot.innerHTML = `
                 <style>
                     .password-group { display: flex; flex-direction: column; gap: 0.75rem; }
@@ -154,13 +169,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p id="password-error" class="error-message">Passwords do not match.</p>
                 </div>
             `;
-             this.passwordInput = this.shadowRoot.getElementById('password');
+            this.passwordInput = this.shadowRoot.getElementById('password');
             this.confirmPasswordInput = this.shadowRoot.getElementById('confirm-password');
             this.passwordError = this.shadowRoot.getElementById('password-error');
             this.strengthBar = this.shadowRoot.querySelector('.strength-bar');
             this.strengthText = this.shadowRoot.querySelector('.strength-text');
 
-            this.passwordInput.addEventListener('input', () => { this.validatePasswords(); this.checkStrength(); });
+            this.passwordInput.addEventListener('input', () => {
+                this.validatePasswords();
+                this.checkStrength();
+            });
             this.confirmPasswordInput.addEventListener('input', () => this.validatePasswords());
             this.shadowRoot.querySelectorAll('.toggle-password').forEach(toggle => {
                 toggle.addEventListener('click', () => {
@@ -180,17 +198,37 @@ document.addEventListener('DOMContentLoaded', () => {
             if (/[0-9]/.test(pass)) score++;
             if (/[^A-Za-z0-9]/.test(pass)) score++;
             const strengthLevels = {
-                1: { width: '33.33%', color: '#ef4444', text: "Weak" },
-                2: { width: '33.33%', color: '#ef4444', text: "Weak" },
-                3: { width: '66.66%', color: '#f59e0b', text: "Medium" },
-                4: { width: '100%', color: '#22c55e', text: "Strong" }
+                1: {
+                    width: '33.33%',
+                    color: '#ef4444',
+                    text: "Weak"
+                },
+                2: {
+                    width: '33.33%',
+                    color: '#ef4444',
+                    text: "Weak"
+                },
+                3: {
+                    width: '66.66%',
+                    color: '#f59e0b',
+                    text: "Medium"
+                },
+                4: {
+                    width: '100%',
+                    color: '#22c55e',
+                    text: "Strong"
+                }
             };
             if (pass.length === 0) {
                 this.strengthBar.style.width = '0%';
                 this.strengthText.textContent = '';
                 return;
             }
-            const level = strengthLevels[score] || { width: '10%', color: '#ef4444', text: "Weak" };
+            const level = strengthLevels[score] || {
+                width: '10%',
+                color: '#ef4444',
+                text: "Weak"
+            };
             this.strengthBar.style.width = level.width;
             this.strengthBar.style.backgroundColor = level.color;
             this.strengthText.textContent = level.text;
@@ -201,13 +239,17 @@ document.addEventListener('DOMContentLoaded', () => {
             this.passwordError.classList.toggle('visible', !match && this.confirmPasswordInput.value.length > 0);
             return match;
         }
-        get password() { return this.passwordInput.value; }
-        checkValidity() { return this.passwordInput.checkValidity() && this.confirmPasswordInput.checkValidity() && this.validatePasswords(); }
+        get password() {
+            return this.passwordInput.value;
+        }
+        checkValidity() {
+            return this.passwordInput.checkValidity() && this.confirmPasswordInput.checkValidity() && this.validatePasswords();
+        }
     }
     if (!customElements.get('password-input')) {
         customElements.define('password-input', PasswordInput);
     }
-    
+
     const phoneInput = document.querySelector("#signup-phone");
     const iti = window.intlTelInput(phoneInput, {
         utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js",
@@ -225,7 +267,9 @@ document.addEventListener('DOMContentLoaded', () => {
         user.getIdTokenResult().then((idTokenResult) => {
             const userRef = db.ref('users/' + user.uid);
             userRef.once('value').then(snapshot => {
-                const userUpdate = { lastLogin: new Date().toISOString() };
+                const userUpdate = {
+                    lastLogin: new Date().toISOString()
+                };
                 if (!snapshot.exists()) {
                     userUpdate.email = user.email;
                     userUpdate.name = user.displayName || 'New User';
@@ -266,11 +310,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         displayError(errorElement, errorMessage);
     };
-    
+
     const handleLogout = () => {
         const user = auth.currentUser;
         if (user) {
-            // Clear the cache specific to this user upon logout
             localStorage.removeItem(`ordersCache_${user.uid}`);
         }
         auth.signOut().then(() => {
@@ -285,11 +328,11 @@ document.addEventListener('DOMContentLoaded', () => {
             alert("Failed to log out. Please try again.");
         });
     };
-    
+
     if (elements.logoutBtn) {
         elements.logoutBtn.addEventListener('click', handleLogout);
     }
-    
+
     elements.loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         clearErrors();
@@ -314,13 +357,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const phone = iti.getNumber();
         const passwordInputComponent = elements.signupForm.querySelector('password-input');
         let isValid = true;
-        if (!name) { displayError(elements.signupNameError, 'This field is required.'); isValid = false; }
-        if (!email) { displayError(elements.signupEmailError, 'This field is required.'); isValid = false; }
-        if (!phone) { displayError(elements.signupPhoneError, 'This field is required.'); isValid = false; }
-        if (!passwordInputComponent.password) { displayError(elements.signupPasswordError, 'This field is required.'); isValid = false; }
-        if (!passwordInputComponent.checkValidity()) { displayError(elements.signupPasswordError, 'Passwords do not match or are invalid.'); isValid = false; }
-        if (phone && !iti.isValidNumber()) { displayError(elements.signupPhoneError, 'Invalid phone number.'); isValid = false; }
-        if (!document.getElementById('terms-checkbox').checked) { displayError(elements.signupErrorMessage, 'You must agree to the terms.'); isValid = false; }
+        if (!name) {
+            displayError(elements.signupNameError, 'This field is required.');
+            isValid = false;
+        }
+        if (!email) {
+            displayError(elements.signupEmailError, 'This field is required.');
+            isValid = false;
+        }
+        if (!phone) {
+            displayError(elements.signupPhoneError, 'This field is required.');
+            isValid = false;
+        }
+        if (!passwordInputComponent.password) {
+            displayError(elements.signupPasswordError, 'This field is required.');
+            isValid = false;
+        }
+        if (!passwordInputComponent.checkValidity()) {
+            displayError(elements.signupPasswordError, 'Passwords do not match or are invalid.');
+            isValid = false;
+        }
+        if (phone && !iti.isValidNumber()) {
+            displayError(elements.signupPhoneError, 'Invalid phone number.');
+            isValid = false;
+        }
+        if (!document.getElementById('terms-checkbox').checked) {
+            displayError(elements.signupErrorMessage, 'You must agree to the terms.');
+            isValid = false;
+        }
         if (!isValid) return;
         setLoading(elements.signupCtaBtn, true, 'Creating Account...');
         try {
@@ -328,7 +392,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const user = userCredential.user;
             await user.sendEmailVerification();
             await db.ref('users/' + user.uid).set({
-                email: email, name: name, phone: phone, createdAt: new Date().toISOString()
+                email: email,
+                name: name,
+                phone: phone,
+                createdAt: new Date().toISOString()
             });
             await db.ref(`users/${user.uid}/availableOffers/WELCOME20`).set(true);
             alert("Verification email sent. Please check your inbox.");
@@ -342,12 +409,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     elements.googleSigninBtn.addEventListener('click', async () => {
         try {
-            const result = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
-            handleSuccessfulLogin(result.user);
+            // This will redirect the user to the Google sign-in page
+            await auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());
         } catch (error) {
             handleAuthError(error, 'login');
         }
     });
+
 
     elements.forgotPasswordLink.addEventListener('click', (e) => {
         e.preventDefault();
@@ -377,9 +445,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    elements.showSignupBtn.addEventListener('click', (e) => { e.preventDefault(); switchForms(elements.signupForm, elements.loginForm); });
-    elements.showLoginBtn.addEventListener('click', (e) => { e.preventDefault(); switchForms(elements.loginForm, elements.signupForm); });
-    
+    elements.showSignupBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchForms(elements.signupForm, elements.loginForm);
+    });
+    elements.showLoginBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchForms(elements.loginForm, elements.signupForm);
+    });
+
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('mode') === 'signup') {
         switchForms(elements.signupForm, elements.loginForm);
