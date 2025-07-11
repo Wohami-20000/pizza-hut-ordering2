@@ -251,7 +251,6 @@ function renderFullMenu() {
 
     // **FIX:** Check if the required elements exist before proceeding.
     if (!menuContainer || !loadingPlaceholder) {
-        console.error("renderFullMenu: Critical elements are missing from the DOM.");
         return;
     }
     if (!menuDataCache || Object.keys(menuDataCache).length === 0) {
