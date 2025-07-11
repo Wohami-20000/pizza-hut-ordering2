@@ -249,6 +249,7 @@ function renderFullMenu() {
     const menuContainer = document.getElementById("menu-container");
     const loadingPlaceholder = document.getElementById("loading-placeholder");
 
+    // **FIX:** Check if the required elements exist before proceeding.
     if (!menuContainer || !loadingPlaceholder) {
         console.error("renderFullMenu: Critical elements are missing from the DOM.");
         return;
@@ -261,7 +262,7 @@ function renderFullMenu() {
     loadingPlaceholder.style.display = 'none';
     menuContainer.innerHTML = '';
     let itemRenderDelay = 0;
-    
+
     Object.entries(menuDataCache).forEach(([categoryId, categoryData]) => {
         const section = document.createElement('section');
         section.className = 'category-section mb-12';
@@ -288,35 +289,41 @@ function renderFullMenu() {
         section.appendChild(itemsContainer);
         menuContainer.appendChild(section);
     });
-    
+
     const noResultsMessage = document.getElementById("no-results-message");
     if (noResultsMessage) menuContainer.appendChild(noResultsMessage);
 }
 
 function renderCategoriesTabs() {
     const tabsContainer = document.getElementById('category-tabs');
+    // **FIX:** Check if the element exists.
     if (!tabsContainer) return;
+
     tabsContainer.innerHTML = '';
     if (!menuDataCache) return;
-    
+
     Object.entries(menuDataCache).forEach(([categoryId, categoryData]) => {
         const tab = document.createElement('a');
         tab.href = `#category-section-${categoryId}`;
         tab.className = 'category-tab px-4 py-2 text-sm font-semibold whitespace-nowrap flex items-center gap-2';
-        
+
         const categoryName = escapeHTML(categoryData.category);
         const emoji = categoryEmojis[categoryName] || '🍽️';
-        
+
         tab.innerHTML = `<span>${emoji}</span> <span>${categoryName}</span>`;
-        tab.onclick = (e) => { e.preventDefault(); window.menuFunctions.scrollToCategory(categoryId); };
+        tab.onclick = (e) => {
+            e.preventDefault();
+            window.menuFunctions.scrollToCategory(categoryId);
+        };
         tabsContainer.appendChild(tab);
     });
-    
+
     const firstCategoryTab = tabsContainer.querySelector('.category-tab');
     if (firstCategoryTab) {
         firstCategoryTab.classList.add('active-tab');
     }
 }
+
 
 window.menuFunctions = {
     updateItemQuantity: (itemId, change, buttonElement) => {
