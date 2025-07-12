@@ -1,6 +1,7 @@
 // /js/dashboard.js
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js";
-import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js";
+// **FIX:** Removed 'get' from this import because it's not needed here in v8
+import { getDatabase, ref } from "https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js";
 
 const auth = getAuth();
 const db = getDatabase();
@@ -21,14 +22,12 @@ async function loadRolePanel(role) {
     }
 
     try {
-        // Dynamically import the correct panel based on the user's role
         const panelModule = await import(`./panels/${role}.js`);
         
         if (typeof panelModule.loadPanel === 'function') {
             panelRoot.innerHTML = '';
             panelModule.loadPanel(panelRoot, panelTitle, navContainer);
             
-            // Display the current user's info in the header
             userInfo.innerHTML = `
                 <p class="font-semibold">${capitalizeFirstLetter(role)} View</p>
                 <p class="text-sm text-gray-500">${auth.currentUser.email}</p>
@@ -52,29 +51,24 @@ function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-// --- Main Authentication Listener ---
-// This is the "brain" that runs when the page loads.
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        // A user is signed in. Let's find their role in the database.
         const userRef = ref(db, `users/${user.uid}`);
-        const userSnapshot = await get(userRef);
+        
+        // **FIX:** Changed `get(userRef)` to `userRef.get()` which is the correct syntax for Firebase v8
+        const userSnapshot = await userRef.get();
 
-        let userRole = 'staff'; // Default to the least powerful role if something goes wrong
+        let userRole = 'staff'; 
 
         if (userSnapshot.exists()) {
-            // Get the role from the 'role' field in their database entry
             userRole = userSnapshot.val().role || 'staff';
         } else {
             console.warn(`No database entry found for user ${user.uid}. Defaulting to 'staff' role.`);
         }
         
-        // Now, load the correct panel for that user's role
         loadRolePanel(userRole);
 
     } else {
-        // No user is signed in. Redirect them to the login page.
-        // The path is relative to the location of dashboard.html in the root folder.
         window.location.href = 'auth.html'; 
     }
 });
