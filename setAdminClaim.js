@@ -9,7 +9,7 @@ admin.initializeApp({
 });
 
 // Replace with the UID of the user to promote to admin
-const uid = "iedrL3dOKkTnt3U8MHWANJhs4jG3";
+const uid = "JF4b8Hh8QYMzNlY5PQPay0C8OkE2";
 
 // Set the admin custom claim
 admin.auth().setCustomUserClaims(uid, { admin: true })
