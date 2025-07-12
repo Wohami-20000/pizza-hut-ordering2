@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // **THIS IS THE KEY CHANGE**
         // Send all logged-in staff/admins/owners to the dashboard.
         // The dashboard's own script will then handle showing the correct panel.
-        window.location.href = 'pages/dashboard.html';
+        window.location.href = 'dashboard.html';
     };
 
     const handleAuthError = (error, formType) => {

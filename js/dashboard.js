@@ -1,11 +1,12 @@
 // /js/dashboard.js
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js";
 
-// --- Pretend to be a user ---
-// Change this to 'manager', 'admin', 'delivery', etc., to see different dashboards!
-const currentUserRole = 'admin';
+const auth = getAuth();
+const db = getDatabase();
 
 /**
- * Finds the correct "drawing instructions" (the panel.js file) and tells it to draw.
+ * Dynamically loads the panel for the given role.
  * @param {string} role The role of the current user.
  */
 async function loadRolePanel(role) {
@@ -15,41 +16,65 @@ async function loadRolePanel(role) {
     const navContainer = document.getElementById('sidebar-nav');
 
     if (!panelRoot || !panelTitle || !userInfo) {
-        console.error('Oops! The main dashboard HTML is missing key parts.');
+        console.error('Dashboard layout elements are missing!');
         return;
     }
 
     try {
-        // This is where we pick the right drawing instructions
+        // Dynamically import the correct panel based on the user's role
         const panelModule = await import(`./panels/${role}.js`);
-
+        
         if (typeof panelModule.loadPanel === 'function') {
-            // Erase the "Loading..." message
             panelRoot.innerHTML = '';
-            // Tell the instructions to start drawing!
             panelModule.loadPanel(panelRoot, panelTitle, navContainer);
-             userInfo.innerHTML = `
+            
+            // Display the current user's info in the header
+            userInfo.innerHTML = `
                 <p class="font-semibold">${capitalizeFirstLetter(role)} View</p>
-                <p class="text-sm text-gray-500">user.email@example.com</p>
+                <p class="text-sm text-gray-500">${auth.currentUser.email}</p>
             `;
         } else {
-            throw new Error(`The instructions for the '${role}' role are incomplete.`);
+            throw new Error(`The module for role '${role}' does not export a 'loadPanel' function.`);
         }
     } catch (error) {
-        console.error(`Couldn't load the dashboard for '${role}':`, error);
+        console.error(`Failed to load panel for role '${role}':`, error);
         panelRoot.innerHTML = `
             <div class="text-center bg-red-50 p-6 rounded-lg">
-                <p class="text-red-700 font-semibold">Error: Could not load your dashboard.</p>
+                <p class="text-red-700 font-semibold">Error: Could not load your dashboard panel.</p>
+                <p class="text-sm text-gray-600">The view for the '${role}' role could not be found or loaded.</p>
             </div>
         `;
     }
 }
 
 function capitalizeFirstLetter(string) {
+    if (!string) return '';
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-// When the page is ready, figure out who the user is and draw their dashboard.
-document.addEventListener('DOMContentLoaded', () => {
-    loadRolePanel(currentUserRole);
+// --- Main Authentication Listener ---
+// This is the "brain" that runs when the page loads.
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        // A user is signed in. Let's find their role in the database.
+        const userRef = ref(db, `users/${user.uid}`);
+        const userSnapshot = await get(userRef);
+
+        let userRole = 'staff'; // Default to the least powerful role if something goes wrong
+
+        if (userSnapshot.exists()) {
+            // Get the role from the 'role' field in their database entry
+            userRole = userSnapshot.val().role || 'staff';
+        } else {
+            console.warn(`No database entry found for user ${user.uid}. Defaulting to 'staff' role.`);
+        }
+        
+        // Now, load the correct panel for that user's role
+        loadRolePanel(userRole);
+
+    } else {
+        // No user is signed in. Redirect them to the login page.
+        // The path is relative to the location of dashboard.html in the root folder.
+        window.location.href = 'auth.html'; 
+    }
 });
