@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- PASSWORD INPUT CUSTOM ELEMENT (Restored) ---
+    // --- PASSWORD INPUT CUSTOM ELEMENT ---
     class PasswordInput extends HTMLElement {
         constructor() {
             super();
@@ -148,16 +148,19 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.authSubtext.textContent = isLogin ? "Log in to get your favorites delivered hot & fast." : "Sign up & get 20% OFF your first order.";
     };
 
+    /**
+     * Handles successful login for any user type.
+     * Redirects all authenticated users to the main dashboard page.
+     * @param {firebase.User} user The authenticated user object.
+     */
     const handleSuccessfulLogin = (user) => {
         const userRef = db.ref(`users/${user.uid}`);
         userRef.update({ lastLogin: new Date().toISOString() });
-        user.getIdTokenResult().then(idTokenResult => {
-            if (idTokenResult.claims.admin) {
-                window.location.href = 'admin.html';
-            } else {
-                window.location.href = 'order-type-selection.html';
-            }
-        });
+        
+        // **THIS IS THE KEY CHANGE**
+        // Send all logged-in staff/admins/owners to the dashboard.
+        // The dashboard's own script will then handle showing the correct panel.
+        window.location.href = 'pages/dashboard.html';
     };
 
     const handleAuthError = (error, formType) => {

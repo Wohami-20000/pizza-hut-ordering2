@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pizza Hut - Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        body { font-family: 'Poppins', sans-serif; }
+        #panel-root { transition: opacity 0.3s ease-in-out; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <aside class="w-64 bg-gray-800 text-white flex-shrink-0">
+            <div class="p-4 border-b border-gray-700">
+                <h2 class="text-2xl font-semibold">Pizza Hut</h2>
+            </div>
+            <nav id="sidebar-nav" class="mt-5 p-4">
+                <div class="text-gray-400">Loading Navigation...</div>
+            </nav>
+        </aside>
+
+        <div class="flex-1 flex flex-col">
+            <header class="bg-white shadow-md p-4 flex justify-between items-center">
+                <h1 id="panel-title" class="text-2xl font-bold text-gray-800">Dashboard</h1>
+                <div id="user-info" class="text-right">
+                    </div>
+            </header>
+            <main id="panel-root" class="flex-1 p-6 overflow-y-auto">
+                <div class="text-center py-20">
+                    <i class="fas fa-spinner fa-spin text-4xl text-red-600"></i>
+                    <p class="mt-4 text-lg text-gray-500">Loading Your Dashboard...</p>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script type="module" src="../js/dashboard.js"></script>
+</body>
+</html>
