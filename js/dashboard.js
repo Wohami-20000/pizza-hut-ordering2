@@ -1,6 +1,6 @@
 // /js/dashboard.js
 
-// **FIX:** Get Firebase services using the v8 namespaced syntax
+// Get Firebase services using the v8 namespaced syntax
 const auth = firebase.auth();
 const db = firebase.database();
 
@@ -20,14 +20,12 @@ async function loadRolePanel(role) {
     }
 
     try {
-        // Dynamically import the correct panel based on the user's role
         const panelModule = await import(`./panels/${role}.js`);
         
         if (typeof panelModule.loadPanel === 'function') {
             panelRoot.innerHTML = '';
             panelModule.loadPanel(panelRoot, panelTitle, navContainer);
             
-            // Display the current user's info in the header
             userInfo.innerHTML = `
                 <p class="font-semibold">${capitalizeFirstLetter(role)} View</p>
                 <p class="text-sm text-gray-500">${auth.currentUser.email}</p>
@@ -54,26 +52,36 @@ function capitalizeFirstLetter(string) {
 // --- Main Authentication Listener ---
 auth.onAuthStateChanged(async (user) => {
     if (user) {
-        // A user is signed in. Let's find their role in the database.
+        // --- PANDA DETECTIVE STEP 1 ---
+        // Let's see which user ID the code thinks you are.
+        console.log("🐼 Detective: User is logged in with UID:", user.uid);
+
         const userRef = db.ref(`users/${user.uid}`);
-        
-        // Use the correct v8 syntax to get the data
         const userSnapshot = await userRef.get();
 
-        let userRole = 'staff'; // Default to the least powerful role
+        let userRole = 'staff'; 
 
         if (userSnapshot.exists()) {
-            // Get the role from the 'role' field in their database entry
-            userRole = userSnapshot.val().role || 'staff';
+            const userData = userSnapshot.val();
+            
+            // --- PANDA DETECTIVE STEP 2 ---
+            // Let's see exactly what data the code found in the database for this user.
+            console.log("🐼 Detective: Found user data in the database:", userData);
+
+            userRole = userData.role || 'staff';
         } else {
-            console.warn(`No database entry found for user ${user.uid}. Defaulting to 'staff' role.`);
+             // --- PANDA DETECTIVE STEP 3 ---
+            // If we get here, the code couldn't find a profile for your UID.
+            console.error("🐼 Detective: COULD NOT FIND a database entry for user:", user.uid);
         }
         
-        // Now, load the correct panel for that user's role
+        // --- PANDA DETECTIVE STEP 4 ---
+        // This will tell us the final role that was decided.
+        console.log(`🐼 Detective: Decided role is "${userRole}". Loading panel...`);
+        
         loadRolePanel(userRole);
 
     } else {
-        // No user is signed in. Redirect them to the login page.
         window.location.href = 'auth.html'; 
     }
 });
