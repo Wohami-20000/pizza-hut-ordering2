@@ -24,7 +24,7 @@ function createUserRow(uid, user) {
             </td>
             <td class="px-4 py-3 text-center text-sm">
                 <button class="save-role-btn bg-brand-red text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 transition transform hover:scale-105 shadow-md">Save</button>
-                <span class="role-feedback-message ml-2 text-xs font-semibold"></span>
+                <span class="role-feedback-message ml-2 text-xs"></span>
             </td>
         </tr>
     `;
@@ -63,9 +63,10 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
     panelTitle.textContent = 'System Administration';
     
     // Setup navigation for Admin
+    // MODIFIED: Changed data-panel for "Menu & Offers" to "menu-offers"
     navContainer.innerHTML = `
         <a href="#" class="block py-2.5 px-4 rounded-lg transition duration-200 hover:bg-gray-700 hover:text-white" data-panel="users"><i class="fas fa-users mr-3"></i>User Management</a>
-        <a href="#" class="block py-2.5 px-4 rounded-lg transition duration-200 hover:bg-gray-700 hover:text-white" data-panel="menu"><i class="fas fa-pizza-slice mr-3"></i>Menu & Offers</a>
+        <a href="#" class="block py-2.5 px-4 rounded-lg transition duration-200 hover:bg-gray-700 hover:text-white" data-panel="menu-offers"><i class="fas fa-pizza-slice mr-3"></i>Menu & Offers</a>
         <a href="#" class="block py-2.5 px-4 rounded-lg transition duration-200 hover:bg-gray-700 hover:text-white" data-panel="system"><i class="fas fa-cogs mr-3"></i>System Config</a>
     `;
 
@@ -139,7 +140,7 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
         }
     });
 
-    // Add event listeners for sidebar toggle
+    // Add event listeners for sidebar toggle (these are handled in dashboard.js now, but leaving for context if needed locally)
     const sidebar = document.getElementById('sidebar');
     const sidebarOverlay = document.getElementById('sidebar-overlay');
     const openSidebarBtn = document.getElementById('open-sidebar-btn');

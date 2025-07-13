@@ -5,37 +5,37 @@ const auth = firebase.auth();
 const db = firebase.database();
 
 // Import panel modules
-import { loadPanel as loadAdminPanel } from './panels/admin.js'; //
-import { loadPanel as loadManagerPanel } from './panels/manager.js'; //
-import { loadPanel as loadStaffPanel } from './panels/staff.js'; //
-import { loadPanel as loadDeliveryPanel } from './panels/delivery.js'; //
-import { loadPanel as loadOwnerPanel } from './panels/owner.js'; //
-import { loadPanel as loadMenuOffersPanel } from './panels/menu-offers.js'; // New import
+import { loadPanel as loadAdminPanel } from './panels/admin.js';
+import { loadPanel as loadManagerPanel } from './panels/manager.js';
+import { loadPanel as loadStaffPanel } from './panels/staff.js';
+import { loadPanel as loadDeliveryPanel } from './panels/delivery.js';
+import { loadPanel as loadOwnerPanel } from './panels/owner.js';
+import { loadPanel as loadMenuOffersPanel } from './panels/menu-offers.js'; // Ensure this import is correct
 
 
 /**
  * Dynamically loads the panel for the given role and content section.
  * @param {string} role The role of the current user.
- * @param {string} contentSection The ID of the content section to load (e.g., 'users', 'menu-items').
+ * @param {string} targetPanelKey The key from the data-panel attribute (e.g., 'users', 'menu-offers').
  */
-async function loadRolePanel(role, contentSection = 'default') {
-    const panelRoot = document.getElementById('panel-root'); //
-    const panelTitle = document.getElementById('panel-title'); //
-    const userInfo = document.getElementById('user-info'); //
-    const navContainer = document.getElementById('sidebar-nav'); //
-    const sidebar = document.getElementById('sidebar'); // Added for mobile sidebar control
-    const sidebarOverlay = document.getElementById('sidebar-overlay'); // Added for mobile sidebar control
+async function loadRolePanel(role, targetPanelKey = 'default') { // Renamed contentSection to targetPanelKey for clarity
+    const panelRoot = document.getElementById('panel-root');
+    const panelTitle = document.getElementById('panel-title');
+    const userInfo = document.getElementById('user-info');
+    const navContainer = document.getElementById('sidebar-nav');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
 
     if (!panelRoot || !panelTitle || !userInfo || !navContainer || !sidebar || !sidebarOverlay) {
         console.error('Dashboard layout elements are missing!');
         return;
     }
 
-    // Clear previous content
+    // Clear previous content and show loading state
     panelRoot.innerHTML = `
         <div class="text-center py-20 bg-white rounded-xl shadow-lg">
             <i class="fas fa-spinner fa-spin text-4xl text-brand-red mb-4"></i>
-            <p class="mt-4 text-lg text-gray-600">Loading ${capitalizeFirstLetter(contentSection.replace('-', ' '))}...</p>
+            <p class="mt-4 text-lg text-gray-600">Loading ${capitalizeFirstLetter(targetPanelKey.replace('-', ' '))}...</p>
         </div>
     `;
 
@@ -46,39 +46,49 @@ async function loadRolePanel(role, contentSection = 'default') {
 
 
     try {
-        let panelModule;
-        // Determine which panel module to load based on role and contentSection
-        if (role === 'admin' && contentSection === 'menu-offers') {
-            panelModule = loadMenuOffersPanel;
-            panelTitle.textContent = 'Menu & Offers Management'; // Pre-set title
-            // Also ensure the correct nav item is active
-            document.querySelectorAll('#sidebar-nav a').forEach(link => link.classList.remove('active-nav-link'));
-            document.querySelector('#sidebar-nav a[data-content="menu-items"]')?.classList.add('active-nav-link');
+        let panelModuleToLoad;
+        let effectivePanelKey = targetPanelKey; // Keep track of which panel actually loaded
+
+        if (role === 'admin') {
+            // Admin role has specific sub-panels based on targetPanelKey
+            if (targetPanelKey === 'users') {
+                panelModuleToLoad = loadAdminPanel;
+            } else if (targetPanelKey === 'menu-offers') { // This will now match the `data-panel` from admin.js
+                panelModuleToLoad = loadMenuOffersPanel;
+            } else if (targetPanelKey === 'system') {
+                // Assuming you'll create a system.js panel later
+                // panelModuleToLoad = loadSystemPanel;
+                panelModuleToLoad = loadAdminPanel; // Fallback to admin panel for now
+                effectivePanelKey = 'users'; // Reflect that admin panel is loaded
+            } else {
+                // Default for admin if no specific targetPanelKey or unknown
+                panelModuleToLoad = loadAdminPanel;
+                effectivePanelKey = 'users'; // Default to User Management
+            }
         } else {
+            // Logic for other roles remains similar, loading their respective main panels
             switch (role) {
-                case 'admin':
-                    panelModule = loadAdminPanel; //
-                    break;
                 case 'manager':
-                    panelModule = loadManagerPanel; //
+                    panelModuleToLoad = loadManagerPanel;
                     break;
                 case 'staff':
-                    panelModule = loadStaffPanel; //
+                    panelModuleToLoad = loadStaffPanel;
                     break;
                 case 'delivery':
-                    panelModule = loadDeliveryPanel; //
+                    panelModuleToLoad = loadDeliveryPanel;
                     break;
                 case 'owner':
-                    panelModule = loadOwnerPanel; //
+                    panelModuleToLoad = loadOwnerPanel;
                     break;
                 default:
                     throw new Error(`No panel defined for role: ${role}`);
             }
+            effectivePanelKey = role; // For non-admin roles, their role IS their panel key
         }
         
-        if (typeof panelModule === 'function') { // Check if it's the actual function, not the module object
+        if (typeof panelModuleToLoad === 'function') {
             panelRoot.innerHTML = ''; // Clear loading message once module is ready to render
-            panelModule(panelRoot, panelTitle, navContainer); // Pass all necessary elements
+            panelModuleToLoad(panelRoot, panelTitle, navContainer); // Pass all necessary elements
 
             userInfo.innerHTML = `
                 <i class="fas fa-user-circle text-gray-400 text-3xl"></i>
@@ -88,41 +98,19 @@ async function loadRolePanel(role, contentSection = 'default') {
                 </div>
             `;
 
-            // Add event listeners to sidebar navigation links
+            // Ensure the correct nav item is active based on the effectivePanelKey
             navContainer.querySelectorAll('a').forEach(link => {
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    // Remove active class from all nav links
-                    navContainer.querySelectorAll('a').forEach(navLink => navLink.classList.remove('active-nav-link'));
-                    // Add active class to the clicked link
-                    e.currentTarget.classList.add('active-nav-link');
-
-                    const targetPanel = e.currentTarget.dataset.panel;
-                    const targetContent = e.currentTarget.dataset.content; // New: to specify sub-sections like menu-items or offers
-
-                    if (targetPanel) {
-                        loadRolePanel(role, targetPanel); // Load main panel
-                    } else if (targetContent) {
-                        // If a content-specific link is clicked within a panel, directly load that content
-                        // This assumes the panel is already loaded, and we're just switching sub-views
-                        // For now, load the menu-offers panel and tell it which section to show
-                        if (role === 'admin') { // Only admin can access these sub-sections directly via top nav
-                             loadMenuOffersPanel(panelRoot, panelTitle, navContainer);
-                             // Now ensure the correct sub-section is displayed
-                             document.querySelectorAll('#panel-root > div').forEach(section => {
-                                section.classList.add('hidden');
-                            });
-                            document.getElementById(`${targetContent}-section`).classList.remove('hidden');
-                        }
-                    }
-                });
+                link.classList.remove('active-nav-link');
+                if (link.dataset.panel === effectivePanelKey) {
+                    link.classList.add('active-nav-link');
+                }
             });
 
         } else {
-            throw new Error(`The module for role '${role}' does not export a 'loadPanel' function.`);
+            throw new Error(`The loaded module for role '${role}' (panel key '${effectivePanelKey}') does not export a 'loadPanel' function.`);
         }
     } catch (error) {
-        console.error(`Failed to load panel for role '${role}':`, error);
+        console.error(`Failed to load panel for role '${role}' (panel key '${targetPanelKey}'):`, error);
         panelRoot.innerHTML = `
             <div class="text-center bg-red-50 p-6 rounded-xl shadow-lg mt-8">
                 <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-3"></i>
@@ -152,12 +140,11 @@ auth.onAuthStateChanged(async (user) => {
         const staffRoles = ['admin', 'manager', 'staff', 'delivery', 'owner'];
 
         if (staffRoles.includes(userRole)) {
-            // Load the default panel based on role
-            // For admin, default to user management or menu management
+            // Initial load for admin: default to 'users' panel
             if (userRole === 'admin') {
-                loadRolePanel(userRole, 'users'); // Default to users for admin
+                loadRolePanel(userRole, 'users'); // Explicitly load users panel first for admin
             } else {
-                loadRolePanel(userRole);
+                loadRolePanel(userRole); // Other roles load their default panel
             }
             
         } else {
