@@ -77,10 +77,6 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
             }
         } else {
             // Logic for other roles can be added here
-            // Example:
-            // if (role === 'manager') {
-            //     panelModuleToLoad = loadManagerPanel;
-            // }
         }
 
         if (typeof panelModuleToLoad === 'function') {
@@ -125,11 +121,21 @@ auth.onAuthStateChanged(async (user) => {
         const staffRoles = ['admin', 'manager', 'staff', 'delivery', 'owner'];
 
         if (staffRoles.includes(userRole)) {
+            
+            // --- NEW: Force a refresh of the user's token ---
+            // This ensures the `auth.token.admin` claim is available for security rules.
+            try {
+                await user.getIdToken(true);
+                console.log("User token refreshed. Admin claim should now be active.");
+            } catch (error) {
+                console.error("Error refreshing user token:", error);
+            }
+            // --- END OF NEW CODE ---
+
             const initialPanel = userRole === 'admin' ? 'users' : userRole;
             loadRolePanel(userRole, initialPanel);
 
             const navContainer = document.getElementById('sidebar-nav');
-            // Ensure we only have one listener
             if (!navContainer.dataset.listenerAttached) {
                 navContainer.addEventListener('click', (event) => {
                     const targetLink = event.target.closest('a');
