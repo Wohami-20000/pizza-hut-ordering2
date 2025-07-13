@@ -2309,4 +2309,9 @@ video {
     --tw-text-opacity: 1;
     color: rgb(255 255 255 / var(--tw-text-opacity, 1));
   }
+
+  .dark\:hover\:text-brand-red:hover {
+    --tw-text-opacity: 1;
+    color: rgb(215 25 33 / var(--tw-text-opacity, 1));
+  }
 }

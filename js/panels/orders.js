@@ -1,10 +1,9 @@
 // /js/panels/orders.js
 
 const db = firebase.database();
-let allOrdersCache = {}; // Use an object for efficient lookups
-let isInitialLoad = true; // Flag to prevent sound on first page load
+let allOrdersCache = {}; 
+let isInitialLoad = true;
 
-// All possible statuses for an order
 const STATUS_OPTIONS = ['pending', 'preparing', 'ready', 'out for delivery', 'delivered', 'completed', 'cancelled'];
 
 /**
@@ -16,7 +15,6 @@ function createOrderRow(orderId, orderData) {
     const orderDate = new Date(timestamp).toLocaleString();
     const finalTotal = priceDetails ? priceDetails.finalTotal.toFixed(2) : '0.00';
 
-    // Create the status dropdown
     const statusDropdown = STATUS_OPTIONS.map(opt => 
         `<option value="${opt}" ${status === opt ? 'selected' : ''}>${opt.charAt(0).toUpperCase() + opt.slice(1)}</option>`
     ).join('');
@@ -33,6 +31,9 @@ function createOrderRow(orderId, orderData) {
                 <select class="status-select w-full p-2 border rounded-md text-sm bg-white">
                     ${statusDropdown}
                 </select>
+            </td>
+            <td class="p-3 text-center">
+                <a href="../edit-order.html?orderId=${orderId}" class="edit-order-btn bg-blue-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-blue-600">Edit</a>
             </td>
         </tr>
     `;
@@ -60,16 +61,13 @@ function renderFilteredOrders() {
 
     orderListBody.innerHTML = filteredOrders.length 
         ? filteredOrders.map(order => createOrderRow(order.id, order)).join('')
-        : '<tr><td colspan="5" class="text-center p-4 text-gray-500">No matching orders found.</td></tr>';
+        : `<tr><td colspan="6" class="text-center p-4 text-gray-500">No matching orders found.</td></tr>`;
 }
 
-/**
- * Plays the notification sound.
- */
 function playNotificationSound() {
     const sound = document.getElementById('notification-sound');
     if (sound) {
-        sound.play().catch(error => console.warn("Audio playback failed. User interaction may be required.", error));
+        sound.play().catch(error => console.warn("Audio playback failed.", error));
     }
 }
 
@@ -78,7 +76,7 @@ function playNotificationSound() {
  */
 export function loadPanel(panelRoot, panelTitle) {
     panelTitle.textContent = 'Order Management';
-    isInitialLoad = true; // Reset flag every time panel is loaded
+    isInitialLoad = true; 
 
     const statusFilterOptions = ['all', ...STATUS_OPTIONS]
         .map(s => `<option value="${s}">${s.charAt(0).toUpperCase() + s.slice(1)}</option>`).join('');
@@ -86,14 +84,10 @@ export function loadPanel(panelRoot, panelTitle) {
     panelRoot.innerHTML = `
         <div class="bg-white rounded-xl shadow-lg p-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">All Orders</h2>
-            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <input type="search" id="order-search" placeholder="Search by Order ID or Customer..." class="w-full p-2 border rounded-md">
-                <select id="status-filter" class="w-full p-2 border rounded-md bg-white">
-                    ${statusFilterOptions}
-                </select>
+                <select id="status-filter" class="w-full p-2 border rounded-md bg-white">${statusFilterOptions}</select>
             </div>
-
             <div class="overflow-y-auto" style="max-height: 70vh;">
                 <table class="min-w-full">
                     <thead class="bg-gray-50 sticky top-0">
@@ -103,63 +97,52 @@ export function loadPanel(panelRoot, panelTitle) {
                             <th class="p-3 text-left text-xs font-semibold uppercase">Date</th>
                             <th class="p-3 text-left text-xs font-semibold uppercase">Total</th>
                             <th class="p-3 text-left text-xs font-semibold uppercase">Status</th>
+                            <th class="p-3 text-center text-xs font-semibold uppercase">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="order-list-body" class="divide-y divide-gray-200">
-                        <tr><td colspan="5" class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl text-brand-red"></i></td></tr>
+                        <tr><td colspan="6" class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl text-brand-red"></i></td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     `;
 
-    // --- Event Listeners ---
-
-    // Listen for filter changes
     document.getElementById('order-search').addEventListener('input', renderFilteredOrders);
     document.getElementById('status-filter').addEventListener('change', renderFilteredOrders);
 
-    // Event delegation for status dropdown changes
     panelRoot.addEventListener('change', (e) => {
         if (e.target.classList.contains('status-select')) {
             const orderId = e.target.closest('tr').dataset.orderId;
             const newStatus = e.target.value;
-            db.ref(`orders/${orderId}/status`).set(newStatus)
-                .catch(err => alert('Failed to update status: ' + err.message));
+            db.ref(`orders/${orderId}/status`).set(newStatus);
         }
     });
 
-    // --- Initial Data Load ---
     const ordersRef = db.ref('orders');
     ordersRef.on('value', (snapshot) => {
         if (!snapshot.exists()) {
             allOrdersCache = {};
-            document.getElementById('order-list-body').innerHTML = '<tr><td colspan="5" class="text-center p-4">No orders in the database.</td></tr>';
+            document.getElementById('order-list-body').innerHTML = '<tr><td colspan="6" class="text-center p-4">No orders found.</td></tr>';
             return;
         }
 
         const ordersData = snapshot.val();
         
-        // --- NEW: Notification Logic ---
         if (!isInitialLoad) {
             const newOrderIds = Object.keys(ordersData);
             const cachedOrderIds = Object.keys(allOrdersCache);
-            
-            const newlyAddedOrders = newOrderIds.filter(id => !cachedOrderIds.includes(id));
-            
-            if (newlyAddedOrders.length > 0) {
-                console.log(`New order(s) detected: ${newlyAddedOrders.join(', ')}`);
+            if (newOrderIds.length > cachedOrderIds.length) {
                 playNotificationSound();
             }
         }
         
-        // Update the cache with the full data, adding the ID to each object
         allOrdersCache = Object.keys(ordersData).reduce((acc, key) => {
             acc[key] = { id: key, ...ordersData[key] };
             return acc;
         }, {});
 
         renderFilteredOrders();
-        isInitialLoad = false; // Mark initial load as complete
+        isInitialLoad = false;
     });
 }
