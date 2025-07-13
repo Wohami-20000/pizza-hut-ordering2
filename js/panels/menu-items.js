@@ -65,7 +65,6 @@ function populateCategoryDropdown() {
     });
 }
 
-
 /**
  * Main function to load the Menu Items Panel.
  */
@@ -147,13 +146,17 @@ export function loadPanel(panelRoot, panelTitle) {
         const selectedCategoryId = document.getElementById('item-category').value;
         const originalCategoryId = document.getElementById('item-original-category').value;
         
+        if (!selectedCategoryId) {
+            alert('Please select a category.');
+            return;
+        }
+
         const itemData = {
             name: document.getElementById('item-name').value,
             price: parseFloat(document.getElementById('item-price').value),
             description: document.getElementById('item-description').value,
             image_url: document.getElementById('item-image-url').value,
-            // You can add more fields like id, shortDesc, longDesc here if needed
-            id: `ITEM_ID_${document.getElementById('item-name').value.toUpperCase().replace(/ /g, '_')}`
+            id: `ITEM_ID_${document.getElementById('item-name').value.toUpperCase().replace(/\s+/g, '_')}`
         };
 
         if (itemId) { // This is an EDIT operation
@@ -161,7 +164,7 @@ export function loadPanel(panelRoot, panelTitle) {
             if (originalCategoryId && originalCategoryId !== selectedCategoryId) {
                  db.ref(`menu/${originalCategoryId}/items/${itemId}`).remove();
             }
-            db.ref(`menu/${selectedCategoryId}/items/${itemId}`).update(itemData)
+            db.ref(`menu/${selectedCategoryId}/items/${itemId}`).set(itemData)
                 .then(() => {
                     alert('Item updated successfully!');
                     clearForm();
