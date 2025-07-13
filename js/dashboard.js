@@ -15,6 +15,7 @@ import { loadPanel as loadOffersPanel } from './panels/offers.js';
 import { loadPanel as loadPromoCodesPanel } from './panels/promo-codes.js';
 import { loadPanel as loadOrdersPanel } from './panels/orders.js';
 import { loadPanel as loadFeedbackPanel } from './panels/feedback.js';
+import { loadPanel as loadTeamPanel } from './panels/team.js';
 
 /**
  * Dynamically loads the panel for the given role and content section.
@@ -55,6 +56,9 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
                 case 'users':
                     panelModuleToLoad = loadAdminPanel;
                     break;
+                case 'team':
+                    panelModuleToLoad = loadTeamPanel;
+                    break;
                 case 'orders':
                     panelModuleToLoad = loadOrdersPanel;
                     break;
@@ -77,6 +81,10 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
             }
         } else {
             // Logic for other roles can be added here
+            // Example:
+            // if (role === 'manager') {
+            //     panelModuleToLoad = loadManagerPanel;
+            // }
         }
 
         if (typeof panelModuleToLoad === 'function') {
@@ -122,20 +130,19 @@ auth.onAuthStateChanged(async (user) => {
 
         if (staffRoles.includes(userRole)) {
             
-            // --- NEW: Force a refresh of the user's token ---
-            // This ensures the `auth.token.admin` claim is available for security rules.
+            // Force a refresh of the user's token to get admin claim
             try {
                 await user.getIdToken(true);
                 console.log("User token refreshed. Admin claim should now be active.");
             } catch (error) {
                 console.error("Error refreshing user token:", error);
             }
-            // --- END OF NEW CODE ---
 
             const initialPanel = userRole === 'admin' ? 'users' : userRole;
             loadRolePanel(userRole, initialPanel);
 
             const navContainer = document.getElementById('sidebar-nav');
+            // Ensure we only have one listener attached
             if (!navContainer.dataset.listenerAttached) {
                 navContainer.addEventListener('click', (event) => {
                     const targetLink = event.target.closest('a');
