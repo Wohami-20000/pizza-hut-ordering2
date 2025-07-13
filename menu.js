@@ -74,8 +74,10 @@ async function loadFavorites(user) {
 }
 
 function createMenuItemCard(item, categoryId, itemId) {
+    // Add a class if the item is out of stock
+    const isOutOfStock = item.inStock === false;
     const card = document.createElement('div');
-    card.className = 'menu-item-card';
+    card.className = `menu-item-card ${isOutOfStock ? 'opacity-50 pointer-events-none' : ''}`;
     card.id = `item-card-${itemId}`;
     card.dataset.categoryId = categoryId;
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
@@ -89,6 +91,10 @@ function createMenuItemCard(item, categoryId, itemId) {
     if (standardQuantity > 0 || customizedQuantity > 0) {
         card.classList.add('chosen-card');
     }
+    
+    // Disable the button if out of stock
+    const addButtonDisabled = isOutOfStock ? 'disabled' : '';
+    const addButtonStyle = isOutOfStock ? 'bg-gray-300 cursor-not-allowed' : 'bg-yellow-400 hover:bg-yellow-500';
 
     let controlsHtml = '';
     if (standardQuantity > 0) {
@@ -101,8 +107,9 @@ function createMenuItemCard(item, categoryId, itemId) {
         `;
     } else {
         controlsHtml = `
-            <button onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', 1, this)" class="w-full bg-yellow-400 text-brand-dark font-bold py-2 px-4 rounded-full hover:bg-yellow-500 transition-all transform hover:scale-105">
-                Add
+            <button onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', 1, this)" 
+                    class="w-full text-brand-dark font-bold py-2 px-4 rounded-full transition-all transform hover:scale-105 ${addButtonStyle}" ${addButtonDisabled}>
+                ${isOutOfStock ? 'Out of Stock' : 'Add'}
             </button>
         `;
     }
@@ -110,18 +117,16 @@ function createMenuItemCard(item, categoryId, itemId) {
     const customizedIndicator = customizedQuantity > 0
         ? `<div class="text-xs text-center text-red-600 font-semibold mt-1">+${customizedQuantity} customized</div>`
         : '';
-
+        
     card.innerHTML = `
         <button onclick="event.stopPropagation(); toggleFavorite('${itemId}', this.querySelector('i'))" class="absolute top-2 right-2 z-10 bg-white rounded-full h-8 w-8 flex items-center justify-center shadow-md hover:bg-gray-100 transition-colors">
             <i class="fas fa-heart fav-icon text-lg ${isFavorite ? 'active' : ''}"></i>
         </button>
-
         <a href="item-details.html?categoryId=${categoryId}&itemId=${itemId}" class="block cursor-pointer group">
             <div class="p-4 bg-white rounded-t-xl">
                  <img src="${escapeHTML(item.image_url || 'https://www.pizzahut.ma/images/Default_pizza.png')}" alt="${escapeHTML(item.name || 'Pizza')}" class="w-full h-32 object-contain transition-transform duration-300 group-hover:scale-105">
             </div>
         </a>
-
         <div class="p-3 pt-0 text-center flex-grow flex flex-col justify-center">
             <h3 class="font-semibold text-base text-gray-800 truncate" title="${escapeHTML(item.name || 'Unknown Item')}">${escapeHTML(item.name || 'Unknown Item')}</h3>
             <div class="my-2">
@@ -129,7 +134,6 @@ function createMenuItemCard(item, categoryId, itemId) {
             </div>
             <p class="text-xl font-extrabold text-red-600">${itemPrice.toFixed(2)} MAD</p>
         </div>
-
         <div class="px-3 pb-4 mt-auto">
             ${controlsHtml}
             ${customizedIndicator}
@@ -249,7 +253,6 @@ function renderFullMenu() {
     const menuContainer = document.getElementById("menu-container");
     const loadingPlaceholder = document.getElementById("loading-placeholder");
 
-    // **FIX:** Check if the required elements exist before proceeding.
     if (!menuContainer || !loadingPlaceholder) {
         return;
     }
@@ -295,7 +298,6 @@ function renderFullMenu() {
 
 function renderCategoriesTabs() {
     const tabsContainer = document.getElementById('category-tabs');
-    // **FIX:** Check if the element exists.
     if (!tabsContainer) return;
 
     tabsContainer.innerHTML = '';
@@ -412,9 +414,6 @@ function updateDrawerUI(user) {
 
 // --- ROBUST INITIALIZATION LOGIC ---
 document.addEventListener('DOMContentLoaded', () => {
-    // This function will run once the document is fully loaded and parsed.
-    
-    // Initialize UI components that don't depend on Firebase data first.
     updateCartUI();
 
     const openDrawerBtn = document.getElementById('open-drawer-btn');
@@ -436,21 +435,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     window.addEventListener('scroll', updateActiveTabOnScroll, { passive: true });
 
-    // Now, set up the listener for Firebase authentication state changes.
     authInstance.onAuthStateChanged((user) => {
-        // This part runs when auth state is known, which could be before or after DOM is ready.
-        // But since it's nested in DOMContentLoaded, we know the DOM is ready.
-
-        // Update UI based on user's login status
         updateDrawerUI(user);
 
-        // Fetch menu and favorites data. This is the main data loading step.
         dbInstance.ref('menu').on('value', async (snapshot) => {
             menuDataCache = snapshot.val() || {};
-            await loadFavorites(user); // Load favorites for the current user
+            await loadFavorites(user); 
             renderCategoriesTabs();
             renderOffersSlideshow(); 
-            renderFullMenu(); // This function will now find the necessary elements
+            renderFullMenu(); 
         }, error => console.error("Firebase data error:", error));
     });
 });
