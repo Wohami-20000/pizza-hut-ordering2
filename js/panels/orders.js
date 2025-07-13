@@ -1,7 +1,8 @@
 // /js/panels/orders.js
 
 const db = firebase.database();
-let allOrdersCache = []; // Cache to hold all orders for filtering
+let allOrdersCache = {}; // Use an object for efficient lookups
+let isInitialLoad = true; // Flag to prevent sound on first page load
 
 // All possible statuses for an order
 const STATUS_OPTIONS = ['pending', 'preparing', 'ready', 'out for delivery', 'delivered', 'completed', 'cancelled'];
@@ -47,7 +48,10 @@ function renderFilteredOrders() {
     const searchInput = document.getElementById('order-search').value.toLowerCase();
     const statusFilter = document.getElementById('status-filter').value;
 
-    const filteredOrders = allOrdersCache.filter(order => {
+    const ordersArray = Object.values(allOrdersCache)
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    const filteredOrders = ordersArray.filter(order => {
         const matchesSearch = order.id.toLowerCase().includes(searchInput) || 
                               (order.customerInfo && order.customerInfo.name.toLowerCase().includes(searchInput));
         const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
@@ -60,12 +64,22 @@ function renderFilteredOrders() {
 }
 
 /**
+ * Plays the notification sound.
+ */
+function playNotificationSound() {
+    const sound = document.getElementById('notification-sound');
+    if (sound) {
+        sound.play().catch(error => console.warn("Audio playback failed. User interaction may be required.", error));
+    }
+}
+
+/**
  * Main function to load the Orders Panel.
  */
 export function loadPanel(panelRoot, panelTitle) {
     panelTitle.textContent = 'Order Management';
+    isInitialLoad = true; // Reset flag every time panel is loaded
 
-    // Populate status filter dropdown options
     const statusFilterOptions = ['all', ...STATUS_OPTIONS]
         .map(s => `<option value="${s}">${s.charAt(0).toUpperCase() + s.slice(1)}</option>`).join('');
 
@@ -118,16 +132,34 @@ export function loadPanel(panelRoot, panelTitle) {
     // --- Initial Data Load ---
     const ordersRef = db.ref('orders');
     ordersRef.on('value', (snapshot) => {
-        if (snapshot.exists()) {
-            const ordersData = snapshot.val();
-            // Convert to array and sort by most recent first
-            allOrdersCache = Object.keys(ordersData)
-                .map(key => ({ id: key, ...ordersData[key] }))
-                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            renderFilteredOrders();
-        } else {
-            allOrdersCache = [];
+        if (!snapshot.exists()) {
+            allOrdersCache = {};
             document.getElementById('order-list-body').innerHTML = '<tr><td colspan="5" class="text-center p-4">No orders in the database.</td></tr>';
+            return;
         }
+
+        const ordersData = snapshot.val();
+        
+        // --- NEW: Notification Logic ---
+        if (!isInitialLoad) {
+            const newOrderIds = Object.keys(ordersData);
+            const cachedOrderIds = Object.keys(allOrdersCache);
+            
+            const newlyAddedOrders = newOrderIds.filter(id => !cachedOrderIds.includes(id));
+            
+            if (newlyAddedOrders.length > 0) {
+                console.log(`New order(s) detected: ${newlyAddedOrders.join(', ')}`);
+                playNotificationSound();
+            }
+        }
+        
+        // Update the cache with the full data, adding the ID to each object
+        allOrdersCache = Object.keys(ordersData).reduce((acc, key) => {
+            acc[key] = { id: key, ...ordersData[key] };
+            return acc;
+        }, {});
+
+        renderFilteredOrders();
+        isInitialLoad = false; // Mark initial load as complete
     });
 }

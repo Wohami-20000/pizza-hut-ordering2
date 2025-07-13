@@ -14,6 +14,7 @@ import { loadPanel as loadMenuItemsPanel } from './panels/menu-items.js';
 import { loadPanel as loadOffersPanel } from './panels/offers.js';
 import { loadPanel as loadPromoCodesPanel } from './panels/promo-codes.js';
 import { loadPanel as loadOrdersPanel } from './panels/orders.js';
+import { loadPanel as loadFeedbackPanel } from './panels/feedback.js';
 
 /**
  * Dynamically loads the panel for the given role and content section.
@@ -57,6 +58,9 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
                 case 'orders':
                     panelModuleToLoad = loadOrdersPanel;
                     break;
+                case 'feedback':
+                    panelModuleToLoad = loadFeedbackPanel;
+                    break;
                 case 'menu-items':
                     panelModuleToLoad = loadMenuItemsPanel;
                     break;
@@ -73,6 +77,10 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
             }
         } else {
             // Logic for other roles can be added here
+            // Example:
+            // if (role === 'manager') {
+            //     panelModuleToLoad = loadManagerPanel;
+            // }
         }
 
         if (typeof panelModuleToLoad === 'function') {
