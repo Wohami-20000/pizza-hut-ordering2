@@ -62,11 +62,11 @@ async function setRoleOnServer(uid, role) {
 export function loadPanel(panelRoot, panelTitle, navContainer) {
     panelTitle.textContent = 'System Administration';
     
-    // Setup navigation for Admin
-    // MODIFIED: Changed data-panel for "Menu & Offers" to "menu-offers"
+    // MODIFICATION: Added a new link for Promo Codes
     navContainer.innerHTML = `
         <a href="#" class="block py-2.5 px-4 rounded-lg transition duration-200 hover:bg-gray-700 hover:text-white" data-panel="users"><i class="fas fa-users mr-3"></i>User Management</a>
         <a href="#" class="block py-2.5 px-4 rounded-lg transition duration-200 hover:bg-gray-700 hover:text-white" data-panel="menu-offers"><i class="fas fa-pizza-slice mr-3"></i>Menu & Offers</a>
+        <a href="#" class="block py-2.5 px-4 rounded-lg transition duration-200 hover:bg-gray-700 hover:text-white" data-panel="promo-codes"><i class="fas fa-gift mr-3"></i>Promo Codes</a>
         <a href="#" class="block py-2.5 px-4 rounded-lg transition duration-200 hover:bg-gray-700 hover:text-white" data-panel="system"><i class="fas fa-cogs mr-3"></i>System Config</a>
     `;
 
@@ -139,34 +139,4 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
             }
         }
     });
-
-    // Add event listeners for sidebar toggle (these are handled in dashboard.js now, but leaving for context if needed locally)
-    const sidebar = document.getElementById('sidebar');
-    const sidebarOverlay = document.getElementById('sidebar-overlay');
-    const openSidebarBtn = document.getElementById('open-sidebar-btn');
-    const closeSidebarBtn = document.getElementById('close-sidebar-btn');
-
-    if (openSidebarBtn) {
-        openSidebarBtn.addEventListener('click', () => {
-            sidebar.classList.remove('-translate-x-full');
-            sidebar.classList.add('translate-x-0');
-            sidebarOverlay.classList.remove('hidden');
-        });
-    }
-
-    if (closeSidebarBtn) {
-        closeSidebarBtn.addEventListener('click', () => {
-            sidebar.classList.add('-translate-x-full');
-            sidebar.classList.remove('translate-x-0');
-            sidebarOverlay.classList.add('hidden');
-        });
-    }
-
-    if (sidebarOverlay) {
-        sidebarOverlay.addEventListener('click', () => {
-            sidebar.classList.add('-translate-x-full');
-            sidebar.classList.remove('translate-x-0');
-            sidebarOverlay.classList.add('hidden');
-        });
-    }
 }

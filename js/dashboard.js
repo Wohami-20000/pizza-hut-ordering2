@@ -11,6 +11,7 @@ import { loadPanel as loadStaffPanel } from './panels/staff.js';
 import { loadPanel as loadDeliveryPanel } from './panels/delivery.js';
 import { loadPanel as loadOwnerPanel } from './panels/owner.js';
 import { loadPanel as loadMenuOffersPanel } from './panels/menu-offers.js';
+import { loadPanel as loadPromoCodesPanel } from './panels/promo-codes.js'; // Added this line
 
 /**
  * Dynamically loads the panel for the given role and content section.
@@ -54,6 +55,8 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
                 panelModuleToLoad = loadAdminPanel;
             } else if (targetPanelKey === 'menu-offers') {
                 panelModuleToLoad = loadMenuOffersPanel;
+            } else if (targetPanelKey === 'promo-codes') { // Added this block
+                panelModuleToLoad = loadPromoCodesPanel;
             } else {
                 panelModuleToLoad = loadAdminPanel; // Default to User Management for admin
                 effectivePanelKey = 'users';
