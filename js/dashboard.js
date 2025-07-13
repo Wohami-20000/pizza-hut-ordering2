@@ -16,6 +16,7 @@ import { loadPanel as loadPromoCodesPanel } from './panels/promo-codes.js';
 import { loadPanel as loadOrdersPanel } from './panels/orders.js';
 import { loadPanel as loadFeedbackPanel } from './panels/feedback.js';
 import { loadPanel as loadTeamPanel } from './panels/team.js';
+import { loadPanel as loadAnalyticsPanel } from './panels/analytics.js';
 
 /**
  * Dynamically loads the panel for the given role and content section.
@@ -55,6 +56,9 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
             switch (targetPanelKey) {
                 case 'users':
                     panelModuleToLoad = loadAdminPanel;
+                    break;
+                case 'analytics':
+                    panelModuleToLoad = loadAnalyticsPanel;
                     break;
                 case 'team':
                     panelModuleToLoad = loadTeamPanel;
