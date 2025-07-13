@@ -3,13 +3,6 @@
 const db = firebase.database();
 const auth = firebase.auth();
 
-// --- UI Elements ---
-const loadingState = document.getElementById('loading-state');
-const errorState = document.getElementById('error-state');
-const errorMessageText = document.getElementById('error-message-text');
-const contentDiv = document.getElementById('order-details-content');
-const actionButtonsDiv = document.getElementById('action-buttons');
-
 function escapeHTML(str) {
     if (typeof str !== 'string') return str;
     return new DOMParser().parseFromString(str, 'text/html').body.textContent || '';
@@ -46,6 +39,7 @@ function updateStatusTracker(status, orderType) {
 
 function renderOrderDetails(orderData) {
     const { orderId, orderNumber, orderType, items, priceDetails, timestamp, customerInfo, status } = orderData;
+    const contentDiv = document.getElementById('order-details-content');
     
     let statusLabels = ['Placed', 'Preparing'];
     if (orderType === 'delivery') {
@@ -120,18 +114,17 @@ function renderOrderDetails(orderData) {
         </div>
     `;
 
-    loadingState.style.display = 'none';
+    document.getElementById('loading-state').style.display = 'none';
     contentDiv.classList.remove('hidden');
-    // *** THIS IS THE CORRECTED LINE ***
-    actionButtonsDiv.classList.remove('hidden'); 
+    document.getElementById('action-buttons').classList.remove('hidden'); 
     
     updateStatusTracker(status, orderType);
 }
 
 function showError(message) {
-    loadingState.style.display = 'none';
-    errorMessageText.textContent = message;
-    errorState.classList.remove('hidden');
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('error-message-text').textContent = message;
+    document.getElementById('error-state').classList.remove('hidden');
 }
 
 function setupPdfButton(orderId) {
@@ -139,29 +132,19 @@ function setupPdfButton(orderId) {
     if (!btn) return;
 
     btn.addEventListener('click', () => {
-        const originalHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Generating...';
         btn.disabled = true;
-
-        // The element to capture is the content div, not the button container
         const elementToCapture = document.getElementById('order-details-content');
         
-        const options = {
+        html2pdf().set({
             margin: 0.5,
             filename: `PizzaHut_Order_${orderId}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true, scrollY: -window.scrollY },
             jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-        };
-
-        html2pdf().set(options).from(elementToCapture).save().then(() => {
-            btn.innerHTML = originalHtml;
+        }).from(elementToCapture).save().then(() => {
+            btn.innerHTML = '<i class="fas fa-file-pdf mr-2"></i> <span>Save as PDF</span>';
             btn.disabled = false;
-        }).catch(err => {
-            console.error("PDF generation failed:", err);
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-            alert("Sorry, there was an error creating the PDF.");
         });
     });
 }
@@ -188,32 +171,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const orderData = snapshot.val();
         
         auth.onAuthStateChanged(user => {
-            const canView = (user && orderData.customerInfo.userId === user.uid) || 
-                            (orderData.customerInfo.userId === 'guest');
-
-            if (canView) {
-                renderOrderDetails(orderData);
-                if (!document.getElementById('save-pdf-btn')._isSetup) {
-                    setupPdfButton(orderId);
-                    document.getElementById('save-pdf-btn')._isSetup = true;
-                }
-            } else {
-                if(user) {
-                     user.getIdTokenResult().then(idTokenResult => {
-                        if (idTokenResult.claims.admin) {
-                            renderOrderDetails(orderData);
-                            if (!document.getElementById('save-pdf-btn')._isSetup) {
-                                setupPdfButton(orderId);
-                                document.getElementById('save-pdf-btn')._isSetup = true;
-                            }
-                        } else {
-                            showError("You don't have permission to view this order.");
-                        }
-                    });
-                } else {
-                     showError("You must be logged in to view this order.");
-                }
+            if (!user) {
+                showError("You must be logged in to view this order.");
+                return;
             }
+
+            user.getIdTokenResult().then(idTokenResult => {
+                const isAdmin = idTokenResult.claims.admin === true;
+                const isOwner = orderData.customerInfo.userId === user.uid;
+
+                if (isOwner || isAdmin) {
+                    renderOrderDetails(orderData);
+                    if (!document.getElementById('save-pdf-btn')._isSetup) {
+                        setupPdfButton(orderId);
+                        document.getElementById('save-pdf-btn')._isSetup = true;
+                    }
+                } else {
+                    showError("You don't have permission to view this order.");
+                }
+            });
         });
 
     }, (error) => {
