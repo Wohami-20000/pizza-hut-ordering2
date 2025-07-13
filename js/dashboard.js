@@ -19,6 +19,7 @@ import { loadPanel as loadTeamPanel } from './panels/team.js';
 import { loadPanel as loadAnalyticsPanel } from './panels/analytics.js';
 import { loadPanel as loadAssignDeliveriesPanel } from './panels/assign-deliveries.js';
 import { loadPanel as loadStockPanel } from './panels/stock.js';
+import { loadPanel as loadSystemPanel } from './panels/system.js';
 
 /**
  * Dynamically loads the panel for the given role and content section.
@@ -86,6 +87,9 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
                 case 'promo-codes':
                     panelModuleToLoad = loadPromoCodesPanel;
                     break;
+                case 'system':
+                    panelModuleToLoad = loadSystemPanel;
+                    break;
                 default:
                     panelModuleToLoad = loadAdminPanel;
                     effectivePanelKey = 'users';
@@ -93,6 +97,10 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
             }
         } else {
             // Logic for other roles can be added here
+            // Example:
+            // if (role === 'manager') {
+            //     panelModuleToLoad = loadManagerPanel;
+            // }
         }
 
         if (typeof panelModuleToLoad === 'function') {
@@ -138,6 +146,7 @@ auth.onAuthStateChanged(async (user) => {
 
         if (staffRoles.includes(userRole)) {
             
+            // Force a refresh of the user's token to get admin claim
             try {
                 await user.getIdToken(true);
                 console.log("User token refreshed. Admin claim should now be active.");
@@ -149,6 +158,7 @@ auth.onAuthStateChanged(async (user) => {
             loadRolePanel(userRole, initialPanel);
 
             const navContainer = document.getElementById('sidebar-nav');
+            // Ensure we only have one listener attached
             if (!navContainer.dataset.listenerAttached) {
                 navContainer.addEventListener('click', (event) => {
                     const targetLink = event.target.closest('a');

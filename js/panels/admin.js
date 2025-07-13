@@ -38,8 +38,8 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
         <a href="#" class="block py-2.5 px-4 rounded-lg hover:bg-gray-700 hover:text-white" data-panel="analytics"><i class="fas fa-chart-line mr-3"></i>Analytics</a>
         <a href="#" class="block py-2.5 px-4 rounded-lg hover:bg-gray-700 hover:text-white" data-panel="team"><i class="fas fa-sitemap mr-3"></i>Team Management</a>
         <a href="#" class="block py-2.5 px-4 rounded-lg hover:bg-gray-700 hover:text-white" data-panel="assign-deliveries"><i class="fas fa-motorcycle mr-3"></i>Assign Deliveries</a>
-        <a href="#" class="block py-2.5 px-4 rounded-lg hover:bg-gray-700 hover:text-white" data-panel="orders"><i class="fas fa-receipt mr-3"></i>Order Management</a>
         <a href="#" class="block py-2.5 px-4 rounded-lg hover:bg-gray-700 hover:text-white" data-panel="stock"><i class="fas fa-boxes mr-3"></i>Stock Management</a>
+        <a href="#" class="block py-2.5 px-4 rounded-lg hover:bg-gray-700 hover:text-white" data-panel="orders"><i class="fas fa-receipt mr-3"></i>Order Management</a>
         <a href="#" class="block py-2.5 px-4 rounded-lg hover:bg-gray-700 hover:text-white" data-panel="feedback"><i class="fas fa-comment-dots mr-3"></i>Customer Feedback</a>
         <a href="#" class="block py-2.5 px-4 rounded-lg hover:bg-gray-700 hover:text-white" data-panel="menu-items"><i class="fas fa-pizza-slice mr-3"></i>Menu Items</a>
         <a href="#" class="block py-2.5 px-4 rounded-lg hover:bg-gray-700 hover:text-white" data-panel="offers"><i class="fas fa-star mr-3"></i>Offers / Deals</a>
