@@ -10,15 +10,14 @@ import { loadPanel as loadManagerPanel } from './panels/manager.js';
 import { loadPanel as loadStaffPanel } from './panels/staff.js';
 import { loadPanel as loadDeliveryPanel } from './panels/delivery.js';
 import { loadPanel as loadOwnerPanel } from './panels/owner.js';
-import { loadPanel as loadMenuOffersPanel } from './panels/menu-offers.js'; // Ensure this import is correct
-
+import { loadPanel as loadMenuOffersPanel } from './panels/menu-offers.js';
 
 /**
  * Dynamically loads the panel for the given role and content section.
  * @param {string} role The role of the current user.
  * @param {string} targetPanelKey The key from the data-panel attribute (e.g., 'users', 'menu-offers').
  */
-async function loadRolePanel(role, targetPanelKey = 'default') { // Renamed contentSection to targetPanelKey for clarity
+async function loadRolePanel(role, targetPanelKey = 'default') {
     const panelRoot = document.getElementById('panel-root');
     const panelTitle = document.getElementById('panel-title');
     const userInfo = document.getElementById('user-info');
@@ -40,55 +39,40 @@ async function loadRolePanel(role, targetPanelKey = 'default') { // Renamed cont
     `;
 
     // Close sidebar on mobile after navigation
-    sidebar.classList.add('-translate-x-full');
-    sidebar.classList.remove('translate-x-0');
-    sidebarOverlay.classList.add('hidden');
+    if (window.innerWidth < 768) {
+        sidebar.classList.add('-translate-x-full');
+        sidebarOverlay.classList.add('hidden');
+    }
 
 
     try {
         let panelModuleToLoad;
-        let effectivePanelKey = targetPanelKey; // Keep track of which panel actually loaded
+        let effectivePanelKey = targetPanelKey;
 
         if (role === 'admin') {
-            // Admin role has specific sub-panels based on targetPanelKey
             if (targetPanelKey === 'users') {
                 panelModuleToLoad = loadAdminPanel;
-            } else if (targetPanelKey === 'menu-offers') { // This will now match the `data-panel` from admin.js
+            } else if (targetPanelKey === 'menu-offers') {
                 panelModuleToLoad = loadMenuOffersPanel;
-            } else if (targetPanelKey === 'system') {
-                // Assuming you'll create a system.js panel later
-                // panelModuleToLoad = loadSystemPanel;
-                panelModuleToLoad = loadAdminPanel; // Fallback to admin panel for now
-                effectivePanelKey = 'users'; // Reflect that admin panel is loaded
             } else {
-                // Default for admin if no specific targetPanelKey or unknown
-                panelModuleToLoad = loadAdminPanel;
-                effectivePanelKey = 'users'; // Default to User Management
+                panelModuleToLoad = loadAdminPanel; // Default to User Management for admin
+                effectivePanelKey = 'users';
             }
         } else {
-            // Logic for other roles remains similar, loading their respective main panels
+             // Logic for other roles
             switch (role) {
-                case 'manager':
-                    panelModuleToLoad = loadManagerPanel;
-                    break;
-                case 'staff':
-                    panelModuleToLoad = loadStaffPanel;
-                    break;
-                case 'delivery':
-                    panelModuleToLoad = loadDeliveryPanel;
-                    break;
-                case 'owner':
-                    panelModuleToLoad = loadOwnerPanel;
-                    break;
-                default:
-                    throw new Error(`No panel defined for role: ${role}`);
+                case 'manager': panelModuleToLoad = loadManagerPanel; break;
+                case 'staff': panelModuleToLoad = loadStaffPanel; break;
+                case 'delivery': panelModuleToLoad = loadDeliveryPanel; break;
+                case 'owner': panelModuleToLoad = loadOwnerPanel; break;
+                default: throw new Error(`No panel defined for role: ${role}`);
             }
-            effectivePanelKey = role; // For non-admin roles, their role IS their panel key
+            effectivePanelKey = role;
         }
-        
+
         if (typeof panelModuleToLoad === 'function') {
-            panelRoot.innerHTML = ''; // Clear loading message once module is ready to render
-            panelModuleToLoad(panelRoot, panelTitle, navContainer); // Pass all necessary elements
+            panelRoot.innerHTML = '';
+            panelModuleToLoad(panelRoot, panelTitle, navContainer);
 
             userInfo.innerHTML = `
                 <i class="fas fa-user-circle text-gray-400 text-3xl"></i>
@@ -98,11 +82,10 @@ async function loadRolePanel(role, targetPanelKey = 'default') { // Renamed cont
                 </div>
             `;
 
-            // Ensure the correct nav item is active based on the effectivePanelKey
             navContainer.querySelectorAll('a').forEach(link => {
-                link.classList.remove('active-nav-link');
+                link.classList.remove('active-nav-link', 'bg-gray-700', 'text-white');
                 if (link.dataset.panel === effectivePanelKey) {
-                    link.classList.add('active-nav-link');
+                    link.classList.add('active-nav-link', 'bg-gray-700', 'text-white');
                 }
             });
 
@@ -131,27 +114,51 @@ auth.onAuthStateChanged(async (user) => {
     if (user) {
         const userRef = db.ref(`users/${user.uid}`);
         const userSnapshot = await userRef.get();
-        let userRole = null;
-
-        if (userSnapshot.exists()) {
-            userRole = userSnapshot.val().role;
-        }
-
+        let userRole = userSnapshot.exists() ? userSnapshot.val().role : null;
         const staffRoles = ['admin', 'manager', 'staff', 'delivery', 'owner'];
 
         if (staffRoles.includes(userRole)) {
-            // Initial load for admin: default to 'users' panel
-            if (userRole === 'admin') {
-                loadRolePanel(userRole, 'users'); // Explicitly load users panel first for admin
-            } else {
-                loadRolePanel(userRole); // Other roles load their default panel
-            }
-            
+            // Initial load
+            const initialPanel = userRole === 'admin' ? 'users' : userRole;
+            loadRolePanel(userRole, initialPanel);
+
+            // *** ADDED THIS NAVIGATION LOGIC ***
+            const navContainer = document.getElementById('sidebar-nav');
+            navContainer.addEventListener('click', (event) => {
+                const targetLink = event.target.closest('a');
+                if (targetLink && targetLink.dataset.panel) {
+                    event.preventDefault();
+                    loadRolePanel(userRole, targetLink.dataset.panel);
+                }
+            });
+
         } else {
+            // If not a staff member, redirect them away from the dashboard
             window.location.href = '../order-type-selection.html';
         }
-
     } else {
+        // Not logged in, redirect to auth page
         window.location.href = '../auth.html';
     }
+});
+
+// Sidebar toggle for mobile
+document.addEventListener('DOMContentLoaded', () => {
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    const openSidebarBtn = document.getElementById('open-sidebar-btn');
+    const closeSidebarBtn = document.getElementById('close-sidebar-btn');
+
+    openSidebarBtn.addEventListener('click', () => {
+        sidebar.classList.remove('-translate-x-full');
+        sidebarOverlay.classList.remove('hidden');
+    });
+
+    const closeSidebar = () => {
+        sidebar.classList.add('-translate-x-full');
+        sidebarOverlay.classList.add('hidden');
+    };
+
+    closeSidebarBtn.addEventListener('click', closeSidebar);
+    sidebarOverlay.addEventListener('click', closeSidebar);
 });
