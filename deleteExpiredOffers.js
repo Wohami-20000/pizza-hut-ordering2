@@ -7,7 +7,7 @@ const serviceAccount = require("./serviceAccountKey.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://pizzahut-orders-1-default-rtdb.firebaseio.com" // Make sure this is your correct database URL
+  // databaseURL: "https://pizzahut-orders-1-default-rtdb.firebaseio.com" // Removed as it's often redundant with projectId in serviceAccountKey
 });
 
 const db = admin.database();

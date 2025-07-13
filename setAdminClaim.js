@@ -8,8 +8,9 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-// Replace with the UID of the user to promote to admin
-const uid = "O1BMcskZUBR71ZIeVorLZ1FwrWY2";
+// IMPORTANT: Replace with the UID of the user to promote to admin.
+// For production, consider passing this as a command-line argument.
+const uid = "O1BMcskZUBR71ZIeVorLZ1FwrWY2"; // THIS IS A HARDCODED EXAMPLE UID. CHANGE IT!
 
 // Set the admin custom claim
 admin.auth().setCustomUserClaims(uid, { admin: true })

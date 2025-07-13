@@ -10,7 +10,7 @@ app.use(express.json()); // Middleware to read JSON from requests
 // Only allow requests from your web app's domain.
 // For local testing, you might use 'http://127.0.0.1:5500' or similar.
 // For production, change this to your actual domain (e.g., 'https://pizzahut.yourdomain.com')
-const allowedOrigins = ['http://127.0.0.1:5500', 'http://localhost:5500'];
+const allowedOrigins = ['http://127.0.0.1:5500', 'http://localhost:5500', 'https://pizza-hut-ordering2.vercel.app']; // Added Vercel domain
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {

@@ -55,15 +55,21 @@ auth.onAuthStateChanged(async (user) => {
     if (user) {
         const userRef = db.ref(`users/${user.uid}`);
         const userSnapshot = await userRef.get();
-        let userRole = 'staff'; 
+        let userRole = null; // Default to null, not 'staff'
 
         if (userSnapshot.exists()) {
-            userRole = userSnapshot.val().role || 'staff';
-        } else {
-            console.warn(`No database entry for user ${user.uid}. Defaulting to 'staff' role.`);
+            userRole = userSnapshot.val().role;
         }
-        
-        loadRolePanel(userRole);
+
+        // Define roles that should access the dashboard
+        const staffRoles = ['admin', 'manager', 'staff', 'delivery', 'owner'];
+
+        if (staffRoles.includes(userRole)) {
+            loadRolePanel(userRole);
+        } else {
+            // If user is not an anonymous dine-in guest and not staff, redirect to order type selection
+            window.location.href = '../order-type-selection.html';
+        }
 
     } else {
         // If not logged in, go to the login page.

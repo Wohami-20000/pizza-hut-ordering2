@@ -150,17 +150,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Handles successful login for any user type.
-     * Redirects all authenticated users to the main dashboard page.
+     * Redirects users based on their role or anonymous dine-in status.
      * @param {firebase.User} user The authenticated user object.
      */
     const handleSuccessfulLogin = (user) => {
         const userRef = db.ref(`users/${user.uid}`);
         userRef.update({ lastLogin: new Date().toISOString() });
         
-        // **THIS IS THE KEY CHANGE**
-        // Send all logged-in staff/admins/owners to the dashboard.
-        // The dashboard's own script will then handle showing the correct panel.
-        window.location.href = 'dashboard.html';
+        userRef.once('value')
+            .then(snapshot => {
+                const userProfile = snapshot.val();
+                const userRole = userProfile?.role;
+                const isDineInGuest = user.isAnonymous && localStorage.getItem('tableNumber');
+
+                // Define roles that should access the dashboard
+                const staffRoles = ['admin', 'manager', 'staff', 'delivery', 'owner'];
+
+                if (staffRoles.includes(userRole)) {
+                    // Redirect staff/admin to the dashboard
+                    window.location.href = 'dashboard.html';
+                } else if (isDineInGuest) {
+                    // Anonymous dine-in guests go directly to the menu
+                    window.location.href = 'menu.html';
+                } else {
+                    // Regular users go to order type selection
+                    window.location.href = 'order-type-selection.html';
+                }
+            })
+            .catch(error => {
+                console.error("Error fetching user role for redirection:", error);
+                // Fallback to a default redirection if role fetching fails
+                window.location.href = 'order-type-selection.html';
+            });
     };
 
     const handleAuthError = (error, formType) => {
