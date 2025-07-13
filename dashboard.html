@@ -6,36 +6,65 @@
     <title>Pizza Hut - Dashboard</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="../style.css">
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+    <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <style>
-        body { font-family: 'Poppins', sans-serif; }
+        body { font-family: 'Poppins', sans-serif; background-color: #f3f4f6; }
+        aside { transition: transform 0.3s ease-in-out; }
+        aside.closed { transform: translateX(-100%); }
+        @media (min-width: 768px) {
+            aside.closed { transform: translateX(0); }
+        }
         #panel-root { transition: opacity 0.3s ease-in-out; }
+        .animate-fadeInUp { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
-<body class="bg-gray-100">
-    <div class="flex h-screen">
-        <aside class="w-64 bg-gray-800 text-white flex-shrink-0">
-            <div class="p-4 border-b border-gray-700">
-                <h2 class="text-2xl font-semibold">Pizza Hut</h2>
-            </div>
-            <nav id="sidebar-nav" class="mt-5 p-4">
-                <div class="text-gray-400">Loading Navigation...</div>
-            </nav>
-        </aside>
-
-        <div class="flex-1 flex flex-col">
-            <header class="bg-white shadow-md p-4 flex justify-between items-center">
-                <h1 id="panel-title" class="text-2xl font-bold text-gray-800">Dashboard</h1>
-                <div id="user-info" class="text-right">
-                    </div>
-            </header>
-            <main id="panel-root" class="flex-1 p-6 overflow-y-auto">
-                <div class="text-center py-20">
-                    <i class="fas fa-spinner fa-spin text-4xl text-red-600"></i>
-                    <p class="mt-4 text-lg text-gray-500">Loading Your Dashboard...</p>
-                </div>
-            </main>
+<body class="bg-gray-100 min-h-screen flex">
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex-shrink-0 p-4 shadow-lg md:relative absolute inset-y-0 left-0 transform -translate-x-full md:translate-x-0 z-50">
+        <div class="flex items-center justify-between border-b border-gray-700 pb-4 mb-4">
+            <h2 class="text-3xl font-extrabold text-brand-yellow">Pizza Hut</h2>
+            <button id="close-sidebar-btn" class="text-gray-400 hover:text-white md:hidden text-2xl">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
+        <nav id="sidebar-nav" class="space-y-2">
+            <div class="text-gray-400">Loading Navigation...</div>
+        </nav>
+    </aside>
+
+    <div class="flex-1 flex flex-col bg-gray-100">
+        <header class="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-40">
+            <div class="flex items-center">
+                <button id="open-sidebar-btn" class="text-gray-600 hover:text-gray-800 mr-4 text-2xl md:hidden">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 id="panel-title" class="text-2xl font-bold text-gray-800">Dashboard</h1>
+            </div>
+            <div id="user-info" class="text-right flex items-center space-x-3">
+                <i class="fas fa-user-circle text-gray-400 text-3xl"></i>
+                <div>
+                    <p class="font-semibold text-gray-800">Loading User...</p>
+                    <p class="text-sm text-gray-500">Role</p>
+                </div>
+            </div>
+        </header>
+
+        <main id="panel-root" class="flex-1 p-6 overflow-y-auto animate-fadeInUp">
+            <div class="text-center py-20 bg-white rounded-xl shadow-lg">
+                <i class="fas fa-spinner fa-spin text-4xl text-brand-red mb-4"></i>
+                <p class="mt-4 text-lg text-gray-600">Loading Your Dashboard...</p>
+            </div>
+        </main>
     </div>
+
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden"></div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>

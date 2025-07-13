@@ -14,17 +14,17 @@ function createUserRow(uid, user) {
     ).join('');
 
     return `
-        <tr class="hover:bg-gray-50" data-uid="${uid}">
+        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out" data-uid="${uid}">
             <td class="px-4 py-3 text-sm text-gray-700">${user.name || 'N/A'}</td>
             <td class="px-4 py-3 text-sm text-gray-500">${user.email}</td>
             <td class="px-4 py-3 text-sm">
-                <select class="role-select border-gray-300 rounded-md shadow-sm w-full p-2">
+                <select class="role-select border border-gray-300 rounded-md shadow-sm w-full p-2 focus:ring-2 focus:ring-brand-yellow focus:border-brand-yellow transition">
                     ${roleOptions}
                 </select>
             </td>
-            <td class="px-4 py-3 text-sm text-center">
-                <button class="save-role-btn bg-green-600 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-green-700 transition">Save</button>
-                <span class="role-feedback-message ml-2 text-xs"></span>
+            <td class="px-4 py-3 text-center text-sm">
+                <button class="save-role-btn bg-brand-red text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 transition transform hover:scale-105 shadow-md">Save</button>
+                <span class="role-feedback-message ml-2 text-xs font-semibold"></span>
             </td>
         </tr>
     `;
@@ -64,27 +64,28 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
     
     // Setup navigation for Admin
     navContainer.innerHTML = `
-        <a href="#" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700" data-panel="users">User Management</a>
-        <a href="#" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700" data-panel="menu">Menu & Offers</a>
-        <a href="#" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700" data-panel="system">System Config</a>
+        <a href="#" class="block py-2.5 px-4 rounded-lg transition duration-200 hover:bg-gray-700 hover:text-white" data-panel="users"><i class="fas fa-users mr-3"></i>User Management</a>
+        <a href="#" class="block py-2.5 px-4 rounded-lg transition duration-200 hover:bg-gray-700 hover:text-white" data-panel="menu"><i class="fas fa-pizza-slice mr-3"></i>Menu & Offers</a>
+        <a href="#" class="block py-2.5 px-4 rounded-lg transition duration-200 hover:bg-gray-700 hover:text-white" data-panel="system"><i class="fas fa-cogs mr-3"></i>System Config</a>
     `;
 
     // Setup the main content for Admin
     panelRoot.innerHTML = `
-        <h2 class="text-2xl font-bold mb-4">User Management</h2>
-        <div class="bg-white rounded-lg shadow-lg">
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead>
-                        <tr class="bg-gray-50">
-                            <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Name</th>
-                            <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>
-                            <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Role</th>
-                            <th class="px-4 py-2 text-center text-xs font-semibold text-gray-600 uppercase">Actions</th>
+        <div class="bg-white rounded-xl shadow-lg p-6 animate-fadeInUp">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">User Management</h2>
+            <div class="overflow-x-auto rounded-lg border border-gray-200">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Email</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Role</th>
+                            <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="user-list-body">
-                        </tbody>
+                    <tbody id="user-list-body" class="bg-white divide-y divide-gray-200">
+                        <tr><td colspan="4" class="text-center p-4 text-gray-500">Loading users...</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -100,8 +101,12 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
             });
             userListBody.innerHTML = usersHtml;
         } else if (userListBody) {
-            userListBody.innerHTML = '<tr><td colspan="4" class="text-center p-4">No users found.</td></tr>';
+            userListBody.innerHTML = '<tr><td colspan="4" class="text-center p-4 text-gray-500">No users found.</td></tr>';
         }
+    }).catch(error => {
+        console.error("Error fetching users:", error);
+        const userListBody = document.getElementById('user-list-body');
+        if(userListBody) userListBody.innerHTML = '<tr><td colspan="4" class="text-center p-4 text-red-500">Error loading users.</td></tr>';
     });
 
     // Add event listener to handle clicks on the "Save" buttons
@@ -115,6 +120,7 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
 
             button.disabled = true;
             feedbackSpan.textContent = 'Saving...';
+            feedbackSpan.className = 'role-feedback-message ml-2 text-xs font-semibold text-gray-500'; // Reset color
 
             try {
                 await setRoleOnServer(uid, newRole);
@@ -132,4 +138,34 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
             }
         }
     });
+
+    // Add event listeners for sidebar toggle
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    const openSidebarBtn = document.getElementById('open-sidebar-btn');
+    const closeSidebarBtn = document.getElementById('close-sidebar-btn');
+
+    if (openSidebarBtn) {
+        openSidebarBtn.addEventListener('click', () => {
+            sidebar.classList.remove('-translate-x-full');
+            sidebar.classList.add('translate-x-0');
+            sidebarOverlay.classList.remove('hidden');
+        });
+    }
+
+    if (closeSidebarBtn) {
+        closeSidebarBtn.addEventListener('click', () => {
+            sidebar.classList.add('-translate-x-full');
+            sidebar.classList.remove('translate-x-0');
+            sidebarOverlay.classList.add('hidden');
+        });
+    }
+
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', () => {
+            sidebar.classList.add('-translate-x-full');
+            sidebar.classList.remove('translate-x-0');
+            sidebarOverlay.classList.add('hidden');
+        });
+    }
 }
