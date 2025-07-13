@@ -1,6 +1,6 @@
 // /js/dashboard.js
 
-// Get Firebase services using the v8 namespaced syntax
+// Get Firebase services
 const auth = firebase.auth();
 const db = firebase.database();
 
@@ -10,13 +10,14 @@ import { loadPanel as loadManagerPanel } from './panels/manager.js';
 import { loadPanel as loadStaffPanel } from './panels/staff.js';
 import { loadPanel as loadDeliveryPanel } from './panels/delivery.js';
 import { loadPanel as loadOwnerPanel } from './panels/owner.js';
-import { loadPanel as loadMenuOffersPanel } from './panels/menu-offers.js';
-import { loadPanel as loadPromoCodesPanel } from './panels/promo-codes.js'; // Added this line
+import { loadPanel as loadMenuItemsPanel } from './panels/menu-items.js';
+import { loadPanel as loadOffersPanel } from './panels/offers.js';
+import { loadPanel as loadPromoCodesPanel } from './panels/promo-codes.js';
 
 /**
  * Dynamically loads the panel for the given role and content section.
  * @param {string} role The role of the current user.
- * @param {string} targetPanelKey The key from the data-panel attribute (e.g., 'users', 'menu-offers').
+ * @param {string} targetPanelKey The key from the data-panel attribute.
  */
 async function loadRolePanel(role, targetPanelKey = 'default') {
     const panelRoot = document.getElementById('panel-root');
@@ -31,7 +32,6 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
         return;
     }
 
-    // Clear previous content and show loading state
     panelRoot.innerHTML = `
         <div class="text-center py-20 bg-white rounded-xl shadow-lg">
             <i class="fas fa-spinner fa-spin text-4xl text-brand-red mb-4"></i>
@@ -39,38 +39,36 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
         </div>
     `;
 
-    // Close sidebar on mobile after navigation
     if (window.innerWidth < 768) {
         sidebar.classList.add('-translate-x-full');
         sidebarOverlay.classList.add('hidden');
     }
-
 
     try {
         let panelModuleToLoad;
         let effectivePanelKey = targetPanelKey;
 
         if (role === 'admin') {
-            if (targetPanelKey === 'users') {
-                panelModuleToLoad = loadAdminPanel;
-            } else if (targetPanelKey === 'menu-offers') {
-                panelModuleToLoad = loadMenuOffersPanel;
-            } else if (targetPanelKey === 'promo-codes') { // Added this block
-                panelModuleToLoad = loadPromoCodesPanel;
-            } else {
-                panelModuleToLoad = loadAdminPanel; // Default to User Management for admin
-                effectivePanelKey = 'users';
+            switch (targetPanelKey) {
+                case 'users':
+                    panelModuleToLoad = loadAdminPanel;
+                    break;
+                case 'menu-items':
+                    panelModuleToLoad = loadMenuItemsPanel;
+                    break;
+                case 'offers':
+                    panelModuleToLoad = loadOffersPanel;
+                    break;
+                case 'promo-codes':
+                    panelModuleToLoad = loadPromoCodesPanel;
+                    break;
+                default:
+                    panelModuleToLoad = loadAdminPanel;
+                    effectivePanelKey = 'users';
+                    break;
             }
         } else {
-             // Logic for other roles
-            switch (role) {
-                case 'manager': panelModuleToLoad = loadManagerPanel; break;
-                case 'staff': panelModuleToLoad = loadStaffPanel; break;
-                case 'delivery': panelModuleToLoad = loadDeliveryPanel; break;
-                case 'owner': panelModuleToLoad = loadOwnerPanel; break;
-                default: throw new Error(`No panel defined for role: ${role}`);
-            }
-            effectivePanelKey = role;
+            // Logic for other roles can be added here
         }
 
         if (typeof panelModuleToLoad === 'function') {
@@ -97,13 +95,7 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
         }
     } catch (error) {
         console.error(`Failed to load panel for role '${role}' (panel key '${targetPanelKey}'):`, error);
-        panelRoot.innerHTML = `
-            <div class="text-center bg-red-50 p-6 rounded-xl shadow-lg mt-8">
-                <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-3"></i>
-                <p class="text-red-700 font-semibold mb-2">Error loading your dashboard.</p>
-                <p class="text-sm text-gray-600">Could not load the view for the '${role}' role. Please ensure the server is running and you have the correct permissions.</p>
-            </div>
-        `;
+        panelRoot.innerHTML = `<div class="text-center bg-red-50 p-6 rounded-xl shadow-lg mt-8"><p class="text-red-700">Error loading dashboard.</p></div>`;
     }
 }
 
@@ -112,7 +104,7 @@ function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-// --- Main Authentication Listener ---
+// Main Authentication Listener
 auth.onAuthStateChanged(async (user) => {
     if (user) {
         const userRef = db.ref(`users/${user.uid}`);
@@ -121,26 +113,26 @@ auth.onAuthStateChanged(async (user) => {
         const staffRoles = ['admin', 'manager', 'staff', 'delivery', 'owner'];
 
         if (staffRoles.includes(userRole)) {
-            // Initial load
             const initialPanel = userRole === 'admin' ? 'users' : userRole;
             loadRolePanel(userRole, initialPanel);
 
-            // *** ADDED THIS NAVIGATION LOGIC ***
             const navContainer = document.getElementById('sidebar-nav');
-            navContainer.addEventListener('click', (event) => {
-                const targetLink = event.target.closest('a');
-                if (targetLink && targetLink.dataset.panel) {
-                    event.preventDefault();
-                    loadRolePanel(userRole, targetLink.dataset.panel);
-                }
-            });
+            // Ensure we only have one listener
+            if (!navContainer.dataset.listenerAttached) {
+                navContainer.addEventListener('click', (event) => {
+                    const targetLink = event.target.closest('a');
+                    if (targetLink && targetLink.dataset.panel) {
+                        event.preventDefault();
+                        loadRolePanel(userRole, targetLink.dataset.panel);
+                    }
+                });
+                navContainer.dataset.listenerAttached = 'true';
+            }
 
         } else {
-            // If not a staff member, redirect them away from the dashboard
             window.location.href = '../order-type-selection.html';
         }
     } else {
-        // Not logged in, redirect to auth page
         window.location.href = '../auth.html';
     }
 });
