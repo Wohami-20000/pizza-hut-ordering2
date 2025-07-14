@@ -230,7 +230,6 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
     // Update navigation to only show menu items related links
     navContainer.innerHTML = `
         <a href="#" class="block py-2.5 px-4 rounded-lg transition duration-200 hover:bg-gray-700 hover:text-white active-nav-link" data-content="menu-items"><i class="fas fa-pizza-slice mr-3"></i>Manage Menu Items</a>
-        <a href="#" class="block py-2.5 px-4 rounded-lg transition duration-200 hover:bg-gray-700 hover:text-white" data-content="stock"><i class="fas fa-boxes mr-3"></i>Stock Management</a>
     `;
 
     // Combine "Current Menu Items" and "Add New Item" into one section
