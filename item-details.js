@@ -23,6 +23,7 @@ const quantitySpan = document.getElementById('item-quantity');
 const totalPriceSpan = document.getElementById('total-price');
 const addToCartBtn = document.getElementById('add-to-cart-details-btn');
 const cartFooter = document.getElementById('add-to-cart-footer');
+const allergiesInfoDiv = document.getElementById('allergies-info'); // New element reference
 
 function updateCartCount() {
     const cart = JSON.parse(localStorage.getItem("cart")) || [];
@@ -36,13 +37,13 @@ function updatePrice() {
     if (!currentItemData) return;
 
     let basePrice = 0;
-    if (selectedSize && selectedSize.price) {
+    if (selectedSize && typeof selectedSize.price === 'number') {
         basePrice = selectedSize.price;
-    } else if (currentItemData.price) {
+    } else if (typeof currentItemData.price === 'number') {
         basePrice = currentItemData.price;
     }
 
-    const addonsPrice = selectedAddons.reduce((total, addon) => total + addon.price.Triple, 0);
+    const addonsPrice = selectedAddons.reduce((total, addon) => total + (addon.price.Triple || 0), 0);
     const total = (basePrice + addonsPrice) * quantity;
     totalPriceSpan.textContent = total.toFixed(2);
 }
@@ -69,13 +70,15 @@ function renderCustomizations() {
                 updatePrice();
             });
         });
+    } else {
+        sizeOptionsDiv.innerHTML = ''; // Hide if no sizes
     }
 
     // Recipes
     if (currentItemData.recipes && currentItemData.recipes.length > 0) {
         let recipeHtml = '<h3 class="text-lg font-semibold mb-2">Recipe</h3><select id="recipe-select" class="w-full p-2 border rounded-lg">';
         currentItemData.recipes.forEach(recipe => {
-            recipeHtml += `<option value="${recipe}">${recipe}</option>`;
+            recipeHtml += `<option value="${escapeHTML(recipe)}">${escapeHTML(recipe)}</option>`;
         });
         recipeHtml += '</select>';
         recipeOptionsDiv.innerHTML = recipeHtml;
@@ -84,6 +87,8 @@ function renderCustomizations() {
         document.getElementById('recipe-select').addEventListener('change', (e) => {
             selectedRecipe = e.target.value;
         });
+    } else {
+        recipeOptionsDiv.innerHTML = ''; // Hide if no recipes
     }
 
     // Add-ons
@@ -93,7 +98,7 @@ function renderCustomizations() {
             addonHtml += `
                 <div class="customization-option">
                     <input type="checkbox" id="addon_${index}" name="addon" value='${JSON.stringify(addon)}' class="form-checkbox h-5 w-5 text-brand-red rounded">
-                    <label for="addon_${index}" class="ml-2">${addon.name} (+${addon.price.Triple} MAD)</label>
+                    <label for="addon_${index}" class="ml-2">${escapeHTML(addon.name)} (+${(addon.price.Triple || 0).toFixed(2)} MAD)</label>
                 </div>
             `;
         });
@@ -111,6 +116,20 @@ function renderCustomizations() {
                 updatePrice();
             });
         });
+    } else {
+        addonOptionsDiv.innerHTML = ''; // Hide if no addons
+    }
+
+    // Allergies Info
+    if (currentItemData.allergies && currentItemData.allergies.trim() !== '') {
+        allergiesInfoDiv.innerHTML = `
+            <div class="border-t pt-4 mt-4">
+                <h3 class="text-lg font-semibold mb-2">Allergies & Dietary Information</h3>
+                <p class="text-sm text-gray-700 bg-yellow-50 p-3 rounded-lg border border-yellow-200">${escapeHTML(currentItemData.allergies)}</p>
+            </div>
+        `;
+    } else {
+        allergiesInfoDiv.innerHTML = ''; // Hide if no allergies
     }
 }
 
@@ -122,7 +141,7 @@ function displayItemDetails(itemData) {
     itemImage.src = itemData.image_url || 'https://www.pizzahut.ma/images/Default_pizza.png';
     itemImage.alt = itemName;
     itemNameH1.textContent = itemName;
-    itemDescriptionP.textContent = itemData.desc || '';
+    itemDescriptionP.textContent = itemData.description || ''; // Use 'description' as per new schema
 
     renderCustomizations();
     updatePrice();
@@ -159,17 +178,26 @@ addToCartBtn.addEventListener('click', () => {
     if (!currentItemData) return;
     let cart = JSON.parse(localStorage.getItem("cart")) || [];
     
-    const itemNameWithCustomizations = `${currentItemData.name}${selectedSize ? ` (${selectedSize.size})` : ''}${selectedRecipe ? ` - ${selectedRecipe}` : ''}`;
-    const cartItemId = `${currentItemData.id}-${Date.now()}`;
+    // Construct a unique cartItemId for customized items
+    // This ensures different customizations of the same base item are treated as separate entries
+    const customizationDetails = [];
+    if (selectedSize) customizationDetails.push(selectedSize.size);
+    if (selectedRecipe) customizationDetails.push(selectedRecipe);
+    if (selectedAddons.length > 0) customizationDetails.push(selectedAddons.map(a => a.name).join('+'));
+    
+    const cartItemId = `${currentItemData.id}-${customizationDetails.join('-').replace(/\s/g, '_')}-${Date.now()}`;
 
     const newItem = {
-        cartItemId: cartItemId,
-        id: currentItemData.id,
-        name: itemNameWithCustomizations,
+        cartItemId: cartItemId, // Unique ID for this specific customization
+        id: currentItemData.id, // Base item ID
+        name: currentItemData.name, // Base item name
         image: currentItemData.image_url,
-        price: parseFloat(totalPriceSpan.textContent) / quantity,
+        price: parseFloat(totalPriceSpan.textContent) / quantity, // Price per unit of this customized item
         quantity: quantity,
-        options: selectedAddons.map(a => a.name)
+        categoryId: currentItemData.category, // Pass categoryId for menu card re-rendering
+        sizes: selectedSize ? [selectedSize] : [], // Store selected size as an array
+        recipes: selectedRecipe ? [selectedRecipe] : [], // Store selected recipe as an array
+        options: selectedAddons.map(a => a.name) // Store only names of selected options
     };
     
     cart.push(newItem);
@@ -197,24 +225,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    db.ref(`menu/${categoryId}`).once('value')
+    db.ref(`menu/${categoryId}/items/${itemId}`).once('value') // Directly fetch item from items sub-node
         .then(snapshot => {
-            const categoryData = snapshot.val();
-            let itemData = null;
-
-            if (categoryData.items && categoryData.items[itemId]) {
-                itemData = categoryData.items[itemId];
-            } else if (categoryData.subcategories) {
-                for (const subcatId in categoryData.subcategories) {
-                    const subcat = categoryData.subcategories[subcatId];
-                    if (subcat.id === itemId) {
-                        itemData = { ...subcat, id: itemId };
-                        break;
-                    }
-                }
-            }
+            const itemData = snapshot.val();
             
             if (itemData) {
+                // Ensure itemData has a 'category' property for consistency
+                itemData.category = categoryId; 
                 displayItemDetails(itemData);
             } else {
                 showError();

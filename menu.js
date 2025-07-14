@@ -83,15 +83,16 @@ function createMenuItemCard(item, categoryId, itemId) {
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
     const isFavorite = favorites.includes(itemId);
 
-    // Calculate total quantity of this item, including all customized versions
-    const totalQuantityInCart = cart.filter(ci => ci.id === itemId).reduce((sum, ci) => sum + ci.quantity, 0);
+    // Filter for all instances of this item in the cart
+    const allItemInstancesInCart = cart.filter(ci => ci.id === itemId);
+    const totalQuantityInCart = allItemInstancesInCart.reduce((sum, ci) => sum + ci.quantity, 0);
     
     // Find the standard version specifically for +/- buttons
-    const standardItemInCart = cart.find(ci => ci.cartItemId === `${itemId}-standard`);
+    const standardItemInCart = allItemInstancesInCart.find(ci => ci.cartItemId === `${itemId}-standard`);
     const standardQuantity = standardItemInCart ? standardItemInCart.quantity : 0;
     
     // Count only the customized versions for the indicator
-    const customizedQuantity = totalQuantityInCart - standardQuantity;
+    const customizedItems = allItemInstancesInCart.filter(ci => ci.cartItemId !== `${itemId}-standard`);
 
     // Apply 'chosen-card' class if any version of the item is in the cart
     if (totalQuantityInCart > 0) {
@@ -124,9 +125,29 @@ function createMenuItemCard(item, categoryId, itemId) {
         `;
     }
 
-    const customizedIndicator = customizedQuantity > 0
-        ? `<div class="text-xs text-center text-red-600 font-semibold mt-1">+${customizedQuantity} customized</div>`
-        : '';
+    let customizedDetailsHtml = '';
+    if (customizedItems.length > 0) {
+        customizedDetailsHtml = `
+            <div class="customized-items-summary text-xs text-gray-600 mt-2 border-t pt-2">
+                <p class="font-semibold text-red-600 mb-1">Customized:</p>
+                <ul class="list-disc list-inside space-y-0.5">
+                    ${customizedItems.map(cItem => {
+                        let details = [];
+                        if (cItem.sizes && cItem.sizes.length > 0) {
+                            details.push(cItem.sizes[0].size); // Assuming only one size selected for customized item
+                        }
+                        if (cItem.recipes && cItem.recipes.length > 0) {
+                            details.push(cItem.recipes[0]); // Assuming only one recipe selected for customized item
+                        }
+                        if (cItem.options && cItem.options.length > 0) {
+                            details.push(cItem.options.join(', '));
+                        }
+                        return `<li>${cItem.quantity}x ${details.join(' / ')}</li>`;
+                    }).join('')}
+                </ul>
+            </div>
+        `;
+    }
         
     card.innerHTML = `
         <button onclick="event.stopPropagation(); toggleFavorite('${itemId}', this.querySelector('i'))" class="absolute top-2 right-2 z-10 bg-white rounded-full h-8 w-8 flex items-center justify-center shadow-md hover:bg-gray-100 transition-colors">
@@ -146,7 +167,7 @@ function createMenuItemCard(item, categoryId, itemId) {
         </div>
         <div class="px-3 pb-4 mt-auto">
             ${controlsHtml}
-            ${customizedIndicator}
+            ${customizedDetailsHtml}
         </div>
     `;
     return card;
