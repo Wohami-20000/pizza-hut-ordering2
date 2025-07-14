@@ -444,7 +444,11 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
         }
 
         try {
-            await db.ref(`menu/${newItem.category}/items`).push(newItem);
+            // Use push() to get a Firebase-generated unique key
+            const newRef = await db.ref(`menu/${newItem.category}/items`).push();
+            // Set the item data, including the Firebase-generated key as its 'id' property
+            await newRef.set({ ...newItem, id: newRef.key });
+
             alert('Item added successfully!');
             e.target.reset(); // Clear form
             // Clear dynamic fields manually
