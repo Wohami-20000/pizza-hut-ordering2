@@ -83,13 +83,21 @@ function createMenuItemCard(item, categoryId, itemId) {
     const itemPrice = typeof item.price === 'number' ? item.price : 0;
     const isFavorite = favorites.includes(itemId);
 
+    // Calculate total quantity of this item, including all customized versions
+    const totalQuantityInCart = cart.filter(ci => ci.id === itemId).reduce((sum, ci) => sum + ci.quantity, 0);
+    
+    // Find the standard version specifically for +/- buttons
     const standardItemInCart = cart.find(ci => ci.cartItemId === `${itemId}-standard`);
     const standardQuantity = standardItemInCart ? standardItemInCart.quantity : 0;
-    const customizedItems = cart.filter(ci => ci.id === itemId && ci.cartItemId !== `${itemId}-standard`);
-    const customizedQuantity = customizedItems.reduce((sum, item) => sum + item.quantity, 0);
+    
+    // Count only the customized versions for the indicator
+    const customizedQuantity = totalQuantityInCart - standardQuantity;
 
-    if (standardQuantity > 0 || customizedQuantity > 0) {
+    // Apply 'chosen-card' class if any version of the item is in the cart
+    if (totalQuantityInCart > 0) {
         card.classList.add('chosen-card');
+    } else {
+        card.classList.remove('chosen-card'); // Ensure it's removed if quantity drops to 0
     }
     
     // Disable the button if out of stock
@@ -97,11 +105,13 @@ function createMenuItemCard(item, categoryId, itemId) {
     const addButtonStyle = isOutOfStock ? 'bg-gray-300 cursor-not-allowed' : 'bg-yellow-400 hover:bg-yellow-500';
 
     let controlsHtml = '';
+    // If there's at least one standard item, show +/- controls for it
+    // Otherwise, show the "Add" button
     if (standardQuantity > 0) {
         controlsHtml = `
             <div class="quantity-controls flex items-center justify-center gap-3">
                 <button class="quantity-btn" onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', -1, this)">-</button>
-                <span class="font-bold text-lg w-8 text-center">${standardQuantity}</span>
+                <span class="font-bold text-lg w-8 text-center">${totalQuantityInCart}</span>
                 <button class="quantity-btn" onclick="event.stopPropagation(); window.menuFunctions.updateItemQuantity('${itemId}', 1, this)">+</button>
             </div>
         `;
@@ -340,7 +350,19 @@ window.menuFunctions = {
             if (standardItemInCart) {
                 standardItemInCart.quantity++;
             } else {
-                cart.push({ cartItemId: `${itemId}-standard`, id: itemId, name: itemData.name, price: itemData.price, quantity: 1, categoryId: categoryId, image_url: itemData.image_url, options: [] });
+                // Add a new standard item if none exists
+                cart.push({
+                    cartItemId: `${itemId}-standard`, // Unique ID for standard item
+                    id: itemId,
+                    name: itemData.name,
+                    price: itemData.price,
+                    quantity: 1,
+                    categoryId: categoryId,
+                    image_url: itemData.image_url,
+                    options: [], // Standard item has no options
+                    sizes: itemData.sizes ? [itemData.sizes[0]] : [], // Default to first size if available
+                    recipes: itemData.recipes ? [itemData.recipes[0]] : [] // Default to first recipe if available
+                });
             }
         } else if (standardItemInCart) {
             standardItemInCart.quantity--;
@@ -352,9 +374,10 @@ window.menuFunctions = {
         localStorage.setItem("cart", JSON.stringify(cart));
         updateCartUI();
 
+        // Re-render the specific card to reflect the updated quantity (standard + customized)
         const newCard = createMenuItemCard(itemData, categoryId, itemId);
         card.parentNode.replaceChild(newCard, card);
-        newCard.classList.add('visible');
+        newCard.classList.add('visible'); // Ensure it animates in correctly
     },
     navigateToItemDetails: (categoryId, itemId) => window.location.href = `item-details.html?categoryId=${categoryId}&itemId=${itemId}`,
     scrollToCategory: (categoryId) => {
@@ -447,3 +470,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }, error => console.error("Firebase data error:", error));
     });
 });
+// End of menu.js
