@@ -7,7 +7,57 @@ let editModal, editModalTitle, editForm; // Removed editIdInput, editTypeInput a
 let currentEditType = ''; // 'item' or 'offer'
 let currentEditId = ''; // Firebase key of the item/offer being edited
 
-// ... (keep existing createMenuItemRow, createOfferRow functions as they are) ...
+/**
+ * Creates the HTML for a single menu item row.
+ */
+function createMenuItemRow(categoryId, itemId, itemData) {
+    const imageUrl = itemData.image_url || 'https://www.pizzahut.ma/images/Default_pizza.png';
+    const description = itemData.description ? (itemData.description.length > 50 ? itemData.description.substring(0, 50) + '...' : itemData.description) : 'N/A';
+    const price = typeof itemData.price === 'number' ? itemData.price.toFixed(2) : 'N/A';
+
+    return `
+        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out" data-category-id="${categoryId}" data-item-id="${itemId}">
+            <td class="px-4 py-3 text-sm text-gray-700 font-medium">
+                <div class="flex items-center">
+                    <img src="${imageUrl}" alt="${itemData.name}" class="w-10 h-10 rounded-md object-cover mr-3 shadow-sm">
+                    <span>${itemData.name || 'N/A'}</span>
+                </div>
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-500">${description}</td>
+            <td class="px-4 py-3 text-sm text-gray-700">${price} MAD</td>
+            <td class="px-4 py-3 text-sm text-center">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    ${categoryId}
+                </span>
+            </td>
+            <td class="px-4 py-3 text-center text-sm">
+                <button class="edit-item-btn bg-blue-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-blue-600 transition shadow-sm mr-2">Edit</button>
+                <button class="delete-item-btn bg-red-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-red-600 transition shadow-sm">Delete</button>
+            </td>
+        </tr>
+    `;
+}
+
+/**
+ * Creates the HTML for a single offer row.
+ */
+function createOfferRow(offerId, offerData) {
+    const expiryDate = offerData.expiryDate ? new Date(offerData.expiryDate).toLocaleDateString() : 'N/A';
+    const description = offerData.description ? (offerData.description.length > 50 ? offerData.description.substring(0, 50) + '...' : offerData.description) : 'N/A';
+
+    return `
+        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out" data-offer-id="${offerId}">
+            <td class="px-4 py-3 text-sm text-gray-700 font-medium">${offerData.name || 'N/A'}</td>
+            <td class="px-4 py-3 text-sm text-gray-500">${description}</td>
+            <td class="px-4 py-3 text-sm text-gray-700 font-mono">${offerData.code || 'N/A'}</td>
+            <td class="px-4 py-3 text-sm text-gray-500">${expiryDate}</td>
+            <td class="px-4 py-3 text-center text-sm">
+                <button class="edit-offer-btn bg-blue-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-blue-600 transition shadow-sm mr-2">Edit</button>
+                <button class="delete-offer-btn bg-red-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-red-600 transition shadow-sm">Delete</button>
+            </td>
+        </tr>
+    `;
+}
 
 // --- MODAL FUNCTIONS (updated to include dynamic form rendering) ---
 function openEditModal(type, id, data) {
@@ -109,7 +159,7 @@ function openEditModal(type, id, data) {
         // Render existing sizes
         (data.sizes || []).forEach(size => addSizeField(sizesContainer, size.size, size.price));
         // Render existing options
-        (data.options || []).forEach(option => addOptionField(optionsContainer, option.name, option.price));
+        (data.options || []).forEach(option => addOptionField(optionsContainer, option.name, option.price.Triple)); // Pass Triple price
 
         document.getElementById('add-edit-size-btn').addEventListener('click', () => addSizeField(sizesContainer));
         document.getElementById('add-edit-option-btn').addEventListener('click', () => addOptionField(optionsContainer));
@@ -232,7 +282,56 @@ async function saveEditedEntity(event) {
 
 
 // --- DATA LOADING FUNCTIONS ---
-// ... (loadMenuItems and loadOffers functions remain largely the same, but they will now reflect the new data structure) ...
+function loadMenuItems() {
+    db.ref('menu').once('value', (snapshot) => {
+        const menuItemsList = document.getElementById('menu-items-list');
+        if (menuItemsList) {
+            menuItemsList.innerHTML = ''; // Clear loading message
+            if (snapshot.exists()) {
+                let itemsHtml = '';
+                snapshot.forEach((categorySnapshot) => {
+                    const categoryId = categorySnapshot.key;
+                    const categoryData = categorySnapshot.val();
+                    if (categoryData.items) {
+                        for (const itemId in categoryData.items) {
+                            itemsHtml += createMenuItemRow(categoryId, itemId, categoryData.items[itemId]);
+                        }
+                    }
+                });
+                menuItemsList.innerHTML = itemsHtml || '<tr><td colspan="5" class="text-center p-4 text-gray-500">No menu items found.</td></tr>';
+            } else {
+                menuItemsList.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-gray-500">No menu items found.</td></tr>';
+            }
+            populateCategoryDropdown(); // Ensure dropdown is populated on re-load
+        }
+    }).catch(error => {
+        console.error("Error fetching menu items:", error);
+        const menuItemsList = document.getElementById('menu-items-list');
+        if(menuItemsList) menuItemsList.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-red-500">Error loading menu items.</td></tr>';
+    });
+}
+
+function loadOffers() {
+    db.ref('promoCodes').once('value', (snapshot) => {
+        const offersList = document.getElementById('offers-list');
+        if (offersList) {
+            offersList.innerHTML = ''; // Clear loading message
+            if (snapshot.exists()) {
+                let offersHtml = '';
+                snapshot.forEach((offerSnapshot) => {
+                    offersHtml += createOfferRow(offerSnapshot.key, offerSnapshot.val());
+                });
+                offersList.innerHTML = offersHtml || '<tr><td colspan="5" class="text-center p-4 text-gray-500">No offers found.</td></tr>';
+            } else {
+                offersList.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-gray-500">No offers found.</td></tr>';
+            }
+        }
+    }).catch(error => {
+        console.error("Error fetching offers:", error);
+        const offersList = document.getElementById('offers-list');
+        if(offersList) offersList.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-red-500">Error loading offers.</td></td></tr>';
+    });
+}
 
 
 // --- MAIN PANEL LOAD FUNCTION ---
