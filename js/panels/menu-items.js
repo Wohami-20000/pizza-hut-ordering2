@@ -219,13 +219,39 @@ function loadMenuItems() {
             } else {
                 menuItemsList.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-gray-500">No menu items found.</td></tr>';
             }
-            populateCategoryDropdown(); // Ensure dropdown is populated on re-load
+            // Call populateCategoryDropdown here
+            populateCategoryDropdown(); 
         }
     }).catch(error => {
         console.error("Error fetching menu items:", error);
         const menuItemsList = document.getElementById('menu-items-list');
         if(menuItemsList) menuItemsList.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-red-500">Error loading menu items.</td></tr>';
     });
+}
+
+// Moved populateCategoryDropdown outside loadPanel to be globally accessible
+function populateCategoryDropdown() {
+    const categorySelect = document.getElementById('new-item-category');
+
+    if (!categorySelect) return;
+
+    db.ref('menu').once('value')
+        .then(snapshot => {
+            categorySelect.innerHTML = '<option value="">Select a category</option>'; // Reset dropdown
+            if (snapshot.exists()) {
+                snapshot.forEach(categorySnap => {
+                    const categoryName = categorySnap.val().category;
+                    const categoryId = categorySnap.key;
+                    const option = document.createElement('option');
+                    option.value = categoryId;
+                    option.textContent = categoryName;
+                    categorySelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error("Error populating categories:", error);
+        });
 }
 
 
@@ -364,32 +390,6 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
 
     // Load initial data
     loadMenuItems();
-
-
-    // Populate category dropdown for Add New Item form
-    function populateCategoryDropdown() {
-        const categorySelect = document.getElementById('new-item-category');
-
-        if (!categorySelect) return;
-
-        db.ref('menu').once('value')
-            .then(snapshot => {
-                categorySelect.innerHTML = '<option value="">Select a category</option>'; // Reset dropdown
-                if (snapshot.exists()) {
-                    snapshot.forEach(categorySnap => {
-                        const categoryName = categorySnap.val().category;
-                        const categoryId = categorySnap.key;
-                        const option = document.createElement('option');
-                        option.value = categoryId;
-                        option.textContent = categoryName;
-                        categorySelect.appendChild(option);
-                    });
-                }
-            })
-            .catch(error => {
-                console.error("Error populating categories:", error);
-            });
-    }
 
 
     // Handle Add New Item form submission
