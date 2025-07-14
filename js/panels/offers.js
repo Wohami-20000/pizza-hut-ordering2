@@ -41,6 +41,9 @@ export function loadPanel(panelRoot, panelTitle) {
     panelRoot.innerHTML = `
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div class="lg:col-span-1 bg-white rounded-xl shadow-lg p-6">
+                <button onclick="history.back()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition mb-4">
+                    <i class="fas fa-arrow-left mr-2"></i>Back
+                </button>
                 <h3 id="form-title" class="text-xl font-bold mb-4 border-b pb-3">Add New Offer</h3>
                 <form id="offer-form" class="space-y-4">
                     <input type="hidden" id="offer-id">
@@ -76,7 +79,8 @@ export function loadPanel(panelRoot, panelTitle) {
                     <table class="min-w-full">
                         <thead class="bg-gray-50 sticky top-0">
                             <tr>
-                                <th class="p-3 text-left text-xs font-semibold uppercase">Offer</th>
+                                <th class="p-3 text-left text-xs font-semibold uppercase">Image</th>
+                                <th class="p-3 text-left text-xs font-semibold uppercase">Name</th>
                                 <th class="p-3 text-left text-xs font-semibold uppercase">Description</th>
                                 <th class="p-3 text-left text-xs font-semibold uppercase">Price</th>
                                 <th class="p-3 text-center text-xs font-semibold uppercase">Actions</th>

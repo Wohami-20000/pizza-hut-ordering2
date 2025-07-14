@@ -114,10 +114,15 @@ export function loadPanel(panelRoot, panelTitle) {
     panelTitle.textContent = 'Customer Feedback';
 
     panelRoot.innerHTML = `
-        <div class="space-y-6" id="feedback-container">
-            <div class="text-center py-20">
-                <i class="fas fa-spinner fa-spin text-4xl text-brand-red"></i>
-                <p class="mt-4 text-lg text-gray-600">Loading Feedback...</p>
+        <div class="space-y-6">
+            <button onclick="history.back()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition mb-4">
+                <i class="fas fa-arrow-left mr-2"></i>Back
+            </button>
+            <div id="feedback-container" class="space-y-6">
+                <div class="text-center py-20">
+                    <i class="fas fa-spinner fa-spin text-4xl text-brand-red"></i>
+                    <p class="mt-4 text-lg text-gray-600">Loading Feedback...</p>
+                </div>
             </div>
         </div>
     `;

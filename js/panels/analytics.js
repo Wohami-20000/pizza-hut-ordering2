@@ -1,14 +1,20 @@
-// /js/panels/analytics.js
+// /js/panels/analytics.js - Redesigned for better UI/UX
 
 const db = firebase.database();
 
 /**
  * Creates the HTML for a single statistic card.
+ * @param {string} icon - Font Awesome icon class (e.g., 'fa-dollar-sign').
+ * @param {string} title - The title of the statistic.
+ * @param {string} value - The value of the statistic.
+ * @param {string} color - The base color for styling (e.g., 'green', 'blue').
+ * @param {number} delay - Animation delay in ms.
+ * @returns {string} The HTML string for the stat card.
  */
-function createStatCard(icon, title, value, color) {
+function createStatCard(icon, title, value, color, delay) {
     return `
-        <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 animate-fadeInUp">
-            <div class="bg-${color}-100 p-3 rounded-full">
+        <div class="bg-white rounded-2xl shadow-lg p-6 flex items-center space-x-4 animate-fadeInUp" style="animation-delay: ${delay}ms;">
+            <div class="bg-${color}-100 p-4 rounded-full">
                 <i class="fas ${icon} text-2xl text-${color}-600"></i>
             </div>
             <div>
@@ -21,185 +27,152 @@ function createStatCard(icon, title, value, color) {
 
 /**
  * Creates the HTML for a single row in the popular items list.
+ * @param {object} item - The item data { name, count }.
+ * @param {number} rank - The rank of the item.
+ * @returns {string} The HTML string for the list row.
  */
 function createPopularItemRow(item, rank) {
     return `
-        <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg">
+        <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
             <div class="flex items-center">
                 <span class="text-lg font-bold text-gray-400 w-8">${rank}.</span>
                 <p class="font-semibold text-gray-700">${item.name}</p>
             </div>
-            <p class="font-bold text-gray-800">${item.count} orders</p>
+            <p class="font-bold text-gray-800 bg-gray-100 px-2 py-1 rounded-md text-sm">${item.count} sold</p>
         </div>
     `;
 }
 
 /**
- * Creates the HTML for a single customer satisfaction rating.
+ * Creates the HTML for a single customer satisfaction rating with stars.
+ * @param {string} category - The name of the rating category.
+ * @param {number} rating - The average rating score.
+ * @returns {string} The HTML string for the rating display.
  */
 function createRatingDisplay(category, rating) {
     const renderStars = (score) => {
         let stars = '';
         for (let i = 1; i <= 5; i++) {
-            stars += `<i class="fas fa-star ${i <= score ? 'text-yellow-400' : 'text-gray-300'}"></i>`;
+            stars += `<i class="fas fa-star text-xl ${i <= Math.round(score) ? 'text-yellow-400' : 'text-gray-300'}"></i>`;
         }
         return stars;
     };
     return `
-        <div class="p-3 bg-gray-50 rounded-lg flex items-center justify-between">
+        <div class="p-4 bg-gray-50 rounded-lg flex items-center justify-between">
             <span class="font-semibold text-gray-700">${category}:</span>
-            <div>${renderStars(rating)} <span class="ml-2 text-gray-600">(${rating.toFixed(1)})</span></div>
+            <div class="flex items-center gap-3">
+                <div class="flex gap-1">${renderStars(rating)}</div>
+                <span class="font-bold text-gray-600 w-10 text-right">(${rating.toFixed(1)})</span>
+            </div>
         </div>
     `;
 }
 
 /**
- * Fetches all orders and calculates the analytics.
+ * Fetches all orders and calculates the analytics data.
  */
 async function calculateAnalytics() {
     const statsContainer = document.getElementById('stats-container');
     const popularItemsContainer = document.getElementById('popular-items-container');
-    const salesOverTimeContainer = document.getElementById('sales-over-time-container');
     const revenueByOrderTypeContainer = document.getElementById('revenue-by-order-type-container');
     const customerSatisfactionContainer = document.getElementById('customer-satisfaction-container');
 
-    if (!statsContainer || !popularItemsContainer || !salesOverTimeContainer || !revenueByOrderTypeContainer || !customerSatisfactionContainer) return;
-
     try {
         const ordersSnapshot = await db.ref('orders').once('value');
-        const feedbackSnapshot = await db.ref('general_feedback').once('value');
-
         if (!ordersSnapshot.exists()) {
-            statsContainer.innerHTML = '<p class="text-center col-span-full">No order data available to generate analytics.</p>';
+            panelRoot.innerHTML = '<p class="text-center text-gray-500 col-span-full">No order data available to generate analytics.</p>';
             return;
         }
 
         const orders = Object.values(ordersSnapshot.val());
+        const feedbackSnapshot = await db.ref('general_feedback').once('value');
         const generalFeedback = feedbackSnapshot.exists() ? Object.values(feedbackSnapshot.val()) : [];
+        orders.forEach(order => order.feedback && generalFeedback.push(order.feedback));
 
-        // Combine order-specific feedback
-        orders.forEach(order => {
-            if (order.feedback) {
-                generalFeedback.push(order.feedback);
-            }
-        });
-
-
-        // 1. Calculate Key Stats (Existing)
+        // 1. Calculate Key Stats
         const totalRevenue = orders.reduce((sum, order) => sum + order.priceDetails.finalTotal, 0);
         const totalOrders = orders.length;
         const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
         statsContainer.innerHTML = `
-            ${createStatCard('fa-dollar-sign', 'Total Revenue', `${totalRevenue.toFixed(2)} MAD`, 'green')}
-            ${createStatCard('fa-receipt', 'Total Orders', totalOrders, 'blue')}
-            ${createStatCard('fa-calculator', 'Average Order Value', `${averageOrderValue.toFixed(2)} MAD`, 'yellow')}
+            ${createStatCard('fa-dollar-sign', 'Total Revenue', `${totalRevenue.toFixed(2)} MAD`, 'green', 100)}
+            ${createStatCard('fa-receipt', 'Total Orders', totalOrders, 'blue', 200)}
+            ${createStatCard('fa-calculator', 'Average Order Value', `${averageOrderValue.toFixed(2)} MAD`, 'yellow', 300)}
         `;
 
-        // 2. Sales Over Time (Daily, Weekly, Monthly)
-        const dailySales = {};
-        const weeklySales = {};
-        const monthlySales = {};
-        const now = new Date();
-        const oneDay = 24 * 60 * 60 * 1000;
-
-        orders.forEach(order => {
-            const orderDate = new Date(order.timestamp);
-            const dateKey = orderDate.toISOString().split('T')[0]; // YYYY-MM-DD
-            const weekKey = `${orderDate.getFullYear()}-W${Math.ceil(orderDate.getDate() / 7)}`; // Rough week number
-            const monthKey = `${orderDate.getFullYear()}-${(orderDate.getMonth() + 1).toString().padStart(2, '0')}`;
-
-            dailySales[dateKey] = (dailySales[dateKey] || 0) + order.priceDetails.finalTotal;
-            weeklySales[weekKey] = (weeklySales[weekKey] || 0) + order.priceDetails.finalTotal;
-            monthlySales[monthKey] = (monthlySales[monthKey] || 0) + order.priceDetails.finalTotal;
-        });
-
-        // Get recent sales
-        const todayKey = now.toISOString().split('T')[0];
-        const last7DaysSales = orders
-            .filter(order => (now - new Date(order.timestamp)) < (7 * oneDay))
-            .reduce((sum, order) => sum + order.priceDetails.finalTotal, 0);
-        
-        const last30DaysSales = orders
-            .filter(order => (now - new Date(order.timestamp)) < (30 * oneDay))
-            .reduce((sum, order) => sum + order.priceDetails.finalTotal, 0);
-
-
-        salesOverTimeContainer.innerHTML = `
-            ${createStatCard('fa-sun', 'Today\'s Sales', `${(dailySales[todayKey] || 0).toFixed(2)} MAD`, 'orange')}
-            ${createStatCard('fa-calendar-week', 'Last 7 Days Sales', `${last7DaysSales.toFixed(2)} MAD`, 'purple')}
-            ${createStatCard('fa-calendar-alt', 'Last 30 Days Sales', `${last30DaysSales.toFixed(2)} MAD`, 'teal')}
-        `;
-
-
-        // 3. Revenue from Dine-in vs Delivery
+        // 2. Revenue by Order Type
         let dineInRevenue = 0;
         let deliveryRevenue = 0;
+        let pickupRevenue = 0;
         orders.forEach(order => {
-            if (order.orderType === 'dineIn') {
-                dineInRevenue += order.priceDetails.finalTotal;
-            } else if (order.orderType === 'delivery') {
-                deliveryRevenue += order.priceDetails.finalTotal;
-            }
+            if (order.orderType === 'dineIn') dineInRevenue += order.priceDetails.finalTotal;
+            else if (order.orderType === 'delivery') deliveryRevenue += order.priceDetails.finalTotal;
+            else if (order.orderType === 'pickup') pickupRevenue += order.priceDetails.finalTotal;
         });
+        
+        const maxRevenue = Math.max(dineInRevenue, deliveryRevenue, pickupRevenue, 1); // Avoid division by zero
+        const dineInHeight = (dineInRevenue / maxRevenue) * 100;
+        const deliveryHeight = (deliveryRevenue / maxRevenue) * 100;
+        const pickupHeight = (pickupRevenue / maxRevenue) * 100;
 
         revenueByOrderTypeContainer.innerHTML = `
-            ${createStatCard('fa-utensils', 'Dine-In Revenue', `${dineInRevenue.toFixed(2)} MAD`, 'red')}
-            ${createStatCard('fa-motorcycle', 'Delivery Revenue', `${deliveryRevenue.toFixed(2)} MAD`, 'blue')}
-        `;
-
-        // 4. Customer Satisfaction Trends (Average Ratings)
-        let totalFoodRating = 0;
-        let totalDeliveryRating = 0;
-        let totalOverallRating = 0;
-        let feedbackCount = 0;
-
-        generalFeedback.forEach(fb => {
-            if (fb.ratings) {
-                totalFoodRating += fb.ratings.food || 0;
-                totalDeliveryRating += fb.ratings.delivery || 0;
-                totalOverallRating += fb.ratings.overall || 0;
-                feedbackCount++;
-            }
-        });
-
-        const avgFoodRating = feedbackCount > 0 ? totalFoodRating / feedbackCount : 0;
-        const avgDeliveryRating = feedbackCount > 0 ? totalDeliveryRating / feedbackCount : 0;
-        const avgOverallRating = feedbackCount > 0 ? totalOverallRating / feedbackCount : 0;
-
-        customerSatisfactionContainer.innerHTML = `
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Customer Satisfaction</h3>
-            <div class="space-y-3">
-                ${createRatingDisplay('Food Quality', avgFoodRating)}
-                ${createRatingDisplay('Delivery Service', avgDeliveryRating)}
-                ${createRatingDisplay('Overall Experience', avgOverallRating)}
-                <p class="text-sm text-gray-500 text-center mt-4">Based on ${feedbackCount} feedback submissions.</p>
+            <div class="flex justify-around items-end h-48 gap-4">
+                <div class="text-center flex flex-col items-center justify-end h-full">
+                    <div class="w-16 bg-blue-200 rounded-t-lg" style="height: ${deliveryHeight}%; transition: height 0.5s ease-out;"></div>
+                    <p class="text-xs font-bold mt-2">${deliveryRevenue.toFixed(0)}</p>
+                    <p class="text-xs text-gray-500">Delivery</p>
+                </div>
+                <div class="text-center flex flex-col items-center justify-end h-full">
+                    <div class="w-16 bg-green-200 rounded-t-lg" style="height: ${dineInHeight}%; transition: height 0.5s ease-out;"></div>
+                    <p class="text-xs font-bold mt-2">${dineInRevenue.toFixed(0)}</p>
+                    <p class="text-xs text-gray-500">Dine-In</p>
+                </div>
+                <div class="text-center flex flex-col items-center justify-end h-full">
+                    <div class="w-16 bg-yellow-200 rounded-t-lg" style="height: ${pickupHeight}%; transition: height 0.5s ease-out;"></div>
+                    <p class="text-xs font-bold mt-2">${pickupRevenue.toFixed(0)}</p>
+                    <p class="text-xs text-gray-500">Pickup</p>
+                </div>
             </div>
         `;
 
-
-        // 5. Calculate Most Popular Items (Existing)
-        const itemCounts = {};
-        orders.forEach(order => {
-            order.items.forEach(item => {
-                itemCounts[item.name] = (itemCounts[item.name] || 0) + item.quantity;
-            });
+        // 3. Customer Satisfaction
+        let totalFood = 0, totalDelivery = 0, totalOverall = 0, feedbackCount = 0;
+        generalFeedback.forEach(fb => {
+            if (fb.ratings) {
+                totalFood += fb.ratings.food || 0;
+                totalDelivery += fb.ratings.delivery || 0;
+                totalOverall += fb.ratings.overall || 0;
+                feedbackCount++;
+            }
         });
+        const avgFood = feedbackCount > 0 ? totalFood / feedbackCount : 0;
+        const avgDelivery = feedbackCount > 0 ? totalDelivery / feedbackCount : 0;
+        const avgOverall = feedbackCount > 0 ? totalOverall / feedbackCount : 0;
+        customerSatisfactionContainer.innerHTML = `
+            ${createRatingDisplay('Food Quality', avgFood)}
+            ${createRatingDisplay('Delivery Service', avgDelivery)}
+            ${createRatingDisplay('Overall Experience', avgOverall)}
+            <p class="text-xs text-gray-500 text-center mt-2">Based on ${feedbackCount} feedback submissions.</p>
+        `;
 
+        // 4. Most Popular Items
+        const itemCounts = {};
+        orders.forEach(order => order.items.forEach(item => {
+            itemCounts[item.name] = (itemCounts[item.name] || 0) + item.quantity;
+        }));
         const sortedItems = Object.entries(itemCounts)
             .map(([name, count]) => ({ name, count }))
             .sort((a, b) => b.count - a.count)
-            .slice(0, 10); // Get top 10 items
-
+            .slice(0, 10);
         if (sortedItems.length > 0) {
-            popularItemsContainer.innerHTML = sortedItems.map((item, index) => createPopularItemRow(item, index + 1)).join('');
+            popularItemsContainer.innerHTML = sortedItems.map((item, i) => createPopularItemRow(item, i + 1)).join('');
         } else {
             popularItemsContainer.innerHTML = '<p class="text-center text-gray-500">No items have been ordered yet.</p>';
         }
 
     } catch (error) {
         console.error("Error calculating analytics:", error);
-        statsContainer.innerHTML = '<p class="text-center text-red-500 col-span-full">Could not load analytics data.</p>';
+        statsContainer.innerHTML = `<p class="text-center text-red-500 col-span-full">Could not load analytics data: ${error.message}</p>`;
     }
 }
 
@@ -210,48 +183,32 @@ export function loadPanel(panelRoot, panelTitle) {
     panelTitle.textContent = 'Business Analytics';
 
     panelRoot.innerHTML = `
+        <style>
+            @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+            .animate-fadeInUp { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; }
+        </style>
         <div class="space-y-8">
-            <button onclick="history.back()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition mb-4">
-                <i class="fas fa-arrow-left mr-2"></i>Back
+            <button onclick="history.back()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition mb-2 flex items-center gap-2">
+                <i class="fas fa-arrow-left"></i>Back to Dashboard
             </button>
             <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div class="col-span-full text-center py-10">
-                    <i class="fas fa-spinner fa-spin text-3xl text-brand-red"></i>
-                    <p class="mt-4 text-lg text-gray-600">Loading Key Metrics...</p>
-                </div>
+                <!-- Stat cards will be injected here -->
             </div>
 
-            <div id="sales-over-time-panel" class="bg-white rounded-xl shadow-lg p-6 animate-fadeInUp" style="animation-delay: 100ms;">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Sales Over Time</h3>
-                <div id="sales-over-time-container" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="col-span-full text-center py-5">
-                        <i class="fas fa-spinner fa-spin text-2xl text-brand-red"></i>
-                        <p class="mt-2 text-gray-500">Calculating sales...</p>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6 animate-fadeInUp" style="animation-delay: 400ms;">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Most Popular Items</h3>
+                    <div id="popular-items-container" class="space-y-1"></div>
+                </div>
+                <div class="space-y-8">
+                    <div class="bg-white rounded-2xl shadow-lg p-6 animate-fadeInUp" style="animation-delay: 500ms;">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">Revenue by Type</h3>
+                        <div id="revenue-by-order-type-container"></div>
                     </div>
-                </div>
-            </div>
-
-            <div id="revenue-by-order-type-panel" class="bg-white rounded-xl shadow-lg p-6 animate-fadeInUp" style="animation-delay: 200ms;">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Revenue by Order Type</h3>
-                <div id="revenue-by-order-type-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="col-span-full text-center py-5">
-                        <i class="fas fa-spinner fa-spin text-2xl text-brand-red"></i>
-                        <p class="mt-2 text-gray-500">Calculating revenue...</p>
+                    <div class="bg-white rounded-2xl shadow-lg p-6 animate-fadeInUp" style="animation-delay: 600ms;">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">Customer Satisfaction</h3>
+                        <div id="customer-satisfaction-container" class="space-y-3"></div>
                     </div>
-                </div>
-            </div>
-
-            <div id="customer-satisfaction-panel" class="bg-white rounded-xl shadow-lg p-6 animate-fadeInUp" style="animation-delay: 300ms;">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Customer Satisfaction</h3>
-                <div id="customer-satisfaction-container" class="space-y-3">
-                    <p class="text-center text-gray-500">Calculating average ratings...</p>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-xl shadow-lg p-6 animate-fadeInUp" style="animation-delay: 400ms;">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Most Popular Items</h3>
-                <div id="popular-items-container" class="space-y-2">
-                     <p class="text-center text-gray-500">Calculating...</p>
                 </div>
             </div>
         </div>
