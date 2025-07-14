@@ -355,7 +355,7 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
     editModalTitle = document.getElementById('edit-modal-title');
     editForm = document.getElementById('edit-form');
     document.getElementById('cancel-edit-btn').addEventListener('click', closeEditModal);
-    editForm.addEventListener('submit', saveEditedEntity);
+    document.getElementById('save-edit-btn').addEventListener('click', saveEditedEntity); // Ensure this listener is correctly attached to the save button
 
 
     // Function to show/hide content sections
