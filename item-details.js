@@ -25,6 +25,19 @@ const addToCartBtn = document.getElementById('add-to-cart-details-btn');
 const cartFooter = document.getElementById('add-to-cart-footer');
 const allergiesInfoDiv = document.getElementById('allergies-info'); // New element reference
 
+// Helper function to escape HTML for safe display
+function escapeHTML(str) {
+    if (typeof str !== 'string') return str !== null && str !== undefined ? String(str) : '';
+    return String(str).replace(/[<>&"']/g, s => ({
+        "<": "&lt;",
+        ">": "&gt;",
+        "&": "&amp;",
+        '"': "&quot;",
+        "'": "&#39;"
+    } [s]));
+}
+
+
 function updateCartCount() {
     const cart = JSON.parse(localStorage.getItem("cart")) || [];
     const cartCountSpan = document.getElementById('cart-count');
@@ -55,8 +68,8 @@ function renderCustomizations() {
         currentItemData.sizes.forEach((size, index) => {
             sizeHtml += `
                 <div class="customization-option flex-1">
-                    <input type="radio" id="size_${index}" name="size" value='${JSON.stringify(size)}' class="hidden" ${index === 0 ? 'checked' : ''}>
-                    <label for="size_${index}" class="block text-center border-2 rounded-lg p-2 cursor-pointer">${size.size}</label>
+                    <input type="radio" id="size_${index}" name="size" value='${escapeHTML(JSON.stringify(size))}' class="hidden" ${index === 0 ? 'checked' : ''}>
+                    <label for="size_${index}" class="block text-center border-2 rounded-lg p-2 cursor-pointer">${escapeHTML(size.size)}</label>
                 </div>
             `;
         });
@@ -97,7 +110,7 @@ function renderCustomizations() {
         currentItemData.options.forEach((addon, index) => {
             addonHtml += `
                 <div class="customization-option">
-                    <input type="checkbox" id="addon_${index}" name="addon" value='${JSON.stringify(addon)}' class="form-checkbox h-5 w-5 text-brand-red rounded">
+                    <input type="checkbox" id="addon_${index}" name="addon" value='${escapeHTML(JSON.stringify(addon))}' class="form-checkbox h-5 w-5 text-brand-red rounded">
                     <label for="addon_${index}" class="ml-2">${escapeHTML(addon.name)} (+${(addon.price.Triple || 0).toFixed(2)} MAD)</label>
                 </div>
             `;
