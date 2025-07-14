@@ -1,76 +1,41 @@
-// /js/panels/orders.js - Redesigned for better UI/UX
+// /js/panels/orders.js
 
 const db = firebase.database();
 let allOrdersCache = {}; 
 let isInitialLoad = true;
 
-const STATUS_CONFIG = {
-    pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: 'fa-clock' },
-    preparing: { label: 'Preparing', color: 'bg-blue-100 text-blue-800', icon: 'fa-utensils' },
-    ready: { label: 'Ready', color: 'bg-indigo-100 text-indigo-800', icon: 'fa-clipboard-check' },
-    'out for delivery': { label: 'Out for Delivery', color: 'bg-purple-100 text-purple-800', icon: 'fa-biking' },
-    delivered: { label: 'Delivered', color: 'bg-green-100 text-green-800', icon: 'fa-check-double' },
-    completed: { label: 'Completed', color: 'bg-green-100 text-green-800', icon: 'fa-check-double' },
-    cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-800', icon: 'fa-times-circle' },
-    default: { label: 'Unknown', color: 'bg-gray-100 text-gray-800', icon: 'fa-question-circle' }
-};
+const STATUS_OPTIONS = ['pending', 'preparing', 'ready', 'out for delivery', 'delivered', 'completed', 'cancelled'];
 
 /**
- * Creates the HTML for a single, redesigned order card.
- * @param {string} orderId - The unique key for the order.
- * @param {object} orderData - The data object for the order.
- * @returns {string} The HTML string for the order card.
+ * Creates the HTML for a single order row in the table.
  */
-function createOrderCard(orderId, orderData) {
-    const { customerInfo, timestamp, priceDetails, status, items, orderType, table, deliveryAddress } = orderData;
+function createOrderRow(orderId, orderData) {
+    const { customerInfo, timestamp, priceDetails, status } = orderData;
     const customerName = customerInfo ? customerInfo.name : 'N/A';
-    const orderDate = new Date(timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const orderDate = new Date(timestamp).toLocaleString();
     const finalTotal = priceDetails ? priceDetails.finalTotal.toFixed(2) : '0.00';
-    const statusInfo = STATUS_CONFIG[status] || STATUS_CONFIG.default;
 
-    const locationInfo = orderType === 'dineIn' 
-        ? `<i class="fas fa-utensils mr-2 text-gray-500"></i>Table ${table}`
-        : `<i class="fas fa-motorcycle mr-2 text-gray-500"></i>${deliveryAddress || 'Pickup'}`;
-
-    const itemsSummary = items.map(item => `${item.quantity}x ${item.name}`).join(', ');
-
-    const statusDropdown = Object.keys(STATUS_CONFIG)
-        .filter(key => key !== 'default')
-        .map(opt => `<option value="${opt}" ${status === opt ? 'selected' : ''}>${STATUS_CONFIG[opt].label}</option>`)
-        .join('');
+    const statusDropdown = STATUS_OPTIONS.map(opt => 
+        `<option value="${opt}" ${status === opt ? 'selected' : ''}>${opt.charAt(0).toUpperCase() + opt.slice(1)}</option>`
+    ).join('');
 
     return `
-        <div class="order-card bg-white rounded-2xl shadow-lg transition-all duration-300 animate-fadeInUp" data-order-id="${orderId}" data-status="${status}" data-customer="${customerName.toLowerCase()}">
-            <div class="p-5 border-b border-gray-100">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="font-bold text-lg text-brand-dark">Order #${orderData.orderNumber}</p>
-                        <p class="text-xs text-gray-500">ID: ${orderId.slice(-6).toUpperCase()}</p>
-                    </div>
-                    <span class="py-1 px-3 rounded-full text-xs font-semibold ${statusInfo.color}">
-                        <i class="fas ${statusInfo.icon} mr-1.5"></i>${statusInfo.label}
-                    </span>
-                </div>
-                <div class="text-sm text-gray-600 mt-2">${locationInfo}</div>
-            </div>
-            <div class="p-5">
-                <p class="text-sm text-gray-500 font-medium">Customer: <span class="font-bold text-gray-700">${customerName}</span></p>
-                <p class="text-sm text-gray-500 font-medium">Date: <span class="font-bold text-gray-700">${orderDate}</span></p>
-                <div class="my-3 py-2 border-t border-b text-xs text-gray-600">${itemsSummary}</div>
-                <p class="text-right font-extrabold text-2xl text-brand-dark">${finalTotal} MAD</p>
-            </div>
-            <div class="bg-gray-50 px-5 py-3 border-t flex flex-col sm:flex-row justify-between items-center gap-3">
-                <div class="w-full sm:w-auto">
-                    <select class="status-select w-full p-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-brand-red focus:border-brand-red">
-                        ${statusDropdown}
-                    </select>
-                </div>
-                <div class="flex gap-2 w-full sm:w-auto">
-                    <a href="../order-details.html?orderId=${orderId}" target="_blank" class="w-full text-center text-sm font-bold py-2 px-4 rounded-lg transition-transform hover:scale-105 bg-gray-200 text-gray-800">Details</a>
-                    <a href="../edit-order.html?orderId=${orderId}" class="w-full text-center text-sm font-bold py-2 px-4 rounded-lg transition-transform hover:scale-105 bg-blue-500 text-white">Edit</a>
-                </div>
-            </div>
-        </div>
+        <tr class="hover:bg-gray-50 transition" data-order-id="${orderId}">
+            <td class="p-3 text-sm font-medium text-blue-600">
+                <a href="../order-details.html?orderId=${orderId}" target="_blank" class="hover:underline">${orderId}</a>
+            </td>
+            <td class="p-3 text-sm text-gray-700">${customerName}</td>
+            <td class="p-3 text-sm text-gray-600">${orderDate}</td>
+            <td class="p-3 text-sm font-semibold">${finalTotal} MAD</td>
+            <td class="p-3">
+                <select class="status-select w-full p-2 border rounded-md text-sm bg-white">
+                    ${statusDropdown}
+                </select>
+            </td>
+            <td class="p-3 text-center">
+                <a href="../edit-order.html?orderId=${orderId}" class="edit-order-btn bg-blue-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-blue-600">Edit</a>
+            </td>
+        </tr>
     `;
 }
 
@@ -78,27 +43,25 @@ function createOrderCard(orderId, orderData) {
  * Renders orders based on current filters.
  */
 function renderFilteredOrders() {
-    const orderListContainer = document.getElementById('order-list-container');
-    if (!orderListContainer) return;
+    const orderListBody = document.getElementById('order-list-body');
+    if (!orderListBody) return;
 
     const searchInput = document.getElementById('order-search').value.toLowerCase();
     const statusFilter = document.getElementById('status-filter').value;
-    const noResultsMessage = document.getElementById('no-results-message');
-    
-    let hasVisibleItems = false;
-    orderListContainer.querySelectorAll('.order-card').forEach(card => {
-        const matchesSearch = card.dataset.orderId.toLowerCase().includes(searchInput) || card.dataset.customer.includes(searchInput);
-        const matchesStatus = statusFilter === 'all' || card.dataset.status === statusFilter;
-        
-        if (matchesSearch && matchesStatus) {
-            card.style.display = 'block';
-            hasVisibleItems = true;
-        } else {
-            card.style.display = 'none';
-        }
+
+    const ordersArray = Object.values(allOrdersCache)
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    const filteredOrders = ordersArray.filter(order => {
+        const matchesSearch = order.id.toLowerCase().includes(searchInput) || 
+                              (order.customerInfo && order.customerInfo.name.toLowerCase().includes(searchInput));
+        const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+        return matchesSearch && matchesStatus;
     });
 
-    noResultsMessage.style.display = hasVisibleItems ? 'none' : 'block';
+    orderListBody.innerHTML = filteredOrders.length 
+        ? filteredOrders.map(order => createOrderRow(order.id, order)).join('')
+        : `<tr><td colspan="6" class="text-center p-4 text-gray-500">No matching orders found.</td></tr>`;
 }
 
 function playNotificationSound() {
@@ -115,48 +78,32 @@ export function loadPanel(panelRoot, panelTitle) {
     panelTitle.textContent = 'Order Management';
     isInitialLoad = true; 
 
-    const statusFilterOptions = ['all', ...Object.keys(STATUS_CONFIG).filter(k => k !== 'default')]
-        .map(s => `<option value="${s}">${capitalizeFirstLetter(s)}</option>`).join('');
+    const statusFilterOptions = ['all', ...STATUS_OPTIONS]
+        .map(s => `<option value="${s}">${s.charAt(0).toUpperCase() + s.slice(1)}</option>`).join('');
 
     panelRoot.innerHTML = `
-        <style>
-            @keyframes fadeInUp {
-                from { opacity: 0; transform: translateY(20px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            .animate-fadeInUp {
-                animation: fadeInUp 0.5s ease-out forwards;
-                opacity: 0;
-            }
-        </style>
-        <div class="bg-white rounded-2xl shadow-xl p-6">
-            <button onclick="history.back()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition mb-6 flex items-center gap-2">
-                <i class="fas fa-arrow-left"></i>Back to Dashboard
-            </button>
-            <div class="border-b pb-4 mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">Live Orders</h2>
-                <p class="text-sm text-gray-500 mt-1">Search, filter, and manage all incoming and past orders.</p>
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">All Orders</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <input type="search" id="order-search" placeholder="Search by Order ID or Customer..." class="w-full p-2 border rounded-md">
+                <select id="status-filter" class="w-full p-2 border rounded-md bg-white">${statusFilterOptions}</select>
             </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div class="md:col-span-2 relative">
-                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                    <input type="search" id="order-search" placeholder="Search by Order ID or Customer Name..." class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-brand-red focus:border-brand-red">
-                </div>
-                <div>
-                    <select id="status-filter" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm bg-white focus:ring-brand-red focus:border-brand-red">${statusFilterOptions}</select>
-                </div>
-            </div>
-            
-            <div id="order-list-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                <div id="loading-placeholder" class="col-span-full text-center py-20 text-gray-500">
-                    <i class="fas fa-spinner fa-spin text-3xl text-brand-red"></i>
-                    <p class="mt-3">Loading orders...</p>
-                </div>
-                <div id="no-results-message" class="col-span-full text-center py-20 text-gray-500" style="display: none;">
-                    <i class="fas fa-receipt text-3xl mb-3"></i>
-                    <p>No orders match your search.</p>
-                </div>
+            <div class="overflow-y-auto" style="max-height: 70vh;">
+                <table class="min-w-full">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th class="p-3 text-left text-xs font-semibold uppercase">Order ID</th>
+                            <th class="p-3 text-left text-xs font-semibold uppercase">Customer</th>
+                            <th class="p-3 text-left text-xs font-semibold uppercase">Date</th>
+                            <th class="p-3 text-left text-xs font-semibold uppercase">Total</th>
+                            <th class="p-3 text-left text-xs font-semibold uppercase">Status</th>
+                            <th class="p-3 text-center text-xs font-semibold uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="order-list-body" class="divide-y divide-gray-200">
+                        <tr><td colspan="6" class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl text-brand-red"></i></td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     `;
@@ -166,7 +113,7 @@ export function loadPanel(panelRoot, panelTitle) {
 
     panelRoot.addEventListener('change', (e) => {
         if (e.target.classList.contains('status-select')) {
-            const orderId = e.target.closest('.order-card').dataset.orderId;
+            const orderId = e.target.closest('tr').dataset.orderId;
             const newStatus = e.target.value;
             db.ref(`orders/${orderId}/status`).set(newStatus);
         }
@@ -174,12 +121,9 @@ export function loadPanel(panelRoot, panelTitle) {
 
     const ordersRef = db.ref('orders');
     ordersRef.on('value', (snapshot) => {
-        const orderListContainer = document.getElementById('order-list-container');
-        if (!orderListContainer) return; // Panel not visible
-
         if (!snapshot.exists()) {
             allOrdersCache = {};
-            document.getElementById('loading-placeholder').textContent = 'No orders have been placed yet.';
+            document.getElementById('order-list-body').innerHTML = '<tr><td colspan="6" class="text-center p-4">No orders found.</td></tr>';
             return;
         }
 
@@ -197,28 +141,8 @@ export function loadPanel(panelRoot, panelTitle) {
             acc[key] = { id: key, ...ordersData[key] };
             return acc;
         }, {});
-        
-        const sortedOrders = Object.values(allOrdersCache).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-        orderListContainer.innerHTML = ''; // Clear previous content
-        sortedOrders.forEach((order, index) => {
-            const cardHtml = createOrderCard(order.id, order);
-            const cardEl = document.createElement('div');
-            cardEl.innerHTML = cardHtml;
-            cardEl.firstChild.style.animationDelay = `${index * 30}ms`;
-            orderListContainer.appendChild(cardEl.firstChild);
-        });
-
-        // Add the "no results" message back in
-        orderListContainer.insertAdjacentHTML('beforeend', `
-            <div id="no-results-message" class="col-span-full text-center py-20 text-gray-500" style="display: none;">
-                <i class="fas fa-receipt text-3xl mb-3"></i>
-                <p>No orders match your search.</p>
-            </div>
-        `);
-
-        document.getElementById('loading-placeholder').style.display = 'none';
-        renderFilteredOrders(); // Apply initial filters
+        renderFilteredOrders();
         isInitialLoad = false;
     });
 }
