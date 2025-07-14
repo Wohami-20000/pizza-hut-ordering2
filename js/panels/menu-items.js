@@ -79,6 +79,11 @@ function openEditModal(id, data) {
             <div id="edit-item-options-container" class="space-y-2"></div>
             <button type="button" id="add-edit-option-btn" class="mt-2 bg-blue-100 text-blue-700 text-sm py-1 px-3 rounded-md hover:bg-blue-200"><i class="fas fa-plus mr-1"></i>Add Option</button>
         </div>
+
+        <div class="border-t pt-4 mt-4">
+            <label for="edit-item-allergies" class="block text-sm font-medium text-gray-700">Allergies/Dietary Info</label>
+            <textarea id="edit-item-allergies" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., Contains dairy, gluten-free option available">${data.allergies || ''}</textarea>
+        </div>
     `;
     
     editForm.innerHTML = formHtml;
@@ -177,6 +182,7 @@ async function saveEditedEntity(event) {
         sizes: sizes,
         recipes: recipes,
         options: options,
+        allergies: document.getElementById('edit-item-allergies').value.trim() // Get allergies field value
     };
     dbRef = db.ref(`menu/${categoryId}/items/${currentEditId}`);
 
@@ -275,6 +281,11 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
                     <h4 class="text-md font-semibold text-gray-800 mb-2">Add-ons/Options (Optional)</h4>
                     <div id="new-item-options-container" class="space-y-2"></div>
                     <button type="button" id="add-new-option-btn" class="mt-2 bg-blue-100 text-blue-700 text-sm py-1 px-3 rounded-md hover:bg-blue-200"><i class="fas fa-plus mr-1"></i>Add Option</button>
+                </div>
+
+                <div class="border-t pt-4 mt-4">
+                    <label for="new-item-allergies" class="block text-sm font-medium text-gray-700">Allergies/Dietary Info</label>
+                    <textarea id="new-item-allergies" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., Contains dairy, gluten-free option available"></textarea>
                 </div>
 
                 <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition transform hover:scale-105">Add Item</button>
@@ -423,6 +434,7 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
             sizes: sizes,
             recipes: recipes,
             options: options,
+            allergies: document.getElementById('new-item-allergies').value.trim(), // Get allergies field value
             inStock: true // Default to in stock
         };
 
@@ -439,6 +451,7 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
             document.getElementById('new-item-sizes-container').innerHTML = '';
             document.getElementById('new-item-options-container').innerHTML = '';
             document.getElementById('new-item-recipes').value = '';
+            document.getElementById('new-item-allergies').value = ''; // Clear allergies field
 
             loadMenuItems(); // Re-render menu items to update list
 
