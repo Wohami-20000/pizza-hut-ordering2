@@ -47,6 +47,9 @@ export function loadPanel(panelRoot, panelTitle) {
 
     panelRoot.innerHTML = `
         <div id="assign-container" class="space-y-6">
+             <button onclick="history.back()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition mb-4">
+                <i class="fas fa-arrow-left mr-2"></i>Back
+            </button>
             <h2 class="text-2xl font-bold text-gray-800">Orders Ready for Delivery</h2>
             <div id="orders-for-delivery" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div class="col-span-full text-center py-10">

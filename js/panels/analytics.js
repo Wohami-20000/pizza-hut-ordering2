@@ -211,6 +211,9 @@ export function loadPanel(panelRoot, panelTitle) {
 
     panelRoot.innerHTML = `
         <div class="space-y-8">
+            <button onclick="history.back()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition mb-4">
+                <i class="fas fa-arrow-left mr-2"></i>Back
+            </button>
             <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div class="col-span-full text-center py-10">
                     <i class="fas fa-spinner fa-spin text-3xl text-brand-red"></i>

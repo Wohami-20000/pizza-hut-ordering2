@@ -49,6 +49,9 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
 
     panelRoot.innerHTML = `
         <div class="bg-white rounded-xl shadow-lg p-6">
+            <button onclick="history.back()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition mb-4">
+                <i class="fas fa-arrow-left mr-2"></i>Back
+            </button>
             <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">User Management</h2>
             <div class="overflow-x-auto rounded-lg border">
                 <table class="min-w-full divide-y divide-gray-200">

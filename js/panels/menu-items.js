@@ -46,43 +46,49 @@ function openEditModal(id, data) {
 
     let formHtml = `
         <input type="hidden" id="edit-item-category-id" value="${data.category}">
-        <div>
-            <label for="edit-item-name" class="block text-sm font-medium text-gray-700">Item Name</label>
-            <input type="text" id="edit-item-name" value="${data.name || ''}" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-        </div>
-        <div>
-            <label for="edit-item-description" class="block text-sm font-medium text-gray-700">Description</label>
-            <textarea id="edit-item-description" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">${data.description || ''}</textarea>
-        </div>
-        <div>
-            <label for="edit-item-price" class="block text-sm font-medium text-gray-700">Base Price (MAD)</label>
-            <input type="number" id="edit-item-price" step="0.01" value="${data.price || 0}" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-        </div>
-        <div>
-            <label for="edit-item-image-url" class="block text-sm font-medium text-gray-700">Image URL</label>
-            <input type="url" id="edit-item-image-url" value="${data.image_url || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-        </div>
+        <div class="space-y-4 max-h-[70vh] overflow-y-auto p-1">
+            <div>
+                <label for="edit-item-name" class="block text-sm font-medium text-gray-700">Item Name</label>
+                <input type="text" id="edit-item-name" value="${data.name || ''}" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+            </div>
+            <div>
+                <label for="edit-item-description" class="block text-sm font-medium text-gray-700">Description</label>
+                <textarea id="edit-item-description" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">${data.description || ''}</textarea>
+            </div>
+            <div>
+                <label for="edit-item-price" class="block text-sm font-medium text-gray-700">Base Price (MAD)</label>
+                <input type="number" id="edit-item-price" step="0.01" value="${data.price || 0}" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+            </div>
+            <div>
+                <label for="edit-item-image-url" class="block text-sm font-medium text-gray-700">Image URL</label>
+                <input type="url" id="edit-item-image-url" value="${data.image_url || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+            </div>
 
-        <div class="border-t pt-4 mt-4">
-            <h4 class="text-md font-semibold text-gray-800 mb-2">Sizes</h4>
-            <div id="edit-item-sizes-container" class="space-y-2"></div>
-            <button type="button" id="add-edit-size-btn" class="mt-2 bg-blue-100 text-blue-700 text-sm py-1 px-3 rounded-md hover:bg-blue-200"><i class="fas fa-plus mr-1"></i>Add Size</button>
-        </div>
+            <div class="border-t pt-4 mt-4">
+                <h4 class="text-md font-semibold text-gray-800 mb-2">Sizes</h4>
+                <div id="edit-item-sizes-container" class="space-y-2"></div>
+                <button type="button" id="add-edit-size-btn" class="mt-2 bg-blue-100 text-blue-700 text-sm py-1 px-3 rounded-md hover:bg-blue-200"><i class="fas fa-plus mr-1"></i>Add Size</button>
+            </div>
 
-        <div class="border-t pt-4 mt-4">
-            <h4 class="text-md font-semibold text-gray-800 mb-2">Recipes (Comma-separated)</h4>
-            <input type="text" id="edit-item-recipes" value="${(data.recipes || []).join(', ') || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., Spicy, BBQ, Original">
-        </div>
+            <div class="border-t pt-4 mt-4">
+                <h4 class="text-md font-semibold text-gray-800 mb-2">Recipes (Comma-separated)</h4>
+                <input type="text" id="edit-item-recipes" value="${(data.recipes || []).join(', ') || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., Spicy, BBQ, Original">
+            </div>
 
-        <div class="border-t pt-4 mt-4">
-            <h4 class="text-md font-semibold text-gray-800 mb-2">Add-ons/Options</h4>
-            <div id="edit-item-options-container" class="space-y-2"></div>
-            <button type="button" id="add-edit-option-btn" class="mt-2 bg-blue-100 text-blue-700 text-sm py-1 px-3 rounded-md hover:bg-blue-200"><i class="fas fa-plus mr-1"></i>Add Option</button>
-        </div>
+            <div class="border-t pt-4 mt-4">
+                <h4 class="text-md font-semibold text-gray-800 mb-2">Add-ons/Options</h4>
+                <div id="edit-item-options-container" class="space-y-2"></div>
+                <button type="button" id="add-edit-option-btn" class="mt-2 bg-blue-100 text-blue-700 text-sm py-1 px-3 rounded-md hover:bg-blue-200"><i class="fas fa-plus mr-1"></i>Add Option</button>
+            </div>
 
-        <div class="border-t pt-4 mt-4">
-            <label for="edit-item-allergies" class="block text-sm font-medium text-gray-700">Allergies/Dietary Info</label>
-            <textarea id="edit-item-allergies" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., Contains dairy, gluten-free option available">${data.allergies || ''}</textarea>
+            <div class="border-t pt-4 mt-4">
+                <label for="edit-item-allergies" class="block text-sm font-medium text-gray-700">Allergies/Dietary Info</label>
+                <textarea id="edit-item-allergies" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., Contains dairy, gluten-free option available">${data.allergies || ''}</textarea>
+            </div>
+        </div>
+        <div class="flex justify-end space-x-2 pt-4 border-t mt-4">
+            <button type="button" id="cancel-edit-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition">Cancel</button>
+            <button type="submit" id="save-edit-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition">Save Changes</button>
         </div>
     `;
     
@@ -99,6 +105,7 @@ function openEditModal(id, data) {
 
     document.getElementById('add-edit-size-btn').addEventListener('click', () => addSizeField(sizesContainer));
     document.getElementById('add-edit-option-btn').addEventListener('click', () => addOptionField(optionsContainer));
+    document.getElementById('cancel-edit-btn').addEventListener('click', closeEditModal);
 }
 
 function closeEditModal() {
@@ -158,7 +165,6 @@ async function saveEditedEntity(event) {
     if (sizes.length === 0 && !isNaN(newBasePrice)) {
             sizes.push({ size: "Regular", price: newBasePrice });
     }
-
 
     // Collect recipes
     const recipesInput = document.getElementById('edit-item-recipes').value.trim();
@@ -267,6 +273,9 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
     // Combine "Current Menu Items" and "Add New Item" into one section
     panelRoot.innerHTML = `
         <div id="menu-items-section" class="bg-white rounded-xl shadow-lg p-6 animate-fadeInUp">
+            <button onclick="history.back()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition mb-4">
+                <i class="fas fa-arrow-left mr-2"></i>Back
+            </button>
             <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">Add New Menu Item</h2>
             <form id="add-item-form" class="space-y-4">
                 <div>
@@ -337,14 +346,10 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
         </div>
 
         <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
-            <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md">
+            <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg">
                 <h3 id="edit-modal-title" class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3">Edit Item</h3>
-                <form id="edit-form" class="space-y-4">
-                    <div class="text-center p-4 text-gray-500">Loading form...</div>
-                    <div class="flex justify-end space-x-2 pt-4">
-                        <button type="button" id="cancel-edit-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition">Cancel</button>
-                        <button type="submit" id="save-edit-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition">Save Changes</button>
-                    </div>
+                <form id="edit-form">
+                    <!-- Content injected by JS -->
                 </form>
             </div>
         </div>
@@ -354,8 +359,7 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
     editModal = document.getElementById('edit-modal');
     editModalTitle = document.getElementById('edit-modal-title');
     editForm = document.getElementById('edit-form');
-    document.getElementById('cancel-edit-btn').addEventListener('click', closeEditModal);
-    document.getElementById('save-edit-btn').addEventListener('click', saveEditedEntity); // Ensure this listener is correctly attached to the save button
+    editForm.addEventListener('submit', saveEditedEntity);
 
 
     // Function to show/hide content sections
