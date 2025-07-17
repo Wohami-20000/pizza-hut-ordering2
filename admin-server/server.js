@@ -37,7 +37,8 @@ admin.initializeApp({
 const checkIfAdmin = async (req, res, next) => {
   const idToken = req.headers.authorization?.split('Bearer ')[1];
   if (!idToken) {
-    return res.status(403).send('Unauthorized: No token provided.');
+    // IMPORTANT: Always send JSON responses for errors
+    return res.status(403).json({ error: 'Unauthorized: No token provided.' });
   }
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
@@ -45,10 +46,12 @@ const checkIfAdmin = async (req, res, next) => {
       req.user = decodedToken; // Pass decoded user info to the next function
       return next();
     }
-    return res.status(403).send('Unauthorized: Requester is not an admin.');
+    // IMPORTANT: Always send JSON responses for errors
+    return res.status(403).json({ error: 'Unauthorized: Requester is not an admin.' });
   } catch (error) {
     console.error('Error verifying token:', error);
-    return res.status(403).send('Unauthorized: Invalid token.');
+    // IMPORTANT: Always send JSON responses for errors
+    return res.status(403).json({ error: 'Unauthorized: Invalid token.' });
   }
 };
 
@@ -59,7 +62,7 @@ app.post('/set-role', checkIfAdmin, async (req, res) => {
   const { uid, role } = req.body;
 
   if (!uid || !role) {
-    return res.status(400).send({ error: 'Missing uid or role in request body.' });
+    return res.status(400).json({ error: 'Missing uid or role in request body.' }); // Changed to .json()
   }
 
   try {
@@ -69,11 +72,10 @@ app.post('/set-role', checkIfAdmin, async (req, res) => {
     // Also update the role in your Realtime Database for consistency
     await admin.database().ref(`users/${uid}`).update({ role: role });
 
-    res.status(200).send({ message: `Success! User ${uid} has been assigned the role: ${role}.` });
+    res.status(200).json({ message: `Success! User ${uid} has been assigned the role: ${role}.` }); // Changed to .json()
   } catch (error) {
     console.error('Error setting custom claim:', error);
-    // **CHANGED LINE**: Sending the specific error message for better debugging
-    res.status(500).send({ error: error.message || 'Internal server error while setting role.' });
+    res.status(500).json({ error: error.message || 'Internal server error while setting role.' }); // Changed to .json()
   }
 });
 
@@ -82,7 +84,7 @@ app.post('/toggle-user-status', checkIfAdmin, async (req, res) => {
   const { uid, disabled } = req.body; // 'disabled' should be true to deactivate, false to activate
 
   if (!uid || typeof disabled !== 'boolean') {
-    return res.status(400).send({ error: 'Missing uid or invalid disabled status in request body.' });
+    return res.status(400).json({ error: 'Missing uid or invalid disabled status in request body.' }); // Changed to .json()
   }
 
   try {
@@ -93,10 +95,10 @@ app.post('/toggle-user-status', checkIfAdmin, async (req, res) => {
     await admin.database().ref(`users/${uid}`).update({ isDisabled: disabled });
 
     const statusMessage = disabled ? 'deactivated' : 'activated';
-    res.status(200).send({ message: `User ${uid} successfully ${statusMessage}.` });
+    res.status(200).json({ message: `User ${uid} successfully ${statusMessage}.` }); // Changed to .json()
   } catch (error) {
     console.error(`Error toggling user status for ${uid}:`, error);
-    res.status(500).send({ error: error.message || 'Internal server error while toggling user status.' });
+    res.status(500).json({ error: error.message || 'Internal server error while toggling user status.' }); // Changed to .json()
   }
 });
 
