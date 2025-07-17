@@ -10,7 +10,7 @@ app.use(express.json()); // Middleware to read JSON from requests
 // Only allow requests from your web app's domain.
 // For local testing, you might use 'http://127.0.0.1:5500' or similar.
 // For production, change this to your actual domain (e.g., 'https://pizzahut.yourdomain.com')
-const allowedOrigins = ['http://127.0.0.1:5500', 'http://localhost:5500', 'https://pizza-hut-ordering2.vercel.app']; // Added Vercel domain
+const allowedOrigins = ['http://127.0.0.1:5500', 'http://localhost:5500', 'https://pizza-hut-ordering2.vercel.app'];
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
@@ -25,7 +25,12 @@ app.use(cors({
 // --- INITIALIZE FIREBASE ADMIN ---
 const serviceAccount = require('./serviceAccountKey.json');
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
+  // **IMPORTANT ADDITION**: Explicitly set your Firebase Realtime Database URL here.
+  // Replace 'YOUR_FIREBASE_DATABASE_URL' with your actual database URL,
+  // which is typically in the format: "https://YOUR-PROJECT-ID-default-rtdb.firebaseio.com"
+  // Based on your serviceAccountKey.json, it should be: https://pizzahut-clone-app-default-rtdb.firebaseio.com
+  databaseURL: "https://pizzahut-clone-app-default-rtdb.firebaseio.com"
 });
 
 // --- SECURE MIDDLEWARE: Verify Admin Token ---
@@ -69,7 +74,7 @@ app.post('/set-role', checkIfAdmin, async (req, res) => {
     res.status(200).send({ message: `Success! User ${uid} has been assigned the role: ${role}.` });
   } catch (error) {
     console.error('Error setting custom claim:', error);
-    // **CHANGED LINE**: Sending the specific error message
+    // **CHANGED LINE**: Sending the specific error message for better debugging
     res.status(500).send({ error: error.message || 'Internal server error while setting role.' });
   }
 });
