@@ -4,8 +4,9 @@ const auth = firebase.auth();
 const db = firebase.database();
 
 function createUserRow(uid, user) {
-    const roles = ['owner', 'manager', 'admin', 'staff', 'delivery', 'customer']; // Add 'customer' here
-    const roleOptions = roles.map(role =>
+    // Added 'customer' to the roles array
+    const roles = ['owner', 'manager', 'admin', 'staff', 'delivery', 'customer'];
+    const roleOptions = roles.map(role => 
         `<option value="${role}" ${user.role === role ? 'selected' : ''}>${role.charAt(0).toUpperCase() + role.slice(1)}</option>`
     ).join('');
 
@@ -68,11 +69,17 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
 
     db.ref('users').get().then(snapshot => {
         const userListBody = document.getElementById('user-list-body');
-        if (snapshot.exists()) {
-            userListBody.innerHTML = Object.entries(snapshot.val()).map(([uid, user]) => createUserRow(uid, user)).join('');
-        } else {
-            userListBody.innerHTML = '<tr><td colspan="4" class="text-center p-4">No users found.</td></tr>';
+        if (userListBody) { // Check if element exists before manipulating
+            if (snapshot.exists()) {
+                userListBody.innerHTML = Object.entries(snapshot.val()).map(([uid, user]) => createUserRow(uid, user)).join('');
+            } else {
+                userListBody.innerHTML = '<tr><td colspan="4" class="text-center p-4">No users found.</td></tr>';
+            }
         }
+    }).catch(error => {
+        console.error("Error loading users:", error);
+        const userListBody = document.getElementById('user-list-body');
+        if (userListBody) userListBody.innerHTML = '<tr><td colspan="4" class="text-center p-4 text-red-500">Error loading users.</td></tr>';
     });
 
     panelRoot.addEventListener('click', async (event) => {

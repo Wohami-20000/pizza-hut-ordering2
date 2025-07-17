@@ -27,8 +27,6 @@ const serviceAccount = require('./serviceAccountKey.json');
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   // **IMPORTANT ADDITION**: Explicitly set your Firebase Realtime Database URL here.
-  // Replace 'YOUR_FIREBASE_DATABASE_URL' with your actual database URL,
-  // which is typically in the format: "https://YOUR-PROJECT-ID-default-rtdb.firebaseio.com"
   // Based on your serviceAccountKey.json, it should be: https://pizzahut-clone-app-default-rtdb.firebaseio.com
   databaseURL: "https://pizzahut-clone-app-default-rtdb.firebaseio.com"
 });
@@ -76,6 +74,29 @@ app.post('/set-role', checkIfAdmin, async (req, res) => {
     console.error('Error setting custom claim:', error);
     // **CHANGED LINE**: Sending the specific error message for better debugging
     res.status(500).send({ error: error.message || 'Internal server error while setting role.' });
+  }
+});
+
+// --- NEW SECURE ENDPOINT for toggling user active status ---
+app.post('/toggle-user-status', checkIfAdmin, async (req, res) => {
+  const { uid, disabled } = req.body; // 'disabled' should be true to deactivate, false to activate
+
+  if (!uid || typeof disabled !== 'boolean') {
+    return res.status(400).send({ error: 'Missing uid or invalid disabled status in request body.' });
+  }
+
+  try {
+    // Update user in Firebase Authentication (sets disabled status)
+    await admin.auth().updateUser(uid, { disabled: disabled });
+
+    // Update 'isDisabled' flag in Realtime Database for easier frontend access
+    await admin.database().ref(`users/${uid}`).update({ isDisabled: disabled });
+
+    const statusMessage = disabled ? 'deactivated' : 'activated';
+    res.status(200).send({ message: `User ${uid} successfully ${statusMessage}.` });
+  } catch (error) {
+    console.error(`Error toggling user status for ${uid}:`, error);
+    res.status(500).send({ error: error.message || 'Internal server error while toggling user status.' });
   }
 });
 
