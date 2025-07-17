@@ -3,22 +3,33 @@
 const auth = firebase.auth();
 const db = firebase.database();
 
+// Helper function to escape HTML characters
+function escapeHTML(str) {
+    if (typeof str !== 'string') return str !== null && str !== undefined ? String(str) : '';
+    return String(str).replace(/[<>&"']/g, s => ({
+        "<": "&lt;",
+        ">": "&gt;",
+        "&": "&amp;",
+        '"': "&quot;",
+        "'": "&#39;"
+    }[s]));
+}
+
+
 function createUserRow(uid, user) {
     const roles = ['owner', 'manager', 'admin', 'staff', 'delivery', 'customer']; // Ensure 'customer' is here
     const roleOptions = roles.map(role => 
         `<option value="${role}" ${user.role === role ? 'selected' : ''}>${role.charAt(0).toUpperCase() + role.slice(1)}</option>`
     ).join('');
 
-    // Determine current status and button text/class
     const isDisabled = user.isDisabled === true; // Firebase returns `true` or undefined/false
     const statusText = isDisabled ? 'Deactivated' : 'Active';
     const statusClass = isDisabled ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800';
     const buttonText = isDisabled ? 'Activate' : 'Deactivate';
     const buttonClass = isDisabled ? 'bg-green-600 hover:bg-green-700' : 'bg-yellow-500 hover:bg-yellow-600';
 
-
     return `
-        <tr class="hover:bg-gray-50 transition" data-uid="${uid}">
+        <tr class="hover:bg-gray-50 transition" data-uid="${uid}" data-user-name="${escapeHTML(user.name || user.email)}">
             <td class="p-3 text-sm text-gray-700">${user.name || 'N/A'}</td>
             <td class="p-3 text-sm text-gray-500">${user.email}</td>
             <td class="p-3">
@@ -33,6 +44,7 @@ function createUserRow(uid, user) {
                 <button class="save-role-btn bg-brand-red text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-red-700">Save Role</button>
                 <button class="toggle-status-btn ${buttonClass} text-white px-3 py-1 rounded-lg text-xs font-semibold"
                         data-is-disabled="${isDisabled}">${buttonText}</button>
+                <button class="view-orders-btn bg-blue-500 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-blue-600">See Orders</button>
             </td>
         </tr>
     `;
@@ -49,7 +61,6 @@ async function setRoleOnServer(uid, role) {
     return await response.json();
 }
 
-// NEW FUNCTION: Send request to toggle user active status
 async function toggleUserStatusOnServer(uid, disabled) {
     const token = await auth.currentUser.getIdToken();
     const response = await fetch('http://localhost:3000/toggle-user-status', {
@@ -59,6 +70,96 @@ async function toggleUserStatusOnServer(uid, disabled) {
     });
     if (!response.ok) throw new Error((await response.json()).error || 'Server error');
     return await response.json();
+}
+
+// --- NEW FUNCTIONS FOR ORDER HISTORY MODAL ---
+
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.add('opacity-100');
+            modal.querySelector('.modal-content').classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('opacity-100');
+        modal.querySelector('.modal-content').classList.remove('scale-100', 'opacity-100');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 300); // Match CSS transition duration
+    }
+}
+
+// Helper to create an order card for the modal
+function createOrderHistoryCard(orderData) {
+    const date = new Date(orderData.timestamp).toLocaleString();
+    const itemsSummary = orderData.items.map(item => `${item.quantity}x ${item.name}`).join(', ');
+    const orderLink = `../order-details.html?orderId=${orderData.orderId}`; // Link to existing order details page
+
+    return `
+        <div class="bg-gray-50 p-4 rounded-lg shadow-sm mb-3">
+            <div class="flex justify-between items-center">
+                <h4 class="font-semibold text-gray-800">Order #${orderData.orderNumber || orderData.orderId}</h4>
+                <span class="text-xs font-medium text-gray-600">${date}</span>
+            </div>
+            <p class="text-sm text-gray-600 mt-1 truncate" title="${itemsSummary}">${itemsSummary}</p>
+            <div class="flex justify-between items-center mt-3">
+                <span class="font-bold text-lg text-brand-red">${orderData.priceDetails.finalTotal.toFixed(2)} MAD</span>
+                <a href="${orderLink}" target="_blank" class="text-blue-600 hover:underline text-sm">View Details <i class="fas fa-external-link-alt ml-1"></i></a>
+            </div>
+        </div>
+    `;
+}
+
+async function loadUserOrdersIntoModal(uid, userName) {
+    const ordersHistoryContent = document.getElementById('orders-history-content');
+    const modalTitle = document.getElementById('orders-history-modal-title');
+    
+    modalTitle.textContent = `${userName}'s Order History`;
+    ordersHistoryContent.innerHTML = `
+        <div class="text-center py-10">
+            <i class="fas fa-spinner fa-spin text-4xl text-brand-red"></i>
+            <p class="mt-4 text-lg text-gray-600">Loading orders...</p>
+        </div>
+    `;
+    
+    try {
+        const userOrdersSnapshot = await db.ref(`users/${uid}/orders`).get();
+        if (!userOrdersSnapshot.exists()) {
+            ordersHistoryContent.innerHTML = '<p class="text-center py-10 text-gray-500">No orders found for this user.</p>';
+            return;
+        }
+
+        const orderIds = Object.keys(userOrdersSnapshot.val());
+        const orderPromises = orderIds.map(orderId => db.ref(`orders/${orderId}`).get());
+        const orderSnapshots = await Promise.all(orderPromises);
+
+        let orders = [];
+        orderSnapshots.forEach(snapshot => {
+            if (snapshot.exists()) {
+                orders.push({ orderId: snapshot.key, ...snapshot.val() });
+            }
+        });
+
+        // Sort orders by timestamp, newest first
+        orders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        if (orders.length > 0) {
+            ordersHistoryContent.innerHTML = orders.map(order => createOrderHistoryCard(order)).join('');
+        } else {
+            ordersHistoryContent.innerHTML = '<p class="text-center py-10 text-gray-500">No orders found for this user.</p>';
+        }
+
+    } catch (error) {
+        console.error("Error loading user orders:", error);
+        ordersHistoryContent.innerHTML = `<p class="text-center py-10 text-red-500">Error loading orders: ${error.message}</p>`;
+    }
 }
 
 
@@ -97,26 +198,43 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
                 </table>
             </div>
         </div>
+
+        <div id="orders-history-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 z-50 p-4">
+            <div class="modal-content bg-white p-6 rounded-xl shadow-2xl w-full max-w-md transform scale-95 opacity-0 transition-all duration-300">
+                <div class="flex justify-between items-center border-b pb-3 mb-4">
+                    <h3 id="orders-history-modal-title" class="text-2xl font-bold text-gray-800">User Order History</h3>
+                    <button class="close-modal-btn text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                </div>
+                <div id="orders-history-content" class="max-h-96 overflow-y-auto space-y-4">
+                    </div>
+            </div>
+        </div>
     `;
 
-    // Function to load and render users
     const loadUsers = () => {
         db.ref('users').get().then(snapshot => {
             const userListBody = document.getElementById('user-list-body');
             if (snapshot.exists()) {
                 userListBody.innerHTML = Object.entries(snapshot.val()).map(([uid, user]) => createUserRow(uid, user)).join('');
             } else {
-                userListBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">No users found.</td></tr>'; // Adjusted colspan
+                userListBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">No users found.</td></tr>';
             }
         }).catch(error => {
             console.error("Error loading users:", error);
             const userListBody = document.getElementById('user-list-body');
-            if (userListBody) userListBody.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-red-500">Error loading users.</td></tr>'; // Adjusted colspan
+            if (userListBody) userListBody.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-red-500">Error loading users.</td></tr>';
         });
     };
 
     // Initial load of users
     loadUsers();
+
+    // Event listener for closing the modal
+    panelRoot.addEventListener('click', (event) => {
+        if (event.target.classList.contains('close-modal-btn')) {
+            closeModal('orders-history-modal');
+        }
+    });
 
     panelRoot.addEventListener('click', async (event) => {
         // Handle Save Role button click
@@ -127,20 +245,17 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
             try {
                 await setRoleOnServer(uid, newRole);
                 alert('Role updated successfully!');
-                // Optional: Reload users to ensure UI is fully consistent with DB state
-                // loadUsers();
             } catch (error) {
                 alert('Error updating role: ' + error.message);
             }
         }
-        // NEW: Handle Toggle Status button click
+        // Handle Toggle Status button click
         else if (event.target.classList.contains('toggle-status-btn')) {
             const row = event.target.closest('tr');
             const uid = row.dataset.uid;
             const currentDisabledStatus = event.target.dataset.isDisabled === 'true'; // Convert string to boolean
             const newDisabledStatus = !currentDisabledStatus; // Toggle status
 
-            // Confirmation dialog
             if (!confirm(`Are you sure you want to ${newDisabledStatus ? 'deactivate' : 'activate'} this user?`)) {
                 return;
             }
@@ -152,6 +267,15 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
             } catch (error) {
                 alert('Error toggling user status: ' + error.message);
             }
+        }
+        // NEW: Handle View Orders button click
+        else if (event.target.classList.contains('view-orders-btn')) {
+            const row = event.target.closest('tr');
+            const uid = row.dataset.uid;
+            const userName = row.dataset.userName; // Get the user's name from data-attribute
+            
+            await loadUserOrdersIntoModal(uid, userName); // Load orders into the modal
+            openModal('orders-history-modal'); // Open the modal
         }
     });
 }
