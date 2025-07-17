@@ -28,6 +28,11 @@ function createUserRow(uid, user) {
     const buttonText = isDisabled ? 'Activate' : 'Deactivate';
     const buttonClass = isDisabled ? 'bg-green-600 hover:bg-green-700' : 'bg-yellow-500 hover:bg-yellow-600';
 
+    // NEW: Conditionally render the 'See Orders' button
+    const seeOrdersButtonHtml = user.role === 'customer' ? `
+        <button class="view-orders-btn bg-blue-500 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-blue-600">See Orders</button>
+    ` : '';
+
     return `
         <tr class="hover:bg-gray-50 transition" data-uid="${uid}" data-user-name="${escapeHTML(user.name || user.email)}">
             <td class="p-3 text-sm text-gray-700">${user.name || 'N/A'}</td>
@@ -44,7 +49,7 @@ function createUserRow(uid, user) {
                 <button class="save-role-btn bg-brand-red text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-red-700">Save Role</button>
                 <button class="toggle-status-btn ${buttonClass} text-white px-3 py-1 rounded-lg text-xs font-semibold"
                         data-is-disabled="${isDisabled}">${buttonText}</button>
-                <button class="view-orders-btn bg-blue-500 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-blue-600">See Orders</button>
+                ${seeOrdersButtonHtml}
             </td>
         </tr>
     `;
@@ -229,7 +234,7 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
     // Initial load of users
     loadUsers();
 
-    // Event listener for closing the modal
+    // Event listener for closing the modal (delegated to panelRoot)
     panelRoot.addEventListener('click', (event) => {
         if (event.target.classList.contains('close-modal-btn')) {
             closeModal('orders-history-modal');
