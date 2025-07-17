@@ -4,8 +4,8 @@ const auth = firebase.auth();
 const db = firebase.database();
 
 function createUserRow(uid, user) {
-    const roles = ['owner', 'manager', 'admin', 'staff', 'delivery'];
-    const roleOptions = roles.map(role => 
+    const roles = ['owner', 'manager', 'admin', 'staff', 'delivery', 'customer']; // Add 'customer' here
+    const roleOptions = roles.map(role =>
         `<option value="${role}" ${user.role === role ? 'selected' : ''}>${role.charAt(0).toUpperCase() + role.slice(1)}</option>`
     ).join('');
 
