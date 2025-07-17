@@ -38,8 +38,14 @@ function createUserRow(uid, user) {
     const buttonText = isDisabled ? 'Activate' : 'Deactivate';
     const buttonClass = isDisabled ? 'bg-green-600 hover:bg-green-700' : 'bg-yellow-500 hover:bg-yellow-600';
 
-    // Removed the 'See Orders' button as requested.
-    const seeOrdersButtonHtml = ''; 
+    // Re-added the 'See Orders' button for 'customer' roles.
+    const seeOrdersButtonHtml =
+        user.role === 'customer'
+            ? `<button class="view-orders-btn bg-blue-600 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-blue-700"
+                data-uid="${uid}" data-user-name="${escapeHTML(user.name || user.email)}">
+                See Orders
+            </button>`
+            : '';
 
     // Return the complete HTML for the table row.
     return `
@@ -108,7 +114,7 @@ async function toggleUserStatusOnServer(uid, disabled) {
     return await response.json();
 }
 
-// --- FUNCTIONS FOR ORDER HISTORY MODAL (These are now unused but kept for reference if needed later) ---
+// --- FUNCTIONS FOR ORDER HISTORY MODAL ---
 
 /**
  * Opens a modal by removing 'hidden' class and applying transition classes.
@@ -234,6 +240,75 @@ async function loadUserOrdersIntoModal(uid, userName) {
 }
 
 /**
+ * Handles the submission of the new user form.
+ * Creates a new user in Firebase Auth and adds their details to Realtime Database.
+ * @param {Event} e The form submission event.
+ */
+async function handleAddUser(e) {
+    e.preventDefault();
+    const form = e.target;
+    const name = form['new-user-name'].value.trim();
+    const email = form['new-user-email'].value.trim();
+    const password = form['new-user-password'].value.trim();
+    const role = form['new-user-role'].value;
+    const addUserBtn = form.querySelector('#add-user-btn');
+
+    // Basic validation
+    if (!name || !email || !password || !role) {
+        alert('Please fill in all fields.');
+        return;
+    }
+    if (password.length < 6) {
+        alert('Password must be at least 6 characters long.');
+        return;
+    }
+
+    // Show loading state
+    addUserBtn.disabled = true;
+    addUserBtn.textContent = 'Adding User...';
+
+    try {
+        // 1. Create user in Firebase Authentication
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+
+        // 2. Store additional user data in Realtime Database
+        await db.ref(`users/${user.uid}`).set({
+            name: name,
+            email: email,
+            role: role,
+            createdAt: new Date().toISOString()
+        });
+
+        // 3. Set custom claim for the role via backend if not 'customer'
+        if (role !== 'customer') {
+            await setRoleOnServer(user.uid, role);
+        }
+
+        alert(`User ${name} (${email}) added successfully with role: ${role}!`);
+        form.reset(); // Clear the form
+        loadUsers(); // Reload the user list to show the new user
+
+    } catch (error) {
+        console.error("Error adding new user:", error);
+        let errorMessage = 'Failed to add user.';
+        if (error.code === 'auth/email-already-in-use') {
+            errorMessage = 'The email address is already in use by another account.';
+        } else if (error.code === 'auth/weak-password') {
+            errorMessage = 'The password is too weak. Please choose a stronger password.';
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+        alert(errorMessage);
+    } finally {
+        // Reset button state
+        addUserBtn.disabled = false;
+        addUserBtn.textContent = 'Add User';
+    }
+}
+
+
+/**
  * Main function to load the Admin Panel, specifically the User Management section.
  * This function sets up the panel's HTML structure, loads user data, and attaches event listeners.
  * @param {HTMLElement} panelRoot The root DOM element where the panel content will be rendered.
@@ -260,6 +335,43 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
 
     // Set the main content of the panel, including the user table and the hidden order history modal.
     panelRoot.innerHTML = `
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">Add New User</h2>
+            <form id="add-user-form" class="space-y-4">
+                <div>
+                    <label for="new-user-name" class="block text-sm font-medium text-gray-700">Full Name</label>
+                    <input type="text" id="new-user-name" required
+                           class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                </div>
+                <div>
+                    <label for="new-user-email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                    <input type="email" id="new-user-email" required
+                           class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                </div>
+                <div>
+                    <label for="new-user-password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="new-user-password" required
+                           class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                </div>
+                <div>
+                    <label for="new-user-role" class="block text-sm font-medium text-gray-700">Role</label>
+                    <select id="new-user-role" required
+                            class="mt-1 block w-full p-2 border rounded-md bg-white shadow-sm">
+                        <option value="customer">Customer</option>
+                        <option value="staff">Staff</option>
+                        <option value="delivery">Delivery</option>
+                        <option value="manager">Manager</option>
+                        <option value="admin">Admin</option>
+                        <option value="owner">Owner</option>
+                    </select>
+                </div>
+                <button type="submit" id="add-user-btn"
+                        class="w-full bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition transform hover:scale-105">
+                    Add User
+                </button>
+            </form>
+        </div>
+
         <div class="bg-white rounded-xl shadow-lg p-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">User Management</h2>
             <div class="overflow-x-auto rounded-lg border">
@@ -278,7 +390,7 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
             </div>
         </div>
 
-        <!-- Orders History Modal HTML Structure (Now hidden by default and not triggered by any button) -->
+        <!-- Orders History Modal HTML Structure -->
         <div id="orders-history-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 z-50 p-4">
             <div class="modal-content bg-white p-6 rounded-xl shadow-2xl w-full max-w-md transform scale-95 opacity-0 transition-all duration-300">
                 <div class="flex justify-between items-center border-b pb-3 mb-4">
@@ -292,10 +404,14 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
         </div>
     `;
 
+    /**
+     * Loads and displays all users in the user management table.
+     */
     const loadUsers = () => {
         db.ref('users').get().then(snapshot => {
             const userListBody = document.getElementById('user-list-body');
             if (snapshot.exists()) {
+                // Map user data to HTML rows and join them.
                 userListBody.innerHTML = Object.entries(snapshot.val()).map(([uid, user]) => createUserRow(uid, user)).join('');
             } else {
                 userListBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">No users found.</td></tr>';
@@ -307,16 +423,23 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
         });
     };
 
+    // Initial load of users when the panel is loaded.
     loadUsers();
 
+    // Event listener for closing the order history modal.
+    // Uses event delegation on panelRoot to catch clicks on the dynamically added close button.
     panelRoot.addEventListener('click', (event) => {
         if (event.target.classList.contains('close-modal-btn')) {
             closeModal('orders-history-modal');
         }
     });
 
+    // Main event listener for buttons within the user list table and new user form.
+    // Uses event delegation on panelRoot to handle clicks on dynamically added buttons.
     panelRoot.addEventListener('click', async (event) => {
+        // Wrap the entire logic in a try-catch to catch any unexpected errors during button actions.
         try {
+            // Handle Save Role button click
             if (event.target.classList.contains('save-role-btn')) {
                 const row = event.target.closest('tr');
                 const uid = row.dataset.uid;
@@ -324,17 +447,21 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
                 try {
                     await setRoleOnServer(uid, newRole);
                     alert('Role updated successfully!');
+                    // Reload users to reflect potential role changes (e.g., 'See Orders' button visibility)
                     loadUsers(); 
                 } catch (error) {
                     alert('Error updating role: ' + error.message);
                 }
             }
+            // Handle Toggle Status button click
             else if (event.target.classList.contains('toggle-status-btn')) {
                 const row = event.target.closest('tr');
                 const uid = row.dataset.uid;
+                // Get current disabled status from data attribute.
                 const currentDisabledStatus = event.target.dataset.isDisabled === 'true';
                 const newDisabledStatus = !currentDisabledStatus;
 
+                // Confirm action with the user.
                 if (!confirm(`Are you sure you want to ${newDisabledStatus ? 'deactivate' : 'activate'} this user?`)) {
                     return;
                 }
@@ -342,14 +469,34 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
                 try {
                     await toggleUserStatusOnServer(uid, newDisabledStatus);
                     alert(`User successfully ${newDisabledStatus ? 'deactivated' : 'activated'}!`);
+                    // Reload users to reflect the updated status.
                     loadUsers();
                 } catch (error) {
                     alert('Error toggling user status: ' + error.message);
                 }
+            }
+            // Handler for "See Orders" button
+            else if (event.target.classList.contains('view-orders-btn')) {
+                const row = event.target.closest('tr');
+                if (!row) {
+                    console.error("View Orders button clicked, but parent row (tr) not found."); 
+                    return;
+                }
+                const uid = row.dataset.uid;
+                const userName = row.dataset.userName;
+                
+                await loadUserOrdersIntoModal(uid, userName);
+                openModal('orders-history-modal');
             }
         } catch (error) {
             console.error("An unexpected error occurred in User Management actions:", error);
             alert("An unexpected error occurred. Please check the console for details.");
         }
     });
+
+    // Add event listener for the new user form submission
+    const addUserForm = panelRoot.querySelector('#add-user-form');
+    if (addUserForm) {
+        addUserForm.addEventListener('submit', handleAddUser);
+    }
 }
