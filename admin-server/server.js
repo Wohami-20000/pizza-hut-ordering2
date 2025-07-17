@@ -69,7 +69,8 @@ app.post('/set-role', checkIfAdmin, async (req, res) => {
     res.status(200).send({ message: `Success! User ${uid} has been assigned the role: ${role}.` });
   } catch (error) {
     console.error('Error setting custom claim:', error);
-    res.status(500).send({ error: 'Internal server error while setting role.' });
+    // **CHANGED LINE**: Sending the specific error message
+    res.status(500).send({ error: error.message || 'Internal server error while setting role.' });
   }
 });
 
