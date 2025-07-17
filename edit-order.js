@@ -2,6 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     const db = firebase.database();
+    const auth = firebase.auth(); // Get Firebase Auth instance
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('orderId');
 
@@ -117,17 +118,33 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     });
 
-    // --- Initial Load ---
-    
-    db.ref(`orders/${orderId}`).once('value', (snapshot) => {
-        if (snapshot.exists()) {
-            currentOrder = snapshot.val();
-            renderItems();
-            loadingState.style.display = 'none';
-            container.classList.remove('hidden');
+    // --- Initial Load: Wrapped in onAuthStateChanged ---
+    // This ensures the user's authentication state (including admin claims) is loaded
+    // before attempting to read from the database.
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            db.ref(`orders/${orderId}`).once('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    currentOrder = snapshot.val();
+                    renderItems();
+                    loadingState.style.display = 'none';
+                    container.classList.remove('hidden');
+                } else {
+                    loadingState.style.display = 'none';
+                    container.innerHTML = '<p class="text-red-500 text-center">Order not found.</p>';
+                }
+            }).catch(error => {
+                // Catch any Firebase errors during the .once('value') call
+                console.error("Error fetching order details:", error);
+                loadingState.style.display = 'none';
+                container.innerHTML = `<p class="text-red-500 text-center">Error loading order: ${error.message}. Please check console for details.</p>`;
+            });
         } else {
+            // User is not authenticated, redirect to login or show error
             loadingState.style.display = 'none';
-            container.innerHTML = '<p class="text-red-500 text-center">Order not found.</p>';
+            container.innerHTML = '<p class="text-red-500 text-center">You must be logged in to view this page.</p>';
+            // Optional: Redirect to auth.html after a delay
+            // setTimeout(() => window.location.href = 'auth.html', 3000);
         }
     });
 });
