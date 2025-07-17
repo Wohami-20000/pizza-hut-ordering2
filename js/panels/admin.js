@@ -81,12 +81,19 @@ async function toggleUserStatusOnServer(uid, disabled) {
 
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
+    console.log(`Attempting to open modal: ${modalId}. Element found:`, modal); // DEBUG LOG 1
     if (modal) {
-        modal.classList.remove('hidden');
+        modal.classList.remove('hidden'); // This removes display: none
         setTimeout(() => {
-            modal.classList.add('opacity-100');
-            modal.querySelector('.modal-content').classList.add('scale-100', 'opacity-100');
-        }, 10);
+            modal.classList.add('opacity-100'); // This applies opacity for fade-in
+            // Also apply scale and opacity for the inner modal content
+            const modalContent = modal.querySelector('.modal-content');
+            if (modalContent) {
+                modalContent.classList.add('scale-100', 'opacity-100');
+            }
+        }, 10); // Small delay to allow 'hidden' removal to register for transition
+    } else {
+        console.error(`Modal element with ID '${modalId}' not found in the DOM.`); // DEBUG ERROR
     }
 }
 
@@ -94,9 +101,12 @@ function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.classList.remove('opacity-100');
-        modal.querySelector('.modal-content').classList.remove('scale-100', 'opacity-100');
+        const modalContent = modal.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.classList.remove('scale-100', 'opacity-100');
+        }
         setTimeout(() => {
-            modal.classList.add('hidden');
+            modal.classList.add('hidden'); // Re-applies display: none
         }, 300); // Match CSS transition duration
     }
 }
@@ -162,7 +172,7 @@ async function loadUserOrdersIntoModal(uid, userName) {
         }
 
     } catch (error) {
-        console.error("Error loading user orders:", error);
+        console.error("Error loading user orders into modal:", error); // DEBUG LOG 2
         ordersHistoryContent.innerHTML = `<p class="text-center py-10 text-red-500">Error loading orders: ${error.message}</p>`;
     }
 }
@@ -278,17 +288,21 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
             }
             // Handle View Orders button click
             else if (event.target.classList.contains('view-orders-btn')) {
+                console.log("View Orders button clicked!"); // DEBUG LOG: Confirm button click is registered
                 const row = event.target.closest('tr');
+                if (!row) {
+                    console.error("View Orders button clicked, but parent row (tr) not found."); // DEBUG ERROR: If button is somehow outside a tr
+                    return;
+                }
                 const uid = row.dataset.uid;
                 const userName = row.dataset.userName;
                 
                 await loadUserOrdersIntoModal(uid, userName);
                 openModal('orders-history-modal');
+                console.log("Attempted to open orders history modal."); // DEBUG LOG: Confirm openModal was called
             }
         } catch (error) {
-            // Log the error to the console for debugging
             console.error("An unexpected error occurred in User Management actions:", error);
-            // Optionally, provide an alert to the user
             alert("An unexpected error occurred. Please check the console for details.");
         }
     });
