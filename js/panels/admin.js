@@ -4,18 +4,36 @@ const auth = firebase.auth();
 const db = firebase.database();
 
 function createUserRow(uid, user) {
-    // Added 'customer' to the roles array
-    const roles = ['owner', 'manager', 'admin', 'staff', 'delivery', 'customer'];
+    const roles = ['owner', 'manager', 'admin', 'staff', 'delivery', 'customer']; // Ensure 'customer' is here
     const roleOptions = roles.map(role => 
         `<option value="${role}" ${user.role === role ? 'selected' : ''}>${role.charAt(0).toUpperCase() + role.slice(1)}</option>`
     ).join('');
+
+    // Determine current status and button text/class
+    const isDisabled = user.isDisabled === true; // Firebase returns `true` or undefined/false
+    const statusText = isDisabled ? 'Deactivated' : 'Active';
+    const statusClass = isDisabled ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800';
+    const buttonText = isDisabled ? 'Activate' : 'Deactivate';
+    const buttonClass = isDisabled ? 'bg-green-600 hover:bg-green-700' : 'bg-yellow-500 hover:bg-yellow-600';
+
 
     return `
         <tr class="hover:bg-gray-50 transition" data-uid="${uid}">
             <td class="p-3 text-sm text-gray-700">${user.name || 'N/A'}</td>
             <td class="p-3 text-sm text-gray-500">${user.email}</td>
-            <td class="p-3"><select class="role-select w-full p-2 border rounded-md">${roleOptions}</select></td>
-            <td class="p-3 text-center"><button class="save-role-btn bg-brand-red text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700">Save</button></td>
+            <td class="p-3">
+                <select class="role-select w-full p-2 border rounded-md">${roleOptions}</select>
+            </td>
+            <td class="p-3 text-center">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
+                    ${statusText}
+                </span>
+            </td>
+            <td class="p-3 text-center space-x-2">
+                <button class="save-role-btn bg-brand-red text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-red-700">Save Role</button>
+                <button class="toggle-status-btn ${buttonClass} text-white px-3 py-1 rounded-lg text-xs font-semibold"
+                        data-is-disabled="${isDisabled}">${buttonText}</button>
+            </td>
         </tr>
     `;
 }
@@ -30,6 +48,19 @@ async function setRoleOnServer(uid, role) {
     if (!response.ok) throw new Error((await response.json()).error || 'Server error');
     return await response.json();
 }
+
+// NEW FUNCTION: Send request to toggle user active status
+async function toggleUserStatusOnServer(uid, disabled) {
+    const token = await auth.currentUser.getIdToken();
+    const response = await fetch('http://localhost:3000/toggle-user-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ uid, disabled })
+    });
+    if (!response.ok) throw new Error((await response.json()).error || 'Server error');
+    return await response.json();
+}
+
 
 export function loadPanel(panelRoot, panelTitle, navContainer) {
     panelTitle.textContent = 'System Administration';
@@ -58,6 +89,7 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
                             <th class="p-3 text-left text-xs font-semibold uppercase">Name</th>
                             <th class="p-3 text-left text-xs font-semibold uppercase">Email</th>
                             <th class="p-3 text-left text-xs font-semibold uppercase">Role</th>
+                            <th class="p-3 text-center text-xs font-semibold uppercase">Status</th>
                             <th class="p-3 text-center text-xs font-semibold uppercase">Actions</th>
                         </tr>
                     </thead>
@@ -67,22 +99,27 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
         </div>
     `;
 
-    db.ref('users').get().then(snapshot => {
-        const userListBody = document.getElementById('user-list-body');
-        if (userListBody) { // Check if element exists before manipulating
+    // Function to load and render users
+    const loadUsers = () => {
+        db.ref('users').get().then(snapshot => {
+            const userListBody = document.getElementById('user-list-body');
             if (snapshot.exists()) {
                 userListBody.innerHTML = Object.entries(snapshot.val()).map(([uid, user]) => createUserRow(uid, user)).join('');
             } else {
-                userListBody.innerHTML = '<tr><td colspan="4" class="text-center p-4">No users found.</td></tr>';
+                userListBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">No users found.</td></tr>'; // Adjusted colspan
             }
-        }
-    }).catch(error => {
-        console.error("Error loading users:", error);
-        const userListBody = document.getElementById('user-list-body');
-        if (userListBody) userListBody.innerHTML = '<tr><td colspan="4" class="text-center p-4 text-red-500">Error loading users.</td></tr>';
-    });
+        }).catch(error => {
+            console.error("Error loading users:", error);
+            const userListBody = document.getElementById('user-list-body');
+            if (userListBody) userListBody.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-red-500">Error loading users.</td></tr>'; // Adjusted colspan
+        });
+    };
+
+    // Initial load of users
+    loadUsers();
 
     panelRoot.addEventListener('click', async (event) => {
+        // Handle Save Role button click
         if (event.target.classList.contains('save-role-btn')) {
             const row = event.target.closest('tr');
             const uid = row.dataset.uid;
@@ -90,8 +127,30 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
             try {
                 await setRoleOnServer(uid, newRole);
                 alert('Role updated successfully!');
+                // Optional: Reload users to ensure UI is fully consistent with DB state
+                // loadUsers();
             } catch (error) {
                 alert('Error updating role: ' + error.message);
+            }
+        }
+        // NEW: Handle Toggle Status button click
+        else if (event.target.classList.contains('toggle-status-btn')) {
+            const row = event.target.closest('tr');
+            const uid = row.dataset.uid;
+            const currentDisabledStatus = event.target.dataset.isDisabled === 'true'; // Convert string to boolean
+            const newDisabledStatus = !currentDisabledStatus; // Toggle status
+
+            // Confirmation dialog
+            if (!confirm(`Are you sure you want to ${newDisabledStatus ? 'deactivate' : 'activate'} this user?`)) {
+                return;
+            }
+
+            try {
+                await toggleUserStatusOnServer(uid, newDisabledStatus);
+                alert(`User successfully ${newDisabledStatus ? 'deactivated' : 'activated'}!`);
+                loadUsers(); // Reload users to reflect the new status
+            } catch (error) {
+                alert('Error toggling user status: ' + error.message);
             }
         }
     });
