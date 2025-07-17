@@ -28,7 +28,7 @@ function createUserRow(uid, user) {
     const buttonText = isDisabled ? 'Activate' : 'Deactivate';
     const buttonClass = isDisabled ? 'bg-green-600 hover:bg-green-700' : 'bg-yellow-500 hover:bg-yellow-600';
 
-    // NEW: Conditionally render the 'See Orders' button
+    // Conditionally render the 'See Orders' button
     const seeOrdersButtonHtml = user.role === 'customer' ? `
         <button class="view-orders-btn bg-blue-500 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-blue-600">See Orders</button>
     ` : '';
@@ -77,7 +77,7 @@ async function toggleUserStatusOnServer(uid, disabled) {
     return await response.json();
 }
 
-// --- NEW FUNCTIONS FOR ORDER HISTORY MODAL ---
+// --- FUNCTIONS FOR ORDER HISTORY MODAL ---
 
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
@@ -241,46 +241,55 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
         }
     });
 
+    // Main event listener for buttons in the user list
     panelRoot.addEventListener('click', async (event) => {
-        // Handle Save Role button click
-        if (event.target.classList.contains('save-role-btn')) {
-            const row = event.target.closest('tr');
-            const uid = row.dataset.uid;
-            const newRole = row.querySelector('.role-select').value;
-            try {
-                await setRoleOnServer(uid, newRole);
-                alert('Role updated successfully!');
-            } catch (error) {
-                alert('Error updating role: ' + error.message);
+        // Wrap the entire logic in a try-catch to catch any unexpected errors
+        try {
+            // Handle Save Role button click
+            if (event.target.classList.contains('save-role-btn')) {
+                const row = event.target.closest('tr');
+                const uid = row.dataset.uid;
+                const newRole = row.querySelector('.role-select').value;
+                try {
+                    await setRoleOnServer(uid, newRole);
+                    alert('Role updated successfully!');
+                } catch (error) {
+                    alert('Error updating role: ' + error.message);
+                }
             }
-        }
-        // Handle Toggle Status button click
-        else if (event.target.classList.contains('toggle-status-btn')) {
-            const row = event.target.closest('tr');
-            const uid = row.dataset.uid;
-            const currentDisabledStatus = event.target.dataset.isDisabled === 'true'; // Convert string to boolean
-            const newDisabledStatus = !currentDisabledStatus; // Toggle status
+            // Handle Toggle Status button click
+            else if (event.target.classList.contains('toggle-status-btn')) {
+                const row = event.target.closest('tr');
+                const uid = row.dataset.uid;
+                const currentDisabledStatus = event.target.dataset.isDisabled === 'true';
+                const newDisabledStatus = !currentDisabledStatus;
 
-            if (!confirm(`Are you sure you want to ${newDisabledStatus ? 'deactivate' : 'activate'} this user?`)) {
-                return;
-            }
+                if (!confirm(`Are you sure you want to ${newDisabledStatus ? 'deactivate' : 'activate'} this user?`)) {
+                    return;
+                }
 
-            try {
-                await toggleUserStatusOnServer(uid, newDisabledStatus);
-                alert(`User successfully ${newDisabledStatus ? 'deactivated' : 'activated'}!`);
-                loadUsers(); // Reload users to reflect the new status
-            } catch (error) {
-                alert('Error toggling user status: ' + error.message);
+                try {
+                    await toggleUserStatusOnServer(uid, newDisabledStatus);
+                    alert(`User successfully ${newDisabledStatus ? 'deactivated' : 'activated'}!`);
+                    loadUsers();
+                } catch (error) {
+                    alert('Error toggling user status: ' + error.message);
+                }
             }
-        }
-        // NEW: Handle View Orders button click
-        else if (event.target.classList.contains('view-orders-btn')) {
-            const row = event.target.closest('tr');
-            const uid = row.dataset.uid;
-            const userName = row.dataset.userName; // Get the user's name from data-attribute
-            
-            await loadUserOrdersIntoModal(uid, userName); // Load orders into the modal
-            openModal('orders-history-modal'); // Open the modal
+            // Handle View Orders button click
+            else if (event.target.classList.contains('view-orders-btn')) {
+                const row = event.target.closest('tr');
+                const uid = row.dataset.uid;
+                const userName = row.dataset.userName;
+                
+                await loadUserOrdersIntoModal(uid, userName);
+                openModal('orders-history-modal');
+            }
+        } catch (error) {
+            // Log the error to the console for debugging
+            console.error("An unexpected error occurred in User Management actions:", error);
+            // Optionally, provide an alert to the user
+            alert("An unexpected error occurred. Please check the console for details.");
         }
     });
 }
