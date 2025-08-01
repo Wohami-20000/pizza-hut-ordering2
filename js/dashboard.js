@@ -105,7 +105,7 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
 
         if (typeof panelModuleToLoad === 'function') {
             panelRoot.innerHTML = '';
-            panelModuleToLoad(panelRoot, panelTitle, navContainer);
+            panelModuleToLoad(panelRoot, panelTitle, navContainer, db, auth);
 
             userInfo.innerHTML = `
                 <i class="fas fa-user-circle text-gray-400 text-3xl"></i>

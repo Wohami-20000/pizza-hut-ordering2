@@ -1,7 +1,4 @@
-import { db, auth } from '../firebase.js';
-
-export function loadPanel() {
-  const root = document.getElementById("panel-root");
+export function loadPanel(root, panelTitle, navContainer, db, auth) {
   root.innerHTML = `
     <h2 class="text-2xl font-bold mb-4">👥 User Management</h2>
 
