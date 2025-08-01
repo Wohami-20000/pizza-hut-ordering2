@@ -27,16 +27,25 @@ export function loadPanel(root, panelTitle, navContainer, database, authenticati
     <div class="mb-4">
       <input type="text" id="search-user" placeholder="Search by email..." class="border p-2 w-1/3">
     </div>
-    <div class="mb-4">
-      <h3 class="font-semibold">➕ Add New Team Member</h3>
-      <input type="email" id="new-user-email" placeholder="Email" class="border p-2">
-      <select id="new-user-role" class="border p-2">
-        <option value="manager">Manager</option>
-        <option value="staff">Staff</option>
-        <option value="delivery">Delivery</option>
-      </select>
-      <button id="add-user-btn" class="bg-green-500 text-white p-2 rounded">Add User</button>
+
+    <div class="mb-6 p-4 border rounded-lg">
+      <h3 class="font-semibold text-lg mb-4">➕ Add New Team Member</h3>
+      <form id="add-user-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input type="text" id="new-user-name" placeholder="Full Name" class="border p-2 rounded-md" required>
+        <input type="email" id="new-user-email" placeholder="Email" class="border p-2 rounded-md" required>
+        <input type="password" id="new-user-password" placeholder="Temporary Password" class="border p-2 rounded-md" required>
+        <input type="tel" id="new-user-phone" placeholder="Mobile Number" class="border p-2 rounded-md">
+        <input type="text" id="new-user-address" placeholder="Address" class="border p-2 rounded-md md:col-span-2">
+        <select id="new-user-role" class="border p-2 rounded-md">
+          <option value="manager">Manager</option>
+          <option value="staff">Staff</option>
+          <option value="delivery">Delivery</option>
+          <option value="owner">Owner</option>
+        </select>
+        <button type="submit" id="add-user-btn" class="bg-green-500 text-white p-2 rounded-md">Add User</button>
+      </form>
     </div>
+
     <table class="min-w-full text-left border">
       <thead>
         <tr>
@@ -54,7 +63,7 @@ export function loadPanel(root, panelTitle, navContainer, database, authenticati
   `;
 
   document.getElementById('search-user').addEventListener('input', filterUsers);
-  document.getElementById('add-user-btn').addEventListener('click', addNewUser);
+  document.getElementById('add-user-form').addEventListener('submit', addNewUser);
 
   fetchAllUsers();
 }
@@ -62,7 +71,7 @@ export function loadPanel(root, panelTitle, navContainer, database, authenticati
 let allUsers = {};
 
 function fetchAllUsers() {
-  db.ref('users').once('value', snapshot => {
+  db.ref('users').on('value', snapshot => {
     allUsers = snapshot.val() || {};
     renderUsers(allUsers);
   });
@@ -85,7 +94,6 @@ function createUserRow(uid, user) {
 
   const status = user.disabled ? 'Suspended' : 'Active';
   
-  // Get the first address as the main address
   let mainAddress = 'N/A';
   if (user.addresses) {
       const firstAddressKey = Object.keys(user.addresses)[0];
@@ -93,7 +101,7 @@ function createUserRow(uid, user) {
       mainAddress = `${firstAddress.street}, ${firstAddress.city}`;
   }
 
-  // Conditionally render the "View Orders" link
+
   const viewOrdersLink = user.role === 'customer' 
     ? `<a href="user-orders.html?uid=${uid}" class="text-green-500 ml-2">View Orders</a>`
     : '';
@@ -127,9 +135,20 @@ window.updateUserRole = function(uid, newRole) {
 };
 
 window.toggleUserStatus = function(uid, disable) {
-  db.ref(`users/${uid}/disabled`).set(disable)
-    .then(() => alert(`User ${disable ? 'suspended' : 'activated'}.`))
-    .catch(err => console.error('Failed to toggle status:', err));
+    const currentUser = auth.currentUser;
+    currentUser.getIdToken().then(idToken => {
+        fetch('http://localhost:3000/toggle-user-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`
+            },
+            body: JSON.stringify({ uid, disabled: disable })
+        })
+        .then(response => response.json())
+        .then(data => alert(data.message || data.error))
+        .catch(err => console.error('Failed to toggle status:', err));
+    });
 };
 
 window.sendPasswordReset = function(email) {
@@ -138,9 +157,6 @@ window.sendPasswordReset = function(email) {
     .then(() => alert(`Password reset sent to ${email}`))
     .catch(err => console.error('Failed to send reset email:', err));
 };
-
-// This function is no longer needed in admin.js
-// window.viewUserOrders = function(uid) { ... };
 
 function filterUsers(event) {
   const query = event.target.value.toLowerCase();
@@ -153,19 +169,39 @@ function filterUsers(event) {
   renderUsers(filtered);
 }
 
-function addNewUser() {
-  const email = document.getElementById('new-user-email').value.trim();
-  const role = document.getElementById('new-user-role').value;
+function addNewUser(event) {
+    event.preventDefault();
+    const name = document.getElementById('new-user-name').value.trim();
+    const email = document.getElementById('new-user-email').value.trim();
+    const password = document.getElementById('new-user-password').value.trim();
+    const phone = document.getElementById('new-user-phone').value.trim();
+    const address = document.getElementById('new-user-address').value.trim();
+    const role = document.getElementById('new-user-role').value;
 
-  if (!email) return alert('Please provide an email.');
+    if (!email || !password || !name) {
+        return alert('Please provide a name, email, and a temporary password.');
+    }
 
-  const newUserRef = db.ref('users').push();
-  newUserRef.set({
-    email: email,
-    role: role,
-    disabled: false
-  }).then(() => {
-    alert('New team member added.');
-    fetchAllUsers();
-  }).catch(err => console.error('Failed to add user:', err));
+    const currentUser = auth.currentUser;
+    currentUser.getIdToken().then(idToken => {
+        fetch('http://localhost:3000/create-user', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`
+            },
+            body: JSON.stringify({ name, email, password, phone, address, role })
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message || data.error);
+            if (data.message) {
+                document.getElementById('add-user-form').reset();
+            }
+        })
+        .catch(err => {
+            console.error('Failed to add user:', err);
+            alert('An error occurred while adding the user.');
+        });
+    });
 }
