@@ -1,4 +1,10 @@
-export function loadPanel(root, panelTitle, navContainer, db, auth) {
+let db, auth; // Declare db and auth at the module level
+
+export function loadPanel(root, panelTitle, navContainer, database, authentication) {
+  // Assign the passed-in Firebase services to the module-level variables
+  db = database;
+  auth = authentication;
+
   root.innerHTML = `
     <h2 class="text-2xl font-bold mb-4">👥 User Management</h2>
 
