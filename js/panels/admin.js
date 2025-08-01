@@ -1,6 +1,7 @@
-let db, auth; 
+let db, auth; // Declare db and auth at the module level
 
 export function loadPanel(root, panelTitle, navContainer, database, authentication) {
+  // Assign the passed-in Firebase services to the module-level variables
   db = database;
   auth = authentication;
 
@@ -39,7 +40,10 @@ export function loadPanel(root, panelTitle, navContainer, database, authenticati
     <table class="min-w-full text-left border">
       <thead>
         <tr>
+          <th>Full Name</th>
           <th>Email</th>
+          <th>Mobile Number</th>
+          <th>Main Address</th>
           <th>Role</th>
           <th>Status</th>
           <th>Actions</th>
@@ -80,10 +84,22 @@ function createUserRow(uid, user) {
   }).join('');
 
   const status = user.disabled ? 'Suspended' : 'Active';
+  
+  // Get the first address as the main address
+  let mainAddress = 'N/A';
+  if (user.addresses) {
+      const firstAddressKey = Object.keys(user.addresses)[0];
+      const firstAddress = user.addresses[firstAddressKey];
+      mainAddress = `${firstAddress.street}, ${firstAddress.city}`;
+  }
+
 
   return `
     <tr>
+      <td>${user.name || 'N/A'}</td>
       <td>${user.email || 'N/A'}</td>
+      <td>${user.phone || 'N/A'}</td>
+      <td>${mainAddress}</td>
       <td>
         <select onchange="updateUserRole('${uid}', this.value)">
           ${roleOptions}
@@ -147,6 +163,8 @@ function addNewUser() {
 
   if (!email) return alert('Please provide an email.');
 
+  // This assumes you have logic elsewhere to create the user in Firebase Auth
+  // Here we just create their role entry in the database
   const newUserRef = db.ref('users').push();
   newUserRef.set({
     email: email,
