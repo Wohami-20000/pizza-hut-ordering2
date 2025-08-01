@@ -93,6 +93,11 @@ function createUserRow(uid, user) {
       mainAddress = `${firstAddress.street}, ${firstAddress.city}`;
   }
 
+  // Conditionally render the "View Orders" link
+  const viewOrdersLink = user.role === 'customer' 
+    ? `<a href="user-orders.html?uid=${uid}" class="text-green-500 ml-2">View Orders</a>`
+    : '';
+
 
   return `
     <tr>
@@ -109,7 +114,7 @@ function createUserRow(uid, user) {
       <td>
         <button onclick="toggleUserStatus('${uid}', ${user.disabled ? 'false' : 'true'})" class="text-red-500">${user.disabled ? 'Activate' : 'Suspend'}</button>
         <button onclick="sendPasswordReset('${user.email}')" class="text-blue-500 ml-2">Reset Password</button>
-        <button onclick="viewUserOrders('${uid}')" class="text-green-500 ml-2">View Orders</button>
+        ${viewOrdersLink}
       </td>
     </tr>
   `;
@@ -134,17 +139,8 @@ window.sendPasswordReset = function(email) {
     .catch(err => console.error('Failed to send reset email:', err));
 };
 
-window.viewUserOrders = function(uid) {
-  db.ref('orders').orderByChild('customerInfo/userId').equalTo(uid).once('value', snapshot => {
-    const orders = snapshot.val();
-    if (!orders) {
-      alert('No orders found for this user.');
-      return;
-    }
-    console.log(`Orders for user ${uid}:`, orders);
-    alert(`User has ${Object.keys(orders).length} orders. Check console for details.`);
-  });
-};
+// This function is no longer needed in admin.js
+// window.viewUserOrders = function(uid) { ... };
 
 function filterUsers(event) {
   const query = event.target.value.toLowerCase();
@@ -163,8 +159,6 @@ function addNewUser() {
 
   if (!email) return alert('Please provide an email.');
 
-  // This assumes you have logic elsewhere to create the user in Firebase Auth
-  // Here we just create their role entry in the database
   const newUserRef = db.ref('users').push();
   newUserRef.set({
     email: email,
