@@ -79,7 +79,7 @@ function renderUsers(users) {
 }
 
 function createUserRow(uid, user) {
-  const roleOptions = ['admin', 'manager', 'staff', 'delivery', 'customer'].map(role => {
+  const roleOptions = ['admin', 'manager', 'staff', 'delivery', 'owner', 'customer'].map(role => {
     return `<option value="${role}" ${user.role === role ? 'selected' : ''}>${role}</option>`;
   }).join('');
 

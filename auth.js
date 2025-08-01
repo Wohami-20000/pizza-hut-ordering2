@@ -221,6 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     userRef.set({
                         email: user.email,
                         name: user.displayName,
+                        role: 'customer',
                         createdAt: new Date().toISOString()
                     });
                 }
@@ -262,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(userCredential => {
                 const user = userCredential.user;
                 return db.ref('users/' + user.uid).set({
-                    name, email, phone, createdAt: new Date().toISOString()
+                    name, email, phone, role: 'customer', createdAt: new Date().toISOString()
                 }).then(() => {
                     user.sendEmailVerification();
                     handleSuccessfulLogin(user);
