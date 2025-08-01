@@ -1,17 +1,31 @@
-let db, auth; // Declare db and auth at the module level
+let db, auth; 
 
 export function loadPanel(root, panelTitle, navContainer, database, authentication) {
-  // Assign the passed-in Firebase services to the module-level variables
   db = database;
   auth = authentication;
 
+  // --- ADDED NAVIGATION ---
+  panelTitle.textContent = 'User Management';
+  navContainer.innerHTML = `
+    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="users"><i class="fas fa-users-cog mr-3"></i>User Management</a>
+    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="orders"><i class="fas fa-receipt mr-3"></i>Order Management</a>
+    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="menu-items"><i class="fas fa-pizza-slice mr-3"></i>Menu Items</a>
+    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="offers"><i class="fas fa-tags mr-3"></i>Offers</a>
+    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="promo-codes"><i class="fas fa-percent mr-3"></i>Promo Codes</a>
+    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="stock"><i class="fas fa-boxes mr-3"></i>Stock Control</a>
+    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="assign-deliveries"><i class="fas fa-motorcycle mr-3"></i>Assign Deliveries</a>
+    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="team"><i class="fas fa-users mr-3"></i>Team Roster</a>
+    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="feedback"><i class="fas fa-comment-dots mr-3"></i>Feedback</a>
+    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="analytics"><i class="fas fa-chart-line mr-3"></i>Analytics</a>
+    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="system"><i class="fas fa-cogs mr-3"></i>System Config</a>
+  `;
+  // --- END NAVIGATION ---
+
   root.innerHTML = `
     <h2 class="text-2xl font-bold mb-4">👥 User Management</h2>
-
     <div class="mb-4">
       <input type="text" id="search-user" placeholder="Search by email..." class="border p-2 w-1/3">
     </div>
-
     <div class="mb-4">
       <h3 class="font-semibold">➕ Add New Team Member</h3>
       <input type="email" id="new-user-email" placeholder="Email" class="border p-2">
@@ -22,7 +36,6 @@ export function loadPanel(root, panelTitle, navContainer, database, authenticati
       </select>
       <button id="add-user-btn" class="bg-green-500 text-white p-2 rounded">Add User</button>
     </div>
-
     <table class="min-w-full text-left border">
       <thead>
         <tr>
@@ -134,8 +147,6 @@ function addNewUser() {
 
   if (!email) return alert('Please provide an email.');
 
-  // This assumes you have logic elsewhere to create the user in Firebase Auth
-  // Here we just create their role entry in the database
   const newUserRef = db.ref('users').push();
   newUserRef.set({
     email: email,
