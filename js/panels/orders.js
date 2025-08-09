@@ -3,22 +3,61 @@
 const db = firebase.database();
 let allOrdersCache = {};
 let isInitialLoad = true;
+let deliveryStaff = []; // Cache for delivery staff
 
 const STATUS_OPTIONS = ['pending', 'preparing', 'ready', 'out for delivery', 'delivered', 'completed', 'cancelled'];
+
+/**
+ * Fetches users with the 'delivery' role.
+ */
+async function fetchDeliveryStaff() {
+    try {
+        const usersSnapshot = await db.ref('users').orderByChild('role').equalTo('delivery').once('value');
+        deliveryStaff = [];
+        if (usersSnapshot.exists()) {
+            usersSnapshot.forEach(userSnap => {
+                deliveryStaff.push({ uid: userSnap.key, ...userSnap.val() });
+            });
+        }
+    } catch (error) {
+        console.error("Error fetching delivery staff:", error);
+    }
+}
+
 
 /**
  * Creates the HTML for a single order row in the table.
  */
 function createOrderRow(orderId, orderData) {
-    const { customerInfo, timestamp, priceDetails, status } = orderData;
+    const { customerInfo, timestamp, priceDetails, status, orderType } = orderData;
     const customerName = customerInfo ? customerInfo.name : 'N/A';
     const orderDate = new Date(timestamp).toLocaleString();
     const finalTotal = priceDetails ? priceDetails.finalTotal.toFixed(2) : '0.00';
     const isCancellable = status !== 'cancelled' && status !== 'delivered' && status !== 'completed';
 
+    // Determine if the assignment UI should be shown
+    const isAssignable = orderType === 'delivery' && (status === 'preparing' || status === 'ready');
+
     const statusDropdown = STATUS_OPTIONS.map(opt =>
         `<option value="${opt}" ${status === opt ? 'selected' : ''}>${opt.charAt(0).toUpperCase() + opt.slice(1)}</option>`
     ).join('');
+
+    // Generate driver options for the dropdown
+    const driverOptions = deliveryStaff.map(driver =>
+        `<option value="${driver.uid}">${driver.name}</option>`
+    ).join('');
+
+    // Conditionally create the assignment UI
+    const assignmentHtml = isAssignable ? `
+        <div class="mt-2 flex items-center gap-2">
+            <select class="driver-select w-full p-1 border rounded-md text-xs bg-white">
+                <option value="">Assign Driver...</option>
+                ${driverOptions}
+            </select>
+            <button class="assign-driver-btn bg-green-600 text-white px-2 py-1 rounded-md text-xs font-semibold hover:bg-green-700">Assign</button>
+        </div>
+    ` : '';
+
 
     return `
         <tr class="hover:bg-gray-50 transition" data-order-id="${orderId}">
@@ -36,6 +75,7 @@ function createOrderRow(orderId, orderData) {
             <td class="p-3 text-center">
                 <a href="../edit-order.html?orderId=${orderId}" class="edit-order-btn bg-blue-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-blue-600">Edit</a>
                 ${isCancellable ? `<button class="cancel-order-btn bg-red-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-red-600 ml-2">Cancel</button>` : ''}
+                ${assignmentHtml}
             </td>
         </tr>
     `;
@@ -77,9 +117,12 @@ function playNotificationSound() {
 /**
  * Main function to load the Orders Panel.
  */
-export function loadPanel(panelRoot, panelTitle) {
+export async function loadPanel(panelRoot, panelTitle) {
     panelTitle.textContent = 'Order Management';
     isInitialLoad = true;
+    
+    // Fetch delivery staff before rendering anything
+    await fetchDeliveryStaff();
 
     const statusFilterOptions = ['all', ...STATUS_OPTIONS]
         .map(s => `<option value="${s}">${s.charAt(0).toUpperCase() + s.slice(1)}</option>`).join('');
@@ -122,13 +165,37 @@ export function loadPanel(panelRoot, panelTitle) {
         }
     });
 
-    // Event listener for the new cancel button
+    // Combined event listener for cancel and assign buttons
     panelRoot.addEventListener('click', (e) => {
-        if (e.target.classList.contains('cancel-order-btn')) {
-            const orderId = e.target.closest('tr').dataset.orderId;
+        const button = e.target;
+        const row = button.closest('tr');
+        if (!row) return;
+
+        const orderId = row.dataset.orderId;
+
+        if (button.classList.contains('cancel-order-btn')) {
             if (confirm(`Are you sure you want to cancel order #${orderId}? This action cannot be undone.`)) {
                 db.ref(`orders/${orderId}/status`).set('cancelled');
             }
+        } else if (button.classList.contains('assign-driver-btn')) {
+            const selectEl = row.querySelector('.driver-select');
+            const driverUid = selectEl.value;
+
+            if (!driverUid) {
+                alert('Please select a driver first.');
+                return;
+            }
+            
+            const driverName = selectEl.options[selectEl.selectedIndex].text;
+            const updates = {
+                status: 'out for delivery',
+                assignedDriver: {
+                    uid: driverUid,
+                    name: driverName
+                }
+            };
+
+            db.ref(`orders/${orderId}`).update(updates);
         }
     });
 
