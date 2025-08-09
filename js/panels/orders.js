@@ -31,6 +31,8 @@ async function fetchDeliveryStaff() {
 function createOrderRow(orderId, orderData) {
     const { customerInfo, timestamp, priceDetails, status, orderType, allergyInfo } = orderData;
     const customerName = customerInfo ? customerInfo.name : 'N/A';
+    const customerId = customerInfo ? customerInfo.userId : null;
+    const customerLink = customerId ? `<a href="../user-orders.html?uid=${customerId}" target="_blank" class="text-blue-600 hover:underline">${customerName}</a>` : customerName;
     const orderDate = new Date(timestamp).toLocaleString();
     const finalTotal = priceDetails ? priceDetails.finalTotal.toFixed(2) : '0.00';
     const isCancellable = status !== 'cancelled' && status !== 'delivered' && status !== 'completed';
@@ -65,7 +67,7 @@ function createOrderRow(orderId, orderData) {
             <td class="p-3 text-sm font-medium text-blue-600">
                 <a href="../order-details.html?orderId=${orderId}" target="_blank" class="hover:underline">${orderId}</a>
             </td>
-            <td class="p-3 text-sm text-gray-700">${customerName}</td>
+            <td class="p-3 text-sm text-gray-700">${customerLink}</td>
             <td class="p-3 text-sm text-gray-600">${orderDate}</td>
             <td class="p-3 text-sm capitalize">${orderType.replace(/([A-Z])/g, ' $1').trim()}</td>
             <td class="p-3 text-sm text-gray-600">${notes}</td>
@@ -172,7 +174,9 @@ export async function loadPanel(panelRoot, panelTitle) {
 
     // Combined event listener for cancel and assign buttons
     panelRoot.addEventListener('click', (e) => {
-        const button = e.target;
+        const button = e.target.closest('button');
+        if (!button) return;
+
         const row = button.closest('tr');
         if (!row) return;
 

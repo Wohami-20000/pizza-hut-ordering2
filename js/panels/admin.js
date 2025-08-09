@@ -103,13 +103,17 @@ function createUserRow(uid, user) {
 
 
   const viewOrdersLink = user.role === 'customer' 
-    ? `<a href="user-orders.html?uid=${uid}" class="text-green-500 ml-2">View Orders</a>`
+    ? `<a href="../user-orders.html?uid=${uid}" target="_blank" class="text-green-500 ml-2 hover:underline">View Orders</a>`
     : '';
+  
+  const userNameDisplay = user.role === 'customer'
+    ? `<a href="../user-orders.html?uid=${uid}" target="_blank" class="text-blue-600 hover:underline">${user.name || 'N/A'}</a>`
+    : (user.name || 'N/A');
 
 
   return `
     <tr>
-      <td>${user.name || 'N/A'}</td>
+      <td>${userNameDisplay}</td>
       <td>${user.email || 'N/A'}</td>
       <td>${user.phone || 'N/A'}</td>
       <td>${mainAddress}</td>
