@@ -127,32 +127,36 @@ export function loadPanel(panelRoot, panelTitle) {
         </div>
     `;
 
-    document.getElementById('add-promo-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const newPromo = {
-            name: document.getElementById('promo-name').value,
-            code: document.getElementById('promo-code').value.toUpperCase(),
-            discountType: document.getElementById('promo-discount-type').value,
-            discountValue: parseFloat(document.getElementById('promo-discount-value').value) || 0,
-            minOrderValue: parseFloat(document.getElementById('promo-min-order').value) || 0,
-            totalUsageLimit: parseInt(document.getElementById('promo-total-limit').value) || 0,
-            perUserLimit: parseInt(document.getElementById('promo-user-limit').value) || 0,
-            expiryDate: document.getElementById('promo-expiry').value,
-            createdAt: new Date().toISOString(),
-            isActive: true // New codes are active by default
-        };
-        db.ref('promoCodes').push(newPromo).then(() => e.target.reset());
-    });
-    
-    document.getElementById('promo-list-body').addEventListener('click', (e) => {
-        if (e.target.classList.contains('delete-promo-btn')) {
-            const promoId = e.target.closest('tr').dataset.promoId;
-            if (confirm('Delete this promo code?')) db.ref(`promoCodes/${promoId}`).remove();
+    // --- CONSOLIDATED EVENT LISTENER ---
+    panelRoot.addEventListener('submit', (e) => {
+        if (e.target.id === 'add-promo-form') {
+            e.preventDefault();
+            const newPromo = {
+                name: document.getElementById('promo-name').value,
+                code: document.getElementById('promo-code').value.toUpperCase(),
+                discountType: document.getElementById('promo-discount-type').value,
+                discountValue: parseFloat(document.getElementById('promo-discount-value').value) || 0,
+                minOrderValue: parseFloat(document.getElementById('promo-min-order').value) || 0,
+                totalUsageLimit: parseInt(document.getElementById('promo-total-limit').value) || 0,
+                perUserLimit: parseInt(document.getElementById('promo-user-limit').value) || 0,
+                expiryDate: document.getElementById('promo-expiry').value,
+                createdAt: new Date().toISOString(),
+                isActive: true // New codes are active by default
+            };
+            db.ref('promoCodes').push(newPromo).then(() => e.target.reset());
         }
     });
 
-    // Add event listener for status toggles
-    document.getElementById('promo-list-body').addEventListener('change', (e) => {
+    panelRoot.addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-promo-btn')) {
+            const promoId = e.target.closest('tr').dataset.promoId;
+            if (confirm('Delete this promo code?')) {
+                db.ref(`promoCodes/${promoId}`).remove();
+            }
+        }
+    });
+
+    panelRoot.addEventListener('change', (e) => {
         if (e.target.classList.contains('status-toggle')) {
             const promoId = e.target.closest('tr').dataset.promoId;
             const newStatus = e.target.checked;
