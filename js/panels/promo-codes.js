@@ -3,9 +3,10 @@
 const db = firebase.database();
 
 function createPromoCodeRow(promoId, promoData) {
-    const { name, code, discountType, discountValue, minOrderValue, expiryDate, totalUsageLimit, perUserLimit } = promoData;
+    const { name, code, discountType, discountValue, minOrderValue, expiryDate, totalUsageLimit, perUserLimit, isActive } = promoData;
     const expiry = new Date(expiryDate).toLocaleDateString();
     const isExpired = new Date(expiryDate) < new Date();
+    const isChecked = isActive === false ? '' : 'checked'; // Active by default
 
     let discountDisplay = '';
     if (discountType === 'percentage') {
@@ -20,13 +21,19 @@ function createPromoCodeRow(promoId, promoData) {
     const userLimit = perUserLimit > 0 ? perUserLimit : '∞';
 
     return `
-        <tr class="hover:bg-gray-50 ${isExpired ? 'bg-red-50 opacity-60' : ''}" data-promo-id="${promoId}">
+        <tr class="hover:bg-gray-50 ${isExpired || !isActive ? 'bg-gray-100 opacity-60' : ''}" data-promo-id="${promoId}">
             <td class="p-3 font-medium">${name}</td>
             <td class="p-3 font-mono">${code}</td>
             <td class="p-3">${discountDisplay}</td>
             <td class="p-3">${minOrderValue.toFixed(2)} MAD</td>
             <td class="p-3 text-center">${totalLimit} / ${userLimit}</td>
             <td class="p-3 ${isExpired ? 'text-red-500 font-bold' : ''}">${expiry}</td>
+            <td class="p-3 text-center">
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" value="" class="sr-only peer status-toggle" ${isChecked}>
+                    <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                </label>
+            </td>
             <td class="p-3 text-center">
                 <button class="delete-promo-btn bg-red-500 text-white px-3 py-1 text-xs rounded-md hover:bg-red-600">Delete</button>
             </td>
@@ -45,7 +52,7 @@ function loadPromoCodes() {
                 promoListBody.innerHTML += createPromoCodeRow(promo.id, promo);
             });
         } else {
-            promoListBody.innerHTML = '<tr><td colspan="7" class="text-center p-4">No promo codes found.</td></tr>';
+            promoListBody.innerHTML = '<tr><td colspan="8" class="text-center p-4">No promo codes found.</td></tr>';
         }
     });
 }
@@ -109,6 +116,7 @@ export function loadPanel(panelRoot, panelTitle) {
                                 <th class="p-3 text-left text-xs uppercase">Min. Order</th>
                                 <th class="p-3 text-center text-xs uppercase">Limits (Total/User)</th>
                                 <th class="p-3 text-left text-xs uppercase">Expires</th>
+                                <th class="p-3 text-center text-xs uppercase">Status</th>
                                 <th class="p-3 text-center text-xs uppercase">Actions</th>
                             </tr>
                         </thead>
@@ -130,7 +138,8 @@ export function loadPanel(panelRoot, panelTitle) {
             totalUsageLimit: parseInt(document.getElementById('promo-total-limit').value) || 0,
             perUserLimit: parseInt(document.getElementById('promo-user-limit').value) || 0,
             expiryDate: document.getElementById('promo-expiry').value,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            isActive: true // New codes are active by default
         };
         db.ref('promoCodes').push(newPromo).then(() => e.target.reset());
     });
@@ -141,6 +150,16 @@ export function loadPanel(panelRoot, panelTitle) {
             if (confirm('Delete this promo code?')) db.ref(`promoCodes/${promoId}`).remove();
         }
     });
+
+    // Add event listener for status toggles
+    document.getElementById('promo-list-body').addEventListener('change', (e) => {
+        if (e.target.classList.contains('status-toggle')) {
+            const promoId = e.target.closest('tr').dataset.promoId;
+            const newStatus = e.target.checked;
+            db.ref(`promoCodes/${promoId}/isActive`).set(newStatus);
+        }
+    });
+
 
     loadPromoCodes();
 }
