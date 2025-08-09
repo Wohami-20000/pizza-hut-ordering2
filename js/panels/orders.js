@@ -32,7 +32,7 @@ function createOrderRow(orderId, orderData) {
     const { customerInfo, timestamp, priceDetails, status, orderType, allergyInfo } = orderData;
     const customerName = customerInfo ? customerInfo.name : 'N/A';
     const customerId = customerInfo ? customerInfo.userId : null;
-    const customerLink = customerId ? `<a href="../user-orders.html?uid=${customerId}" target="_blank" class="text-blue-600 hover:underline">${customerName}</a>` : customerName;
+    const customerLink = customerId ? `<a href="../customer-details.html?uid=${customerId}" target="_blank" class="text-blue-600 hover:underline">${customerName}</a>` : customerName;
     const orderDate = new Date(timestamp).toLocaleString();
     const finalTotal = priceDetails ? priceDetails.finalTotal.toFixed(2) : '0.00';
     const isCancellable = status !== 'cancelled' && status !== 'delivered' && status !== 'completed';
