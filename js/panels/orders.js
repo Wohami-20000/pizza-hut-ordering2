@@ -66,6 +66,7 @@ function createOrderRow(orderId, orderData) {
             </td>
             <td class="p-3 text-sm text-gray-700">${customerName}</td>
             <td class="p-3 text-sm text-gray-600">${orderDate}</td>
+            <td class="p-3 text-sm capitalize">${orderType.replace(/([A-Z])/g, ' $1').trim()}</td>
             <td class="p-3 text-sm font-semibold">${finalTotal} MAD</td>
             <td class="p-3">
                 <select class="status-select w-full p-2 border rounded-md text-sm bg-white">
@@ -104,7 +105,7 @@ function renderFilteredOrders() {
 
     orderListBody.innerHTML = filteredOrders.length
         ? filteredOrders.map(order => createOrderRow(order.id, order)).join('')
-        : `<tr><td colspan="6" class="text-center p-4 text-gray-500">No matching orders found.</td></tr>`;
+        : `<tr><td colspan="7" class="text-center p-4 text-gray-500">No matching orders found.</td></tr>`;
 }
 
 function playNotificationSound() {
@@ -141,13 +142,14 @@ export async function loadPanel(panelRoot, panelTitle) {
                             <th class="p-3 text-left text-xs font-semibold uppercase">Order ID</th>
                             <th class="p-3 text-left text-xs font-semibold uppercase">Customer</th>
                             <th class="p-3 text-left text-xs font-semibold uppercase">Date</th>
+                            <th class="p-3 text-left text-xs font-semibold uppercase">Type</th>
                             <th class="p-3 text-left text-xs font-semibold uppercase">Total</th>
                             <th class="p-3 text-left text-xs font-semibold uppercase">Status</th>
                             <th class="p-3 text-center text-xs font-semibold uppercase">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="order-list-body" class="divide-y divide-gray-200">
-                        <tr><td colspan="6" class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl text-brand-red"></i></td></tr>
+                        <tr><td colspan="7" class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl text-brand-red"></i></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -203,7 +205,7 @@ export async function loadPanel(panelRoot, panelTitle) {
     ordersRef.on('value', (snapshot) => {
         if (!snapshot.exists()) {
             allOrdersCache = {};
-            document.getElementById('order-list-body').innerHTML = '<tr><td colspan="6" class="text-center p-4">No orders found.</td></tr>';
+            document.getElementById('order-list-body').innerHTML = '<tr><td colspan="7" class="text-center p-4">No orders found.</td></tr>';
             return;
         }
 
