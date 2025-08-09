@@ -3,7 +3,7 @@
 const db = firebase.database();
 
 function createPromoCodeRow(promoId, promoData) {
-    const { name, code, discountType, discountValue, minOrderValue, expiryDate } = promoData;
+    const { name, code, discountType, discountValue, minOrderValue, expiryDate, totalUsageLimit, perUserLimit } = promoData;
     const expiry = new Date(expiryDate).toLocaleDateString();
     const isExpired = new Date(expiryDate) < new Date();
 
@@ -16,12 +16,16 @@ function createPromoCodeRow(promoId, promoData) {
         discountDisplay = 'Free Delivery';
     }
 
+    const totalLimit = totalUsageLimit > 0 ? totalUsageLimit : '∞';
+    const userLimit = perUserLimit > 0 ? perUserLimit : '∞';
+
     return `
         <tr class="hover:bg-gray-50 ${isExpired ? 'bg-red-50 opacity-60' : ''}" data-promo-id="${promoId}">
             <td class="p-3 font-medium">${name}</td>
             <td class="p-3 font-mono">${code}</td>
             <td class="p-3">${discountDisplay}</td>
             <td class="p-3">${minOrderValue.toFixed(2)} MAD</td>
+            <td class="p-3 text-center">${totalLimit} / ${userLimit}</td>
             <td class="p-3 ${isExpired ? 'text-red-500 font-bold' : ''}">${expiry}</td>
             <td class="p-3 text-center">
                 <button class="delete-promo-btn bg-red-500 text-white px-3 py-1 text-xs rounded-md hover:bg-red-600">Delete</button>
@@ -41,7 +45,7 @@ function loadPromoCodes() {
                 promoListBody.innerHTML += createPromoCodeRow(promo.id, promo);
             });
         } else {
-            promoListBody.innerHTML = '<tr><td colspan="6" class="text-center p-4">No promo codes found.</td></tr>';
+            promoListBody.innerHTML = '<tr><td colspan="7" class="text-center p-4">No promo codes found.</td></tr>';
         }
     });
 }
@@ -79,6 +83,14 @@ export function loadPanel(panelRoot, panelTitle) {
                         <input type="number" id="promo-min-order" step="0.01" value="0" required class="w-full mt-1 p-2 border rounded-md">
                     </div>
                     <div>
+                        <label for="promo-total-limit" class="block text-sm font-medium">Total Usage Limit (0 for unlimited)</label>
+                        <input type="number" id="promo-total-limit" step="1" value="0" required class="w-full mt-1 p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="promo-user-limit" class="block text-sm font-medium">Limit Per User (0 for unlimited)</label>
+                        <input type="number" id="promo-user-limit" step="1" value="0" required class="w-full mt-1 p-2 border rounded-md">
+                    </div>
+                    <div>
                         <label for="promo-expiry" class="block text-sm font-medium">Expiry Date</label>
                         <input type="date" id="promo-expiry" required class="w-full mt-1 p-2 border rounded-md">
                     </div>
@@ -95,6 +107,7 @@ export function loadPanel(panelRoot, panelTitle) {
                                 <th class="p-3 text-left text-xs uppercase">Code</th>
                                 <th class="p-3 text-left text-xs uppercase">Discount</th>
                                 <th class="p-3 text-left text-xs uppercase">Min. Order</th>
+                                <th class="p-3 text-center text-xs uppercase">Limits (Total/User)</th>
                                 <th class="p-3 text-left text-xs uppercase">Expires</th>
                                 <th class="p-3 text-center text-xs uppercase">Actions</th>
                             </tr>
@@ -114,6 +127,8 @@ export function loadPanel(panelRoot, panelTitle) {
             discountType: document.getElementById('promo-discount-type').value,
             discountValue: parseFloat(document.getElementById('promo-discount-value').value) || 0,
             minOrderValue: parseFloat(document.getElementById('promo-min-order').value) || 0,
+            totalUsageLimit: parseInt(document.getElementById('promo-total-limit').value) || 0,
+            perUserLimit: parseInt(document.getElementById('promo-user-limit').value) || 0,
             expiryDate: document.getElementById('promo-expiry').value,
             createdAt: new Date().toISOString()
         };
