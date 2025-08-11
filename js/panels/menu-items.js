@@ -15,9 +15,11 @@ function createMenuItemRow(categoryId, itemId, itemData) {
     const descSnippet = description ? (description.length > 50 ? description.substring(0, 50) + '...' : description) : 'N/A';
     const priceDisplay = typeof price === 'number' ? price.toFixed(2) : 'N/A';
     const isChecked = inStock === false ? '' : 'checked'; // In stock by default
+    const stockText = inStock === false ? 'Out of Stock' : 'In Stock';
+    const stockTextColor = inStock === false ? 'text-red-500' : 'text-green-600';
 
     return `
-        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out ${inStock === false ? 'bg-gray-100 opacity-50' : ''}" data-category-id="${categoryId}" data-item-id="${itemId}">
+        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out ${inStock === false ? 'bg-gray-100 opacity-60' : ''}" data-category-id="${categoryId}" data-item-id="${itemId}">
             <td class="px-4 py-3 text-sm text-gray-700 font-medium">
                 <div class="flex items-center">
                     <img src="${imageUrl}" alt="${name}" class="w-10 h-10 rounded-md object-cover mr-3 shadow-sm">
@@ -35,6 +37,7 @@ function createMenuItemRow(categoryId, itemId, itemData) {
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" value="" class="sr-only peer stock-toggle" ${isChecked}>
                     <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                    <span class="ml-3 text-sm font-medium ${stockTextColor}">${stockText}</span>
                 </label>
             </td>
             <td class="px-4 py-3 text-center text-sm">
