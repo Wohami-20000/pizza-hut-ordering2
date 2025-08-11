@@ -206,7 +206,7 @@ export function loadPanel(panelRoot, panelTitle) {
     editModalTitle = document.getElementById('edit-modal-title');
     editForm = document.getElementById('edit-ingredient-form');
 
-
+    // Attach event listeners
     document.getElementById('add-ingredient-form').addEventListener('submit', (e) => { e.preventDefault(); /* ... */ });
     document.getElementById('inventory-tbody').addEventListener('click', (e) => { /* ... */ });
     document.getElementById('clear-form-btn').addEventListener('click', () => document.getElementById('ingredient-form').reset());
