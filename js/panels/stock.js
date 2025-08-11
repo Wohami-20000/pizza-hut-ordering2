@@ -2,7 +2,7 @@
 
 const db = firebase.database();
 
-// --- MODAL ELEMENTS ---
+// --- MODAL ELEMENTS (will be found in dashboard.html) ---
 let editModal, editModalTitle, editForm, reportModal, endOfDayModal;
 let currentIngredientId = '';
 let fullInventoryData = {}; // Cache for all inventory items
@@ -197,15 +197,15 @@ export function loadPanel(panelRoot, panelTitle) {
             <div class="bg-white rounded-xl shadow-lg p-6"><h3 id="form-title" class="text-xl font-bold mb-4 border-b pb-3">Add New Ingredient</h3><form id="ingredient-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"><input type="hidden" id="ingredient-id"><div><label for="ingredient-name" class="block text-sm font-medium">Name</label><input type="text" id="ingredient-name" required placeholder="e.g., Mozzarella Cheese" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="ingredient-category" class="block text-sm font-medium">Category</label><input type="text" id="ingredient-category" placeholder="e.g., Dairy" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="ingredient-unit" class="block text-sm font-medium">Unit</label><input type="text" id="ingredient-unit" required placeholder="e.g., kg, L, units" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="opening-stock" class="block text-sm font-medium">Current Stock</label><input type="number" id="opening-stock" step="0.01" required value="0" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="value-per-unit" class="block text-sm font-medium">Value per Unit (MAD)</label><input type="number" id="value-per-unit" step="0.01" required value="0" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="supplier" class="block text-sm font-medium">Supplier</label><input type="text" id="supplier" placeholder="Supplier Name/Contact" class="w-full mt-1 p-2 border rounded-md"></div><div class="md:col-span-2 lg:col-span-3 flex justify-end gap-4"><button type="button" id="clear-form-btn" class="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300">Clear</button><button type="submit" class="bg-green-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-green-700">Save Ingredient</button></div></form></div>
             <div class="bg-white rounded-xl shadow-lg p-6"><h3 class="text-xl font-bold mb-4 border-b pb-3">Ingredient & Supply Master Table</h3><div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-gray-50"><tr><th class="p-2 text-left font-semibold">Name</th><th class="p-2 text-left font-semibold">Category</th><th class="p-2 text-center font-semibold">Unit</th><th class="p-2 text-center font-semibold">Opening Stock</th><th class="p-2 text-center font-semibold">Theoretical Stock</th><th class="p-2 text-center font-semibold">Variance</th><th class="p-2 text-center font-semibold">Value/Unit</th><th class="p-2 text-left font-semibold">Supplier</th><th class="p-2 text-center font-semibold">Actions</th></tr></thead><tbody id="inventory-tbody" class="divide-y"></tbody></table></div></div>
         </div>
-
-        <div id="end-of-day-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50"><div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-lg"><h3 class="text-xl font-bold mb-4">End of Day Count</h3><form id="eod-form"><div class="max-h-96 overflow-y-auto"><table class="min-w-full"><thead><tr><th class="text-left py-2">Ingredient</th><th class="text-left py-2">Actual Closing Stock</th></tr></thead><tbody id="eod-tbody"></tbody></table></div><div class="flex justify-end gap-4 pt-4 border-t mt-4"><button type="button" id="cancel-eod-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button><button type="submit" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">Calculate Variance</button></div></form></div></div>
-        
-        <div id="report-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"><div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-2xl"><h3 id="report-modal-title" class="text-xl font-bold mb-4 border-b pb-2">Report</h3><div id="report-modal-content" class="my-4 max-h-[60vh] overflow-y-auto"></div><div class="flex justify-end gap-4 mt-4"><button id="print-report-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Print</button><button id="close-report-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Close</button></div></div></div>
     `;
 
-    editModal = document.getElementById('edit-ingredient-modal'); // Assuming you add this back in
+    // Cache modal elements from dashboard.html
+    editModal = document.getElementById('edit-ingredient-modal');
     reportModal = document.getElementById('report-modal');
     endOfDayModal = document.getElementById('end-of-day-modal');
+    editModalTitle = document.getElementById('edit-modal-title');
+    editForm = document.getElementById('edit-ingredient-form');
+
 
     document.getElementById('add-ingredient-form').addEventListener('submit', (e) => { e.preventDefault(); /* ... */ });
     document.getElementById('inventory-tbody').addEventListener('click', (e) => { /* ... */ });
