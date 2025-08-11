@@ -40,9 +40,11 @@ function createMenuItemRow(categoryId, itemId, itemData) {
 // --- MODAL FUNCTIONS ---
 function openEditModal(id, data) {
     currentEditId = id;
+    const formFieldsContainer = document.getElementById('edit-form-fields');
+    if (!formFieldsContainer) return;
 
     editModalTitle.textContent = `Edit Menu Item`;
-    editForm.innerHTML = ''; // Clear previous form content
+    formFieldsContainer.innerHTML = ''; // Clear previous form content
 
     let formHtml = `
         <input type="hidden" id="edit-item-category-id" value="${data.category}">
@@ -86,7 +88,7 @@ function openEditModal(id, data) {
         </div>
     `;
     
-    editForm.innerHTML = formHtml;
+    formFieldsContainer.innerHTML = formHtml;
     editModal.classList.remove('hidden');
 
     const sizesContainer = document.getElementById('edit-item-sizes-container');
@@ -103,8 +105,6 @@ function openEditModal(id, data) {
 
 function closeEditModal() {
     editModal.classList.add('hidden');
-    editForm.reset(); // Clear form fields
-    currentEditId = '';
 }
 
 // Helper function to add a size input field
@@ -137,10 +137,6 @@ function addOptionField(container, name = '', price = '') {
 async function saveEditedEntity(event) {
     event.preventDefault(); // Prevent default form submission
 
-    let updatedData = {};
-    let dbRef;
-
-    // This panel only handles 'item' type now
     const categoryId = document.getElementById('edit-item-category-id').value;
     const newBasePrice = parseFloat(document.getElementById('edit-item-price').value);
 
@@ -154,43 +150,41 @@ async function saveEditedEntity(event) {
         }
     });
     
-    // Ensure at least one size exists, or default to a "Regular" size based on the base price
     if (sizes.length === 0 && !isNaN(newBasePrice)) {
             sizes.push({ size: "Regular", price: newBasePrice });
     }
-
 
     // Collect recipes
     const recipesInput = document.getElementById('edit-item-recipes').value.trim();
     const recipes = recipesInput ? recipesInput.split(',').map(r => r.trim()).filter(r => r) : [];
 
-    // Collect options (add-ons)
+    // Collect options
     const options = [];
     document.querySelectorAll('#edit-item-options-container .flex').forEach(row => {
         const optionName = row.querySelector('.option-name-input').value.trim();
         const optionPrice = parseFloat(row.querySelector('.option-price-input').value);
         if (optionName && !isNaN(optionPrice)) {
-            options.push({ name: optionName, price: { Triple: optionPrice } }); // Assuming 'Triple' is the key expected by item-details.js
+            options.push({ name: optionName, price: { Triple: optionPrice } });
         }
     });
 
-    updatedData = {
+    const updatedData = {
         name: document.getElementById('edit-item-name').value,
         description: document.getElementById('edit-item-description').value,
-        price: newBasePrice, // This will be the default price if no sizes are chosen
+        price: newBasePrice,
         image_url: document.getElementById('edit-item-image-url').value,
         sizes: sizes,
         recipes: recipes,
         options: options,
-        allergies: document.getElementById('edit-item-allergies').value.trim() // Get allergies field value
+        allergies: document.getElementById('edit-item-allergies').value.trim()
     };
-    dbRef = db.ref(`menu/${categoryId}/items/${currentEditId}`);
+    const dbRef = db.ref(`menu/${categoryId}/items/${currentEditId}`);
 
     try {
         await dbRef.update(updatedData);
         alert(`Item updated successfully!`);
         closeEditModal();
-        loadMenuItems(); // Re-render the list to show updated data
+        loadMenuItems();
     } catch (error) {
         console.error(`Error updating item:`, error);
         alert(`Failed to update item: ` + error.message);
@@ -219,7 +213,6 @@ function loadMenuItems() {
             } else {
                 menuItemsList.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-gray-500">No menu items found.</td></tr>';
             }
-            // Call populateCategoryDropdown here
             populateCategoryDropdown(); 
         }
     }).catch(error => {
@@ -229,15 +222,12 @@ function loadMenuItems() {
     });
 }
 
-// Moved populateCategoryDropdown outside loadPanel to be globally accessible
 function populateCategoryDropdown() {
     const categorySelect = document.getElementById('new-item-category');
-
     if (!categorySelect) return;
-
     db.ref('menu').once('value')
         .then(snapshot => {
-            categorySelect.innerHTML = '<option value="">Select a category</option>'; // Reset dropdown
+            categorySelect.innerHTML = '<option value="">Select a category</option>';
             if (snapshot.exists()) {
                 snapshot.forEach(categorySnap => {
                     const categoryName = categorySnap.val().category;
@@ -248,18 +238,14 @@ function populateCategoryDropdown() {
                     categorySelect.appendChild(option);
                 });
             }
-        })
-        .catch(error => {
-            console.error("Error populating categories:", error);
         });
 }
 
 
 // --- MAIN PANEL LOAD FUNCTION ---
-export function loadPanel(panelRoot, panelTitle, navContainer) {
+export function loadPanel(panelRoot, panelTitle) {
     panelTitle.textContent = 'Menu Items Management';
 
-    // Combine "Current Menu Items" and "Add New Item" into one section
     panelRoot.innerHTML = `
         <div id="menu-items-section" class="bg-white rounded-xl shadow-lg p-6 animate-fadeInUp">
             <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">Add New Menu Item</h2>
@@ -332,11 +318,12 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
         </div>
 
         <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
-            <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md">
-                <h3 id="edit-modal-title" class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3">Edit Item</h3>
-                <form id="edit-form" class="space-y-4">
-                    <div class="text-center p-4 text-gray-500">Loading form...</div>
-                    <div class="flex justify-end space-x-2 pt-4">
+            <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg flex flex-col">
+                <h3 id="edit-modal-title" class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3 flex-shrink-0">Edit Item</h3>
+                <form id="edit-form" class="flex-grow overflow-hidden flex flex-col">
+                    <div id="edit-form-fields" class="space-y-4 flex-grow overflow-y-auto pr-4">
+                        </div>
+                    <div class="flex justify-end space-x-2 pt-4 border-t mt-4 flex-shrink-0">
                         <button type="button" id="cancel-edit-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition">Cancel</button>
                         <button type="submit" id="save-edit-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition">Save Changes</button>
                     </div>
@@ -345,43 +332,12 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
         </div>
     `;
 
-    // Initialize modal elements after they are added to the DOM
+    // Initialize modal elements and attach listeners
     editModal = document.getElementById('edit-modal');
     editModalTitle = document.getElementById('edit-modal-title');
     editForm = document.getElementById('edit-form');
     document.getElementById('cancel-edit-btn').addEventListener('click', closeEditModal);
-    document.getElementById('save-edit-btn').addEventListener('click', saveEditedEntity); // Ensure this listener is correctly attached to the save button
-
-
-    // Function to show/hide content sections
-    // This function is simplified as there's only one main content section now
-    const showContentSection = (sectionId) => {
-        document.querySelectorAll('#panel-root > div').forEach(section => {
-            if (section.id !== 'edit-modal') {
-                section.classList.add('hidden');
-            }
-        });
-        document.getElementById(sectionId).classList.remove('hidden');
-
-        // Update active class for nav links
-        document.querySelectorAll('#sidebar-nav a').forEach(link => {
-            link.classList.remove('active-nav-link', 'bg-gray-700', 'text-white');
-        });
-        document.querySelector(`#sidebar-nav a[data-content="${sectionId.replace('-section', '')}"]`)?.classList.add('active-nav-link', 'bg-gray-700', 'text-white');
-    };
-
-    // Event listener for panel navigation
-    navContainer.addEventListener('click', (event) => {
-        const targetLink = event.target.closest('a');
-        if (targetLink && targetLink.dataset.content) {
-            event.preventDefault();
-            const contentId = `${targetLink.dataset.content}-section`;
-            showContentSection(contentId);
-        }
-    });
-
-    // Initial display of menu items section
-    showContentSection('menu-items-section');
+    editForm.addEventListener('submit', saveEditedEntity);
 
     // Load initial data
     loadMenuItems();
@@ -392,7 +348,6 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
         e.preventDefault();
         const newItemPrice = parseFloat(document.getElementById('new-item-price').value);
 
-        // Collect sizes
         const sizes = [];
         document.querySelectorAll('#new-item-sizes-container .flex').forEach(row => {
             const sizeName = row.querySelector('.size-name-input').value.trim();
@@ -401,22 +356,19 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
                 sizes.push({ size: sizeName, price: sizePrice });
             }
         });
-        // If no sizes were explicitly added, add a default 'Regular' size
         if (sizes.length === 0 && !isNaN(newItemPrice)) {
             sizes.push({ size: "Regular", price: newItemPrice });
         }
 
-        // Collect recipes
         const recipesInput = document.getElementById('new-item-recipes').value.trim();
         const recipes = recipesInput ? recipesInput.split(',').map(r => r.trim()).filter(r => r) : [];
 
-        // Collect options (add-ons)
         const options = [];
         document.querySelectorAll('#new-item-options-container .flex').forEach(row => {
             const optionName = row.querySelector('.option-name-input').value.trim();
             const optionPrice = parseFloat(row.querySelector('.option-price-input').value);
             if (optionName && !isNaN(optionPrice)) {
-                options.push({ name: optionName, price: { Triple: optionPrice } }); // Assuming 'Triple' is the key expected by item-details.js
+                options.push({ name: optionName, price: { Triple: optionPrice } });
             }
         });
 
@@ -429,8 +381,8 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
             sizes: sizes,
             recipes: recipes,
             options: options,
-            allergies: document.getElementById('new-item-allergies').value.trim(), // Get allergies field value
-            inStock: true // Default to in stock
+            allergies: document.getElementById('new-item-allergies').value.trim(),
+            inStock: true
         };
 
         if (!newItem.category) {
@@ -439,28 +391,22 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
         }
 
         try {
-            // Use push() to get a Firebase-generated unique key
             const newRef = await db.ref(`menu/${newItem.category}/items`).push();
-            // Set the item data, including the Firebase-generated key as its 'id' property
             await newRef.set({ ...newItem, id: newRef.key });
-
             alert('Item added successfully!');
-            e.target.reset(); // Clear form
-            // Clear dynamic fields manually
+            e.target.reset();
             document.getElementById('new-item-sizes-container').innerHTML = '';
             document.getElementById('new-item-options-container').innerHTML = '';
             document.getElementById('new-item-recipes').value = '';
-            document.getElementById('new-item-allergies').value = ''; // Clear allergies field
-
-            loadMenuItems(); // Re-render menu items to update list
-
+            document.getElementById('new-item-allergies').value = '';
+            loadMenuItems();
         } catch (error) {
             console.error("Error adding item:", error);
             alert("Failed to add item: " + error.message);
         }
     });
 
-    // Add listeners for "Add Size" and "Add Option" buttons for NEW item form
+    // Add listeners for dynamic field buttons
     document.getElementById('add-new-size-btn').addEventListener('click', () => {
         addSizeField(document.getElementById('new-item-sizes-container'));
     });
@@ -469,11 +415,10 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
     });
 
 
-    // --- Event delegation for Edit/Delete buttons ---
+    // Event delegation for Edit/Delete buttons
     panelRoot.addEventListener('click', async (event) => {
         const target = event.target;
 
-        // --- Edit Item ---
         if (target.classList.contains('edit-item-btn')) {
             const row = target.closest('tr');
             const categoryId = row.dataset.categoryId;
@@ -483,7 +428,6 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
                 const itemSnapshot = await db.ref(`menu/${categoryId}/items/${itemId}`).once('value');
                 if (itemSnapshot.exists()) {
                     const itemData = itemSnapshot.val();
-                    // Pass the categoryId as part of itemData for the modal to retrieve later
                     openEditModal(itemId, { ...itemData, category: categoryId });
                 } else {
                     alert('Item not found!');
@@ -493,7 +437,6 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
                 alert("Failed to fetch item details: " + error.message);
             }
         } 
-        // --- Delete Item ---
         else if (target.classList.contains('delete-item-btn')) {
             const row = target.closest('tr');
             const categoryId = row.dataset.categoryId;
@@ -502,7 +445,7 @@ export function loadPanel(panelRoot, panelTitle, navContainer) {
                 try {
                     await db.ref(`menu/${categoryId}/items/${itemId}`).remove();
                     alert('Item deleted successfully!');
-                    loadMenuItems(); // Re-render menu items
+                    loadMenuItems();
                 } catch (error) {
                     console.error("Error deleting item:", error);
                     alert("Failed to delete item: " + error.message);
