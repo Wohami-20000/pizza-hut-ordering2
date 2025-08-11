@@ -10,24 +10,32 @@ let currentEditId = ''; // Firebase key of the item being edited
  * Creates the HTML for a single menu item row.
  */
 function createMenuItemRow(categoryId, itemId, itemData) {
-    const imageUrl = itemData.image_url || 'https://www.pizzahut.ma/images/Default_pizza.png';
-    const description = itemData.description ? (itemData.description.length > 50 ? itemData.description.substring(0, 50) + '...' : itemData.description) : 'N/A';
-    const price = typeof itemData.price === 'number' ? itemData.price.toFixed(2) : 'N/A';
+    const { name, description, price, image_url, inStock } = itemData;
+    const imageUrl = image_url || 'https://www.pizzahut.ma/images/Default_pizza.png';
+    const descSnippet = description ? (description.length > 50 ? description.substring(0, 50) + '...' : description) : 'N/A';
+    const priceDisplay = typeof price === 'number' ? price.toFixed(2) : 'N/A';
+    const isChecked = inStock === false ? '' : 'checked'; // In stock by default
 
     return `
-        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out" data-category-id="${categoryId}" data-item-id="${itemId}">
+        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out ${inStock === false ? 'bg-gray-100 opacity-50' : ''}" data-category-id="${categoryId}" data-item-id="${itemId}">
             <td class="px-4 py-3 text-sm text-gray-700 font-medium">
                 <div class="flex items-center">
-                    <img src="${imageUrl}" alt="${itemData.name}" class="w-10 h-10 rounded-md object-cover mr-3 shadow-sm">
-                    <span>${itemData.name || 'N/A'}</span>
+                    <img src="${imageUrl}" alt="${name}" class="w-10 h-10 rounded-md object-cover mr-3 shadow-sm">
+                    <span>${name || 'N/A'}</span>
                 </div>
             </td>
-            <td class="px-4 py-3 text-sm text-gray-500">${description}</td>
-            <td class="px-4 py-3 text-sm text-gray-700">${price} MAD</td>
+            <td class="px-4 py-3 text-sm text-gray-500">${descSnippet}</td>
+            <td class="px-4 py-3 text-sm text-gray-700">${priceDisplay} MAD</td>
             <td class="px-4 py-3 text-sm text-center">
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                     ${categoryId}
                 </span>
+            </td>
+            <td class="p-4 text-center">
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" value="" class="sr-only peer stock-toggle" ${isChecked}>
+                    <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                </label>
             </td>
             <td class="px-4 py-3 text-center text-sm">
                 <button class="edit-item-btn bg-blue-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-blue-600 transition shadow-sm mr-2">Edit</button>
@@ -94,10 +102,8 @@ function openEditModal(id, data) {
     const sizesContainer = document.getElementById('edit-item-sizes-container');
     const optionsContainer = document.getElementById('edit-item-options-container');
 
-    // Render existing sizes
     (data.sizes || []).forEach(size => addSizeField(sizesContainer, size.size, size.price));
-    // Render existing options
-    (data.options || []).forEach(option => addOptionField(optionsContainer, option.name, option.price.Triple)); // Pass Triple price
+    (data.options || []).forEach(option => addOptionField(optionsContainer, option.name, option.price.Triple));
 
     document.getElementById('add-edit-size-btn').addEventListener('click', () => addSizeField(sizesContainer));
     document.getElementById('add-edit-option-btn').addEventListener('click', () => addOptionField(optionsContainer));
@@ -107,7 +113,6 @@ function closeEditModal() {
     editModal.classList.add('hidden');
 }
 
-// Helper function to add a size input field
 function addSizeField(container, size = '', price = '') {
     const div = document.createElement('div');
     div.className = 'flex gap-2 items-center';
@@ -120,7 +125,6 @@ function addSizeField(container, size = '', price = '') {
     container.appendChild(div);
 }
 
-// Helper function to add an option input field
 function addOptionField(container, name = '', price = '') {
     const div = document.createElement('div');
     div.className = 'flex gap-2 items-center';
@@ -133,14 +137,10 @@ function addOptionField(container, name = '', price = '') {
     container.appendChild(div);
 }
 
-
 async function saveEditedEntity(event) {
-    event.preventDefault(); // Prevent default form submission
-
+    event.preventDefault();
     const categoryId = document.getElementById('edit-item-category-id').value;
     const newBasePrice = parseFloat(document.getElementById('edit-item-price').value);
-
-    // Collect sizes
     const sizes = [];
     document.querySelectorAll('#edit-item-sizes-container .flex').forEach(row => {
         const sizeName = row.querySelector('.size-name-input').value.trim();
@@ -149,16 +149,11 @@ async function saveEditedEntity(event) {
             sizes.push({ size: sizeName, price: sizePrice });
         }
     });
-    
     if (sizes.length === 0 && !isNaN(newBasePrice)) {
-            sizes.push({ size: "Regular", price: newBasePrice });
+        sizes.push({ size: "Regular", price: newBasePrice });
     }
-
-    // Collect recipes
     const recipesInput = document.getElementById('edit-item-recipes').value.trim();
     const recipes = recipesInput ? recipesInput.split(',').map(r => r.trim()).filter(r => r) : [];
-
-    // Collect options
     const options = [];
     document.querySelectorAll('#edit-item-options-container .flex').forEach(row => {
         const optionName = row.querySelector('.option-name-input').value.trim();
@@ -167,7 +162,6 @@ async function saveEditedEntity(event) {
             options.push({ name: optionName, price: { Triple: optionPrice } });
         }
     });
-
     const updatedData = {
         name: document.getElementById('edit-item-name').value,
         description: document.getElementById('edit-item-description').value,
@@ -179,25 +173,21 @@ async function saveEditedEntity(event) {
         allergies: document.getElementById('edit-item-allergies').value.trim()
     };
     const dbRef = db.ref(`menu/${categoryId}/items/${currentEditId}`);
-
     try {
         await dbRef.update(updatedData);
         alert(`Item updated successfully!`);
         closeEditModal();
         loadMenuItems();
     } catch (error) {
-        console.error(`Error updating item:`, error);
         alert(`Failed to update item: ` + error.message);
     }
 }
 
-
-// --- DATA LOADING FUNCTIONS ---
 function loadMenuItems() {
-    db.ref('menu').once('value', (snapshot) => {
+    db.ref('menu').on('value', (snapshot) => {
         const menuItemsList = document.getElementById('menu-items-list');
         if (menuItemsList) {
-            menuItemsList.innerHTML = ''; // Clear loading message
+            menuItemsList.innerHTML = '';
             if (snapshot.exists()) {
                 let itemsHtml = '';
                 snapshot.forEach((categorySnapshot) => {
@@ -209,95 +199,50 @@ function loadMenuItems() {
                         }
                     }
                 });
-                menuItemsList.innerHTML = itemsHtml || '<tr><td colspan="5" class="text-center p-4 text-gray-500">No menu items found.</td></tr>';
+                menuItemsList.innerHTML = itemsHtml || `<tr><td colspan="6" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`;
             } else {
-                menuItemsList.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-gray-500">No menu items found.</td></tr>';
+                menuItemsList.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`;
             }
-            populateCategoryDropdown(); 
+            populateCategoryDropdown();
         }
-    }).catch(error => {
-        console.error("Error fetching menu items:", error);
-        const menuItemsList = document.getElementById('menu-items-list');
-        if(menuItemsList) menuItemsList.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-red-500">Error loading menu items.</td></tr>';
     });
 }
 
 function populateCategoryDropdown() {
     const categorySelect = document.getElementById('new-item-category');
     if (!categorySelect) return;
-    db.ref('menu').once('value')
-        .then(snapshot => {
-            categorySelect.innerHTML = '<option value="">Select a category</option>';
-            if (snapshot.exists()) {
-                snapshot.forEach(categorySnap => {
-                    const categoryName = categorySnap.val().category;
-                    const categoryId = categorySnap.key;
-                    const option = document.createElement('option');
-                    option.value = categoryId;
-                    option.textContent = categoryName;
-                    categorySelect.appendChild(option);
-                });
-            }
-        });
+    db.ref('menu').once('value').then(snapshot => {
+        categorySelect.innerHTML = '<option value="">Select a category</option>';
+        if (snapshot.exists()) {
+            snapshot.forEach(categorySnap => {
+                const categoryName = categorySnap.val().category;
+                const categoryId = categorySnap.key;
+                const option = document.createElement('option');
+                option.value = categoryId;
+                option.textContent = categoryName;
+                categorySelect.appendChild(option);
+            });
+        }
+    });
 }
 
-
-// --- MAIN PANEL LOAD FUNCTION ---
 export function loadPanel(panelRoot, panelTitle) {
     panelTitle.textContent = 'Menu Items Management';
-
     panelRoot.innerHTML = `
         <div id="menu-items-section" class="bg-white rounded-xl shadow-lg p-6 animate-fadeInUp">
             <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">Add New Menu Item</h2>
             <form id="add-item-form" class="space-y-4">
-                <div>
-                    <label for="new-item-name" class="block text-sm font-medium text-gray-700">Item Name</label>
-                    <input type="text" id="new-item-name" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                </div>
-                <div>
-                    <label for="new-item-description" class="block text-sm font-medium text-gray-700">Description</label>
-                    <textarea id="new-item-description" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"></textarea>
-                </div>
-                <div>
-                    <label for="new-item-price" class="block text-sm font-medium text-gray-700">Base Price (MAD)</label>
-                    <input type="number" id="new-item-price" step="0.01" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                </div>
-                <div>
-                    <label for="new-item-category" class="block text-sm font-medium text-gray-700">Category</label>
-                    <select id="new-item-category" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                        <option value="">Select a category</option>
-                        </select>
-                </div>
-                <div>
-                    <label for="new-item-image-url" class="block text-sm font-medium text-gray-700">Image URL</label>
-                    <input type="url" id="new-item-image-url" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                </div>
-
-                <div class="border-t pt-4 mt-4">
-                    <h4 class="text-md font-semibold text-gray-800 mb-2">Sizes (Optional, leave blank for default)</h4>
-                    <div id="new-item-sizes-container" class="space-y-2"></div>
-                    <button type="button" id="add-new-size-btn" class="mt-2 bg-blue-100 text-blue-700 text-sm py-1 px-3 rounded-md hover:bg-blue-200"><i class="fas fa-plus mr-1"></i>Add Size</button>
-                </div>
-
-                <div class="border-t pt-4 mt-4">
-                    <h4 class="text-md font-semibold text-gray-800 mb-2">Recipes (Optional, comma-separated)</h4>
-                    <input type="text" id="new-item-recipes" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., Spicy, BBQ, Original">
-                </div>
-
-                <div class="border-t pt-4 mt-4">
-                    <h4 class="text-md font-semibold text-gray-800 mb-2">Add-ons/Options (Optional)</h4>
-                    <div id="new-item-options-container" class="space-y-2"></div>
-                    <button type="button" id="add-new-option-btn" class="mt-2 bg-blue-100 text-blue-700 text-sm py-1 px-3 rounded-md hover:bg-blue-200"><i class="fas fa-plus mr-1"></i>Add Option</button>
-                </div>
-
-                <div class="border-t pt-4 mt-4">
-                    <label for="new-item-allergies" class="block text-sm font-medium text-gray-700">Allergies/Dietary Info</label>
-                    <textarea id="new-item-allergies" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., Contains dairy, gluten-free option available"></textarea>
-                </div>
-
-                <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition transform hover:scale-105">Add Item</button>
+                <div><label for="new-item-name" class="block text-sm font-medium text-gray-700">Item Name</label><input type="text" id="new-item-name" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"></div>
+                <div><label for="new-item-description" class="block text-sm font-medium text-gray-700">Description</label><textarea id="new-item-description" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"></textarea></div>
+                <div><label for="new-item-price" class="block text-sm font-medium text-gray-700">Base Price (MAD)</label><input type="number" id="new-item-price" step="0.01" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"></div>
+                <div><label for="new-item-category" class="block text-sm font-medium text-gray-700">Category</label><select id="new-item-category" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"><option value="">Select a category</option></select></div>
+                <div><label for="new-item-image-url" class="block text-sm font-medium text-gray-700">Image URL</label><input type="url" id="new-item-image-url" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"></div>
+                <div class="border-t pt-4 mt-4"><h4 class="text-md font-semibold text-gray-800 mb-2">Sizes (Optional)</h4><div id="new-item-sizes-container" class="space-y-2"></div><button type="button" id="add-new-size-btn" class="mt-2 bg-blue-100 text-blue-700 text-sm py-1 px-3 rounded-md hover:bg-blue-200"><i class="fas fa-plus mr-1"></i>Add Size</button></div>
+                <div class="border-t pt-4 mt-4"><h4 class="text-md font-semibold text-gray-800 mb-2">Recipes (Optional)</h4><input type="text" id="new-item-recipes" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., Spicy, BBQ"></div>
+                <div class="border-t pt-4 mt-4"><h4 class="text-md font-semibold text-gray-800 mb-2">Add-ons (Optional)</h4><div id="new-item-options-container" class="space-y-2"></div><button type="button" id="add-new-option-btn" class="mt-2 bg-blue-100 text-blue-700 text-sm py-1 px-3 rounded-md hover:bg-blue-200"><i class="fas fa-plus mr-1"></i>Add Option</button></div>
+                <div class="border-t pt-4 mt-4"><label for="new-item-allergies" class="block text-sm font-medium text-gray-700">Allergies</label><textarea id="new-item-allergies" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"></textarea></div>
+                <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition">Add Item</button>
             </form>
-
             <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4 mt-8">Current Menu Items</h2>
             <div class="overflow-x-auto rounded-lg border border-gray-200">
                 <table class="min-w-full divide-y divide-gray-200">
@@ -307,47 +252,28 @@ export function loadPanel(panelRoot, panelTitle) {
                             <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Price</th>
                             <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
+                            <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Availability</th>
                             <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="menu-items-list" class="bg-white divide-y divide-gray-200">
-                        <tr><td colspan="5" class="text-center p-4 text-gray-500">Loading menu items...</td></tr>
+                        <tr><td colspan="6" class="text-center p-4 text-gray-500">Loading menu items...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
-
-        <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
-            <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg flex flex-col">
-                <h3 id="edit-modal-title" class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3 flex-shrink-0">Edit Item</h3>
-                <form id="edit-form" class="flex-grow overflow-hidden flex flex-col">
-                    <div id="edit-form-fields" class="space-y-4 flex-grow overflow-y-auto pr-4">
-                        </div>
-                    <div class="flex justify-end space-x-2 pt-4 border-t mt-4 flex-shrink-0">
-                        <button type="button" id="cancel-edit-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition">Cancel</button>
-                        <button type="submit" id="save-edit-btn" class="bg-green-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-700 transition">Save Changes</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+        <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4"><div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg flex flex-col"><h3 id="edit-modal-title" class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3 flex-shrink-0">Edit Item</h3><form id="edit-form" class="flex-grow overflow-hidden flex flex-col"><div id="edit-form-fields" class="space-y-4 flex-grow overflow-y-auto pr-4"></div><div class="flex justify-end space-x-2 pt-4 border-t mt-4 flex-shrink-0"><button type="button" id="cancel-edit-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition">Cancel</button><button type="submit" id="save-edit-btn" class="bg-green-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-700 transition">Save Changes</button></div></form></div></div>
     `;
 
-    // Initialize modal elements and attach listeners
     editModal = document.getElementById('edit-modal');
     editModalTitle = document.getElementById('edit-modal-title');
     editForm = document.getElementById('edit-form');
     document.getElementById('cancel-edit-btn').addEventListener('click', closeEditModal);
     editForm.addEventListener('submit', saveEditedEntity);
-
-    // Load initial data
     loadMenuItems();
-
-
-    // Handle Add New Item form submission
     document.getElementById('add-item-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const newItemPrice = parseFloat(document.getElementById('new-item-price').value);
-
         const sizes = [];
         document.querySelectorAll('#new-item-sizes-container .flex').forEach(row => {
             const sizeName = row.querySelector('.size-name-input').value.trim();
@@ -359,10 +285,8 @@ export function loadPanel(panelRoot, panelTitle) {
         if (sizes.length === 0 && !isNaN(newItemPrice)) {
             sizes.push({ size: "Regular", price: newItemPrice });
         }
-
         const recipesInput = document.getElementById('new-item-recipes').value.trim();
         const recipes = recipesInput ? recipesInput.split(',').map(r => r.trim()).filter(r => r) : [];
-
         const options = [];
         document.querySelectorAll('#new-item-options-container .flex').forEach(row => {
             const optionName = row.querySelector('.option-name-input').value.trim();
@@ -371,7 +295,6 @@ export function loadPanel(panelRoot, panelTitle) {
                 options.push({ name: optionName, price: { Triple: optionPrice } });
             }
         });
-
         const newItem = {
             name: document.getElementById('new-item-name').value,
             description: document.getElementById('new-item-description').value,
@@ -384,12 +307,10 @@ export function loadPanel(panelRoot, panelTitle) {
             allergies: document.getElementById('new-item-allergies').value.trim(),
             inStock: true
         };
-
         if (!newItem.category) {
             alert('Please select a category.');
             return;
         }
-
         try {
             const newRef = await db.ref(`menu/${newItem.category}/items`).push();
             await newRef.set({ ...newItem, id: newRef.key });
@@ -401,29 +322,21 @@ export function loadPanel(panelRoot, panelTitle) {
             document.getElementById('new-item-allergies').value = '';
             loadMenuItems();
         } catch (error) {
-            console.error("Error adding item:", error);
             alert("Failed to add item: " + error.message);
         }
     });
-
-    // Add listeners for dynamic field buttons
     document.getElementById('add-new-size-btn').addEventListener('click', () => {
         addSizeField(document.getElementById('new-item-sizes-container'));
     });
     document.getElementById('add-new-option-btn').addEventListener('click', () => {
         addOptionField(document.getElementById('new-item-options-container'));
     });
-
-
-    // Event delegation for Edit/Delete buttons
     panelRoot.addEventListener('click', async (event) => {
         const target = event.target;
-
         if (target.classList.contains('edit-item-btn')) {
             const row = target.closest('tr');
             const categoryId = row.dataset.categoryId;
             const itemId = row.dataset.itemId;
-            
             try {
                 const itemSnapshot = await db.ref(`menu/${categoryId}/items/${itemId}`).once('value');
                 if (itemSnapshot.exists()) {
@@ -433,7 +346,6 @@ export function loadPanel(panelRoot, panelTitle) {
                     alert('Item not found!');
                 }
             } catch (error) {
-                console.error("Error fetching item for edit:", error);
                 alert("Failed to fetch item details: " + error.message);
             }
         } 
@@ -447,10 +359,19 @@ export function loadPanel(panelRoot, panelTitle) {
                     alert('Item deleted successfully!');
                     loadMenuItems();
                 } catch (error) {
-                    console.error("Error deleting item:", error);
                     alert("Failed to delete item: " + error.message);
                 }
             }
+        }
+    });
+    // Add event listener for the stock toggle
+    panelRoot.addEventListener('change', (e) => {
+        if (e.target.classList.contains('stock-toggle')) {
+            const row = e.target.closest('tr');
+            const categoryId = row.dataset.categoryId;
+            const itemId = row.dataset.itemId;
+            const isInStock = e.target.checked;
+            db.ref(`menu/${categoryId}/items/${itemId}/inStock`).set(isInStock);
         }
     });
 }
