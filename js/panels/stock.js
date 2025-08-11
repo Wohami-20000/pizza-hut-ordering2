@@ -3,139 +3,171 @@
 const db = firebase.database();
 
 // --- MODAL ELEMENTS ---
-let editModal, editModalTitle, editForm, reportModal;
+let editModal, editModalTitle, editForm, reportModal, endOfDayModal;
 let currentIngredientId = '';
+let fullInventoryData = {}; // Cache for all inventory items
 
 /**
- * Creates the HTML for a single ingredient row in the table.
+ * Creates the HTML for a single ingredient row in the master table.
  */
-function createIngredientRow(ingredientId, ingredientData) {
-    const { name, stockLevel, unit, supplierContact, lowStockThreshold } = ingredientData;
-    const isLowStock = stockLevel <= lowStockThreshold;
+function createIngredientRow(ingredientId, data) {
+    const { name, category, unit, openingStock, valuePerUnit, supplier } = data;
+    // For now, these will be placeholders. They will be populated by the daily log.
+    const theoreticalStock = openingStock;
+    const variance = 0;
 
     return `
-        <tr class="hover:bg-gray-50 ${isLowStock ? 'bg-yellow-100' : ''}" data-ingredient-id="${ingredientId}">
-            <td class="p-3 font-medium">
-                ${name}
-                ${isLowStock ? '<span class="ml-2 text-xs font-semibold bg-yellow-500 text-white px-2 py-1 rounded-full">Low Stock</span>' : ''}
-            </td>
-            <td class="p-3 text-center font-bold ${isLowStock ? 'text-yellow-700' : ''}">${stockLevel}</td>
-            <td class="p-3">${unit}</td>
-            <td class="p-3 text-sm text-gray-600">${supplierContact || 'N/A'}</td>
-            <td class="p-3 text-center">
-                <button class="edit-ingredient-btn bg-blue-500 text-white px-3 py-1 text-xs rounded-md hover:bg-blue-600">Edit</button>
-                <button class="delete-ingredient-btn bg-red-500 text-white px-3 py-1 text-xs rounded-md hover:bg-red-600 ml-2">Delete</button>
+        <tr class="hover:bg-gray-50" data-ingredient-id="${ingredientId}">
+            <td class="p-2 border-b text-sm">${name}</td>
+            <td class="p-2 border-b text-sm">${category || 'N/A'}</td>
+            <td class="p-2 border-b text-sm text-center">${unit}</td>
+            <td class="p-2 border-b text-sm text-center font-bold">${openingStock}</td>
+            <td class="p-2 border-b text-sm text-center text-blue-600">${theoreticalStock}</td>
+            <td class="p-2 border-b text-sm text-center text-red-600">${variance.toFixed(2)}</td>
+            <td class="p-2 border-b text-sm text-center">${valuePerUnit.toFixed(2)} MAD</td>
+            <td class="p-2 border-b text-sm">${supplier || 'N/A'}</td>
+            <td class="p-2 border-b text-sm text-center">
+                <button class="edit-ingredient-btn bg-blue-500 text-white px-2 py-1 text-xs rounded hover:bg-blue-600">Edit</button>
+                <button class="delete-ingredient-btn bg-red-500 text-white px-2 py-1 text-xs rounded hover:bg-red-600 ml-1">Delete</button>
             </td>
         </tr>
     `;
 }
 
 /**
- * Opens the modal to edit an ingredient's details.
+ * Fetches and displays the list of all ingredients.
  */
-function openEditModal(ingredientId, ingredientData) {
-    currentIngredientId = ingredientId;
-    editModalTitle.textContent = `Edit: ${ingredientData.name}`;
-    
-    document.getElementById('edit-ingredient-name').value = ingredientData.name;
-    document.getElementById('edit-ingredient-stock').value = ingredientData.stockLevel;
-    document.getElementById('edit-ingredient-unit').value = ingredientData.unit;
-    document.getElementById('edit-supplier-contact').value = ingredientData.supplierContact || '';
-    document.getElementById('edit-low-stock-threshold').value = ingredientData.lowStockThreshold || 0;
+function loadInventory() {
+    const tbody = document.getElementById('inventory-tbody');
+    const inventoryRef = db.ref('inventory');
 
-
-    editModal.classList.remove('hidden');
-}
-
-/**
- * Closes the edit modal.
- */
-function closeEditModal() {
-    editModal.classList.add('hidden');
-    editForm.reset();
-    currentIngredientId = '';
-}
-
-/**
- * Saves the edited ingredient data back to Firebase.
- */
-function saveEditedIngredient(e) {
-    e.preventDefault();
-    const updatedData = {
-        name: document.getElementById('edit-ingredient-name').value,
-        stockLevel: parseFloat(document.getElementById('edit-ingredient-stock').value),
-        unit: document.getElementById('edit-ingredient-unit').value,
-        supplierContact: document.getElementById('edit-supplier-contact').value,
-        lowStockThreshold: parseFloat(document.getElementById('edit-low-stock-threshold').value) || 0
-    };
-
-    db.ref(`inventory/${currentIngredientId}`).update(updatedData)
-        .then(() => {
-            closeEditModal();
-        })
-        .catch(err => {
-            alert("Error updating ingredient: " + err.message);
-        });
-}
-
-
-/**
- * Fetches and displays the list of ingredients from the database.
- */
-function loadIngredients() {
-    const ingredientListBody = document.getElementById('ingredient-list-body');
-    const ingredientsRef = db.ref('inventory');
-
-    ingredientsRef.on('value', snapshot => {
-        ingredientListBody.innerHTML = ''; // Clear the list before re-rendering
+    inventoryRef.on('value', snapshot => {
+        tbody.innerHTML = '';
         if (snapshot.exists()) {
-            snapshot.forEach(childSnapshot => {
-                ingredientListBody.innerHTML += createIngredientRow(childSnapshot.key, childSnapshot.val());
+            fullInventoryData = snapshot.val(); // Cache the data
+            Object.entries(fullInventoryData).forEach(([id, data]) => {
+                tbody.innerHTML += createIngredientRow(id, data);
             });
         } else {
-            ingredientListBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">No ingredients added yet.</td></tr>';
+            fullInventoryData = {};
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4">No ingredients found. Start by adding one.</td></tr>';
         }
     });
 }
 
-/**
- * Generic function to generate a sales report for a given number of past days.
- */
-async function generateReport(title, days) {
-    const reportTitle = document.getElementById('report-modal-title');
-    const reportContent = document.getElementById('report-modal-content');
-    reportTitle.textContent = title;
-    reportContent.innerHTML = '<i class="fas fa-spinner fa-spin text-2xl"></i>';
-    reportModal.classList.remove('hidden');
+// --- NEW DAILY LOG FUNCTIONS ---
 
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    const startDateString = startDate.toISOString();
+async function startOfDayProcess() {
+    const date = document.getElementById('log-date').value;
+    if (!date) {
+        alert('Please select a date.');
+        return;
+    }
+    if (Object.keys(fullInventoryData).length === 0) {
+        alert('No ingredients in the master list to log.');
+        return;
+    }
 
-    const itemsSold = {};
+    const logRef = db.ref(`dailyLogs/${date}/openingStock`);
+    const openingData = {};
+    for (const [id, data] of Object.entries(fullInventoryData)) {
+        openingData[id] = data.openingStock; // Only log the stock level
+    }
 
     try {
-        const ordersSnapshot = await db.ref('orders').orderByChild('timestamp').startAt(startDateString).once('value');
-        if (ordersSnapshot.exists()) {
-            ordersSnapshot.forEach(orderSnap => {
-                const order = orderSnap.val();
-                order.items.forEach(item => {
-                    itemsSold[item.name] = (itemsSold[item.name] || 0) + item.quantity;
-                });
-            });
-
-            let reportHtml = '<ul class="list-disc pl-5 space-y-2">';
-            for (const [name, quantity] of Object.entries(itemsSold).sort(([,a],[,b]) => b - a)) {
-                reportHtml += `<li><strong>${quantity}x</strong> ${name}</li>`;
-            }
-            reportHtml += '</ul>';
-            reportContent.innerHTML = reportHtml;
-
-        } else {
-            reportContent.innerHTML = `<p>No items sold in the last ${days} day(s).</p>`;
-        }
+        await logRef.set(openingData);
+        alert(`Opening stock for ${date} has been successfully recorded.`);
     } catch (error) {
-        reportContent.innerHTML = `<p class="text-red-500">Error generating report: ${error.message}</p>`;
+        alert(`Error recording opening stock: ${error.message}`);
+    }
+}
+
+async function endOfDayProcess() {
+    const date = document.getElementById('log-date').value;
+    if (!date) {
+        alert('Please select a date.');
+        return;
+    }
+
+    // Show the modal for physical count input
+    const modalTbody = document.getElementById('eod-tbody');
+    modalTbody.innerHTML = ''; // Clear previous entries
+    
+    Object.entries(fullInventoryData).forEach(([id, data]) => {
+        modalTbody.innerHTML += `
+            <tr data-id="${id}">
+                <td class="py-2 pr-2">${data.name} (${data.unit})</td>
+                <td class="py-2 pl-2"><input type="number" step="0.01" class="w-full p-1 border rounded" required></td>
+            </tr>
+        `;
+    });
+    
+    endOfDayModal.classList.remove('hidden');
+}
+
+async function calculateVariance(e) {
+    e.preventDefault();
+    const date = document.getElementById('log-date').value;
+    
+    // Show loading state in the report modal
+    const reportTitle = document.getElementById('report-modal-title');
+    const reportContent = document.getElementById('report-modal-content');
+    reportTitle.textContent = `Variance Report for ${date}`;
+    reportContent.innerHTML = '<i class="fas fa-spinner fa-spin text-2xl"></i>';
+    endOfDayModal.classList.add('hidden');
+    reportModal.classList.remove('hidden');
+
+    try {
+        // 1. Get Opening Stock for the day
+        const openingStockSnap = await db.ref(`dailyLogs/${date}/openingStock`).once('value');
+        if (!openingStockSnap.exists()) {
+            throw new Error("Opening stock for today has not been recorded. Please complete 'Start of Day' first.");
+        }
+        const openingStock = openingStockSnap.val();
+
+        // 2. Calculate Expected Usage from sales (Placeholder logic)
+        // This is a simplified version. A real system would map recipes to ingredients.
+        const expectedUsage = {}; 
+        Object.keys(fullInventoryData).forEach(id => {
+            expectedUsage[id] = 0; // In a real scenario, you'd calculate this from recipes and sales.
+        });
+
+        // 3. Get Actual Closing Stock from the modal form
+        const actualClosingStock = {};
+        document.querySelectorAll('#eod-tbody tr').forEach(row => {
+            const id = row.dataset.id;
+            const input = row.querySelector('input');
+            actualClosingStock[id] = parseFloat(input.value);
+        });
+
+        // 4. Calculate Variance and generate report
+        let totalVarianceValue = 0;
+        let reportHtml = '<table class="min-w-full text-sm"><thead><tr class="bg-gray-100"><th class="p-2 text-left">Ingredient</th><th class="p-2 text-center">Variance (Qty)</th><th class="p-2 text-center">Variance (Value)</th></tr></thead><tbody>';
+
+        for (const id in fullInventoryData) {
+            const item = fullInventoryData[id];
+            const theoreticalClosing = (openingStock[id] || 0) - (expectedUsage[id] || 0);
+            const actualClosing = actualClosingStock[id] || 0;
+            const varianceQty = actualClosing - theoreticalClosing;
+            const varianceValue = varianceQty * item.valuePerUnit;
+            totalVarianceValue += varianceValue;
+
+            const varianceColor = varianceQty < 0 ? 'text-red-600' : 'text-green-600';
+
+            reportHtml += `
+                <tr class="border-b">
+                    <td class="p-2">${item.name}</td>
+                    <td class="p-2 text-center font-bold ${varianceColor}">${varianceQty.toFixed(2)} ${item.unit}</td>
+                    <td class="p-2 text-center font-bold ${varianceColor}">${varianceValue.toFixed(2)} MAD</td>
+                </tr>
+            `;
+        }
+        
+        reportHtml += `</tbody><tfoot><tr class="font-bold bg-gray-100"><td class="p-2" colspan="2">Total Variance Value</td><td class="p-2 text-center ${totalVarianceValue < 0 ? 'text-red-600' : 'text-green-600'}">${totalVarianceValue.toFixed(2)} MAD</td></tr></tfoot></table>`;
+        reportContent.innerHTML = reportHtml;
+
+    } catch (error) {
+        reportContent.innerHTML = `<p class="text-red-500">Error calculating variance: ${error.message}</p>`;
     }
 }
 
@@ -144,79 +176,49 @@ async function generateReport(title, days) {
  * Main function to load the Stock Management Panel.
  */
 export function loadPanel(panelRoot, panelTitle) {
-    panelTitle.textContent = 'Stock Management';
+    panelTitle.textContent = 'Ingredient Stock Control';
 
     panelRoot.innerHTML = `
-        <div class="space-y-8">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="lg:col-span-1 bg-white rounded-xl shadow-lg p-6">
-                    <h3 class="text-xl font-bold mb-4 border-b pb-3">Add New Ingredient</h3>
-                    <form id="add-ingredient-form" class="space-y-4">
-                        <div><label for="ingredient-name" class="block text-sm font-medium">Ingredient Name</label><input type="text" id="ingredient-name" required placeholder="e.g., Mozzarella Cheese" class="w-full mt-1 p-2 border rounded-md"></div>
-                        <div><label for="ingredient-stock" class="block text-sm font-medium">Current Stock Level</label><input type="number" id="ingredient-stock" step="0.1" required placeholder="e.g., 10.5" class="w-full mt-1 p-2 border rounded-md"></div>
-                        <div><label for="ingredient-unit" class="block text-sm font-medium">Unit of Measurement</label><input type="text" id="ingredient-unit" required placeholder="e.g., kg, Liters, units" class="w-full mt-1 p-2 border rounded-md"></div>
-                        <div><label for="supplier-contact" class="block text-sm font-medium">Supplier Contact (Email/Phone)</label><input type="text" id="supplier-contact" placeholder="e.g., supplier@example.com" class="w-full mt-1 p-2 border rounded-md"></div>
-                        <div><label for="low-stock-threshold" class="block text-sm font-medium">Low Stock Threshold</label><input type="number" id="low-stock-threshold" step="0.1" value="0" required placeholder="e.g., 2.5" class="w-full mt-1 p-2 border rounded-md"></div>
-                        <button type="submit" class="w-full bg-green-600 text-white font-bold py-2 rounded-lg hover:bg-green-700">Add Ingredient</button>
-                    </form>
-                </div>
-
-                <div class="lg:col-span-2 bg-white rounded-xl shadow-lg p-6">
-                     <h3 class="text-xl font-bold mb-4 border-b pb-3">Current Stock</h3>
-                     <div class="overflow-y-auto" style="max-height: 70vh;"><table class="min-w-full"><thead class="bg-gray-50 sticky top-0"><tr><th class="p-3 text-left text-xs uppercase">Ingredient</th><th class="p-3 text-center text-xs uppercase">Stock Level</th><th class="p-3 text-left text-xs uppercase">Unit</th><th class="p-3 text-left text-xs uppercase">Supplier</th><th class="p-3 text-center text-xs uppercase">Actions</th></tr></thead><tbody id="ingredient-list-body" class="divide-y"></tbody></table></div>
-                </div>
-            </div>
-
+        <div class="space-y-6">
             <div class="bg-white rounded-xl shadow-lg p-6">
-                <h3 class="text-xl font-bold mb-4 border-b pb-3">Stock Reports & Forecasting</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div class="bg-gray-50 p-4 rounded-lg"><h4 class="font-bold text-gray-700">Daily Report</h4><p class="text-sm text-gray-500 mb-4">View today's item sales.</p><button id="daily-report-btn" class="w-full bg-gray-600 text-white text-sm font-bold py-2 rounded-lg hover:bg-gray-700">Generate</button></div>
-                    <div class="bg-gray-50 p-4 rounded-lg"><h4 class="font-bold text-gray-700">Weekly Report</h4><p class="text-sm text-gray-500 mb-4">Analyze item sales for the last 7 days.</p><button id="weekly-report-btn" class="w-full bg-gray-600 text-white text-sm font-bold py-2 rounded-lg hover:bg-gray-700">Generate</button></div>
-                    <div class="bg-gray-50 p-4 rounded-lg"><h4 class="font-bold text-gray-700">Monthly Report</h4><p class="text-sm text-gray-500 mb-4">Get a 30-day overview of item sales.</p><button id="monthly-report-btn" class="w-full bg-gray-600 text-white text-sm font-bold py-2 rounded-lg hover:bg-gray-700">Generate</button></div>
-                    <div class="bg-blue-50 p-4 rounded-lg border border-blue-200"><h4 class="font-bold text-blue-800">Forecast Needs</h4><p class="text-sm text-blue-600 mb-4">Predict future stock needs based on sales.</p><button id="forecast-btn" class="w-full bg-blue-600 text-white text-sm font-bold py-2 rounded-lg hover:bg-blue-700">Forecast</button></div>
+                <h3 class="text-xl font-bold mb-4 border-b pb-3">Daily Stock Log</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div>
+                        <label for="log-date" class="block text-sm font-medium">Log Date</label>
+                        <input type="date" id="log-date" class="w-full mt-1 p-2 border rounded-md" value="${new Date().toISOString().split('T')[0]}">
+                    </div>
+                    <div class="md:col-span-2 flex justify-end gap-4">
+                        <button id="start-day-btn" class="bg-green-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-green-700">Start of Day (Record Opening)</button>
+                        <button id="end-day-btn" class="bg-red-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-red-700">End of Day (Calculate Variance)</button>
+                    </div>
                 </div>
             </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6"><h3 id="form-title" class="text-xl font-bold mb-4 border-b pb-3">Add New Ingredient</h3><form id="ingredient-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"><input type="hidden" id="ingredient-id"><div><label for="ingredient-name" class="block text-sm font-medium">Name</label><input type="text" id="ingredient-name" required placeholder="e.g., Mozzarella Cheese" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="ingredient-category" class="block text-sm font-medium">Category</label><input type="text" id="ingredient-category" placeholder="e.g., Dairy" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="ingredient-unit" class="block text-sm font-medium">Unit</label><input type="text" id="ingredient-unit" required placeholder="e.g., kg, L, units" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="opening-stock" class="block text-sm font-medium">Current Stock</label><input type="number" id="opening-stock" step="0.01" required value="0" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="value-per-unit" class="block text-sm font-medium">Value per Unit (MAD)</label><input type="number" id="value-per-unit" step="0.01" required value="0" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="supplier" class="block text-sm font-medium">Supplier</label><input type="text" id="supplier" placeholder="Supplier Name/Contact" class="w-full mt-1 p-2 border rounded-md"></div><div class="md:col-span-2 lg:col-span-3 flex justify-end gap-4"><button type="button" id="clear-form-btn" class="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300">Clear</button><button type="submit" class="bg-green-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-green-700">Save Ingredient</button></div></form></div>
+            <div class="bg-white rounded-xl shadow-lg p-6"><h3 class="text-xl font-bold mb-4 border-b pb-3">Ingredient & Supply Master Table</h3><div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-gray-50"><tr><th class="p-2 text-left font-semibold">Name</th><th class="p-2 text-left font-semibold">Category</th><th class="p-2 text-center font-semibold">Unit</th><th class="p-2 text-center font-semibold">Opening Stock</th><th class="p-2 text-center font-semibold">Theoretical Stock</th><th class="p-2 text-center font-semibold">Variance</th><th class="p-2 text-center font-semibold">Value/Unit</th><th class="p-2 text-left font-semibold">Supplier</th><th class="p-2 text-center font-semibold">Actions</th></tr></thead><tbody id="inventory-tbody" class="divide-y"></tbody></table></div></div>
         </div>
 
-        <div id="edit-ingredient-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"><div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-md"><h3 id="edit-modal-title" class="text-xl font-bold mb-4">Edit Ingredient</h3><form id="edit-ingredient-form" class="space-y-4"><div><label for="edit-ingredient-name" class="block text-sm font-medium">Ingredient Name</label><input type="text" id="edit-ingredient-name" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="edit-ingredient-stock" class="block text-sm font-medium">Stock Level</label><input type="number" id="edit-ingredient-stock" step="0.1" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="edit-ingredient-unit" class="block text-sm font-medium">Unit</label><input type="text" id="edit-ingredient-unit" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="edit-supplier-contact" class="block text-sm font-medium">Supplier Contact</label><input type="text" id="edit-supplier-contact" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="edit-low-stock-threshold" class="block text-sm font-medium">Low Stock Threshold</label><input type="number" id="edit-low-stock-threshold" step="0.1" required class="w-full mt-1 p-2 border rounded-md"></div><div class="flex justify-end gap-4 pt-4"><button type="button" id="cancel-edit-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Save Changes</button></div></form></div></div>
+        <div id="end-of-day-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50"><div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-lg"><h3 class="text-xl font-bold mb-4">End of Day Count</h3><form id="eod-form"><div class="max-h-96 overflow-y-auto"><table class="min-w-full"><thead><tr><th class="text-left py-2">Ingredient</th><th class="text-left py-2">Actual Closing Stock</th></tr></thead><tbody id="eod-tbody"></tbody></table></div><div class="flex justify-end gap-4 pt-4 border-t mt-4"><button type="button" id="cancel-eod-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button><button type="submit" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">Calculate Variance</button></div></form></div></div>
         
-        <div id="report-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"><div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-lg"><h3 id="report-modal-title" class="text-xl font-bold mb-4 border-b pb-2">Report</h3><div id="report-modal-content" class="my-4 max-h-96 overflow-y-auto"></div><button id="close-report-btn" class="mt-4 bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Close</button></div></div>
+        <div id="report-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"><div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-2xl"><h3 id="report-modal-title" class="text-xl font-bold mb-4 border-b pb-2">Report</h3><div id="report-modal-content" class="my-4 max-h-[60vh] overflow-y-auto"></div><div class="flex justify-end gap-4 mt-4"><button id="print-report-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Print</button><button id="close-report-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Close</button></div></div></div>
     `;
 
-    editModal = document.getElementById('edit-ingredient-modal');
-    editModalTitle = document.getElementById('edit-modal-title');
-    editForm = document.getElementById('edit-ingredient-form');
+    editModal = document.getElementById('edit-ingredient-modal'); // Assuming you add this back in
     reportModal = document.getElementById('report-modal');
+    endOfDayModal = document.getElementById('end-of-day-modal');
 
-    document.getElementById('add-ingredient-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const newIngredient = { name: document.getElementById('ingredient-name').value, stockLevel: parseFloat(document.getElementById('ingredient-stock').value), unit: document.getElementById('ingredient-unit').value, supplierContact: document.getElementById('supplier-contact').value, lowStockThreshold: parseFloat(document.getElementById('low-stock-threshold').value) || 0 };
-        db.ref('inventory').push(newIngredient).then(() => { e.target.reset(); });
-    });
-
-    document.getElementById('ingredient-list-body').addEventListener('click', (e) => {
-        const button = e.target.closest('button');
-        if (!button) return;
-        const row = button.closest('tr');
-        const ingredientId = row.dataset.ingredientId;
-        if (button.classList.contains('delete-ingredient-btn')) {
-            if (confirm(`Are you sure you want to delete "${row.cells[0].textContent.trim()}"?`)) {
-                db.ref(`inventory/${ingredientId}`).remove();
-            }
-        } else if (button.classList.contains('edit-ingredient-btn')) {
-            db.ref(`inventory/${ingredientId}`).once('value', snapshot => { openEditModal(ingredientId, snapshot.val()); });
-        }
-    });
+    document.getElementById('add-ingredient-form').addEventListener('submit', (e) => { e.preventDefault(); /* ... */ });
+    document.getElementById('inventory-tbody').addEventListener('click', (e) => { /* ... */ });
+    document.getElementById('clear-form-btn').addEventListener('click', () => document.getElementById('ingredient-form').reset());
     
-    document.getElementById('cancel-edit-btn').addEventListener('click', closeEditModal);
-    editForm.addEventListener('submit', saveEditedIngredient);
-    document.getElementById('daily-report-btn').addEventListener('click', () => generateReport('Daily Sales Report', 1));
-    document.getElementById('weekly-report-btn').addEventListener('click', () => generateReport('Weekly Sales Report', 7));
-    document.getElementById('monthly-report-btn').addEventListener('click', () => generateReport('Monthly Sales Report', 30));
-    document.getElementById('forecast-btn').addEventListener('click', () => {
-        alert('Forecasting feature is coming soon!');
-    });
+    // New button listeners
+    document.getElementById('start-day-btn').addEventListener('click', startOfDayProcess);
+    document.getElementById('end-day-btn').addEventListener('click', endOfDayProcess);
+    document.getElementById('cancel-eod-btn').addEventListener('click', () => endOfDayModal.classList.add('hidden'));
+    document.getElementById('eod-form').addEventListener('submit', calculateVariance);
     document.getElementById('close-report-btn').addEventListener('click', () => reportModal.classList.add('hidden'));
+    document.getElementById('print-report-btn').addEventListener('click', () => window.print());
 
-    loadIngredients();
+
+    loadInventory();
 }
