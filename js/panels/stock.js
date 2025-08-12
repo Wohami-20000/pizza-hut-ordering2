@@ -206,19 +206,16 @@ export function loadPanel(panelRoot, panelTitle) {
     editModalTitle = document.getElementById('edit-modal-title');
     editForm = document.getElementById('edit-ingredient-form');
 
-    // Attach event listeners
+    // Attach event listeners for forms and buttons
     document.getElementById('add-ingredient-form').addEventListener('submit', (e) => { e.preventDefault(); /* ... */ });
     document.getElementById('inventory-tbody').addEventListener('click', (e) => { /* ... */ });
     document.getElementById('clear-form-btn').addEventListener('click', () => document.getElementById('ingredient-form').reset());
-    
-    // New button listeners
     document.getElementById('start-day-btn').addEventListener('click', startOfDayProcess);
     document.getElementById('end-day-btn').addEventListener('click', endOfDayProcess);
     document.getElementById('cancel-eod-btn').addEventListener('click', () => endOfDayModal.classList.add('hidden'));
     document.getElementById('eod-form').addEventListener('submit', calculateVariance);
     document.getElementById('close-report-btn').addEventListener('click', () => reportModal.classList.add('hidden'));
     document.getElementById('print-report-btn').addEventListener('click', () => window.print());
-
 
     loadInventory();
 }
