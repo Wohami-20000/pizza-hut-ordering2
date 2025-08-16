@@ -15,7 +15,6 @@ let ingredientModal, ingredientForm, modalTitle, panelRoot, activeTab;
 
 /**
  * Handles switching between the different tabs in the panel.
- * @param {string} tabName - The name of the tab to switch to.
  */
 function switchTab(tabName) {
     if (!panelRoot) return;
@@ -50,7 +49,6 @@ async function loadSalesData() {
             document.getElementById('regular-sales').value = data.regular || 0;
             updateTotalSales();
         } else {
-            // Reset form if no data exists for that date
             document.getElementById('sales-form').reset();
             updateTotalSales();
         }
@@ -81,7 +79,7 @@ async function saveSalesData(e) {
         platform: parseFloat(document.getElementById('platform-sales').value) || 0,
         glovo: parseFloat(document.getElementById('glovo-sales').value) || 0,
         regular: parseFloat(document.getElementById('regular-sales').value) || 0,
-        total: 0 // Will be recalculated
+        total: 0
     };
     salesData.total = salesData.platform + salesData.glovo + salesData.regular;
 
@@ -275,6 +273,7 @@ function handleTableClick(e) {
     }
 }
 
+
 export function loadPanel(root, panelTitle) {
     panelRoot = root;
     panelTitle.textContent = 'Stock & Sales Control';
@@ -294,42 +293,46 @@ export function loadPanel(root, panelTitle) {
                     <button data-tab="sales-input" class="tab-button py-2 px-4 font-semibold">Sales Input</button>
                 </nav>
             </div>
+
             <div id="ingredients-section" class="tab-content">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">Master Ingredient List</h3>
+                    <button id="add-ingredient-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition"><i class="fas fa-plus mr-2"></i>Add Ingredient</button>
                 </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-xs font-semibold uppercase">Name</th><th class="p-3 text-left text-xs font-semibold uppercase">Category</th><th class="p-3 text-center text-xs font-semibold uppercase">Current Stock</th><th class="p-3 text-left text-xs font-semibold uppercase">Cost/Unit</th><th class="p-3 text-left text-xs font-semibold uppercase">Supplier</th><th class="p-3 text-center text-xs font-semibold uppercase">Actions</th></tr></thead><tbody id="ingredients-tbody" class="divide-y"></tbody></table>
+                </div>
+            </div>
+
             <div id="daily-count-section" class="tab-content" style="display: none;">
+                <div class="flex justify-between items-center mb-4">
+                    <div><h3 class="text-xl font-bold text-gray-800">Daily Stock Count</h3><input type="date" id="stock-date-picker" value="${currentStockDate}" class="mt-1 p-2 border rounded-md"></div>
+                    <button id="save-daily-count-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Today's Count</button>
                 </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm"><thead class="bg-gray-50"><tr><th class="p-2 text-left">Ingredient</th><th class="p-2 text-center">Opening</th><th class="p-2 text-center">Purchases</th><th class="p-2 text-center">Used (Theory)</th><th class="p-2 text-center">Wastage</th><th class="p-2 text-center">Closing (Theory)</th><th class="p-2 text-center">Closing (Actual)</th><th class="p-2 text-center">Variance</th></tr></thead><tbody id="daily-count-tbody" class="divide-y"></tbody></table>
+                </div>
+            </div>
+
             <div id="sales-input-section" class="tab-content" style="display: none;">
                 <div class="flex justify-between items-center mb-4">
-                    <div>
-                        <h3 class="text-xl font-bold text-gray-800">Daily Sales Input</h3>
-                        <input type="date" id="sales-date-picker" value="${currentStockDate}" class="mt-1 p-2 border rounded-md">
-                    </div>
+                    <div><h3 class="text-xl font-bold text-gray-800">Daily Sales Input</h3><input type="date" id="sales-date-picker" value="${currentStockDate}" class="mt-1 p-2 border rounded-md"></div>
                 </div>
                 <form id="sales-form" class="max-w-md space-y-4">
-                    <div>
-                        <label for="platform-sales" class="block font-medium">Platform Sales (MAD)</label>
-                        <input type="number" id="platform-sales" class="w-full mt-1 p-2 border rounded-md" value="0">
-                    </div>
-                    <div>
-                        <label for="glovo-sales" class="block font-medium">Glovo Sales (MAD)</label>
-                        <input type="number" id="glovo-sales" class="w-full mt-1 p-2 border rounded-md" value="0">
-                    </div>
-                    <div>
-                        <label for="regular-sales" class="block font-medium">Regular/In-House Sales (MAD)</label>
-                        <input type="number" id="regular-sales" class="w-full mt-1 p-2 border rounded-md" value="0">
-                    </div>
-                    <div class="border-t pt-4">
-                        <p class="text-lg font-bold">Total Sales: <span id="total-sales-display">0.00 MAD</span></p>
-                    </div>
+                    <div><label for="platform-sales" class="block font-medium">Platform Sales (MAD)</label><input type="number" id="platform-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"></div>
+                    <div><label for="glovo-sales" class="block font-medium">Glovo Sales (MAD)</label><input type="number" id="glovo-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"></div>
+                    <div><label for="regular-sales" class="block font-medium">Regular/In-House Sales (MAD)</label><input type="number" id="regular-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"></div>
+                    <div class="border-t pt-4"><p class="text-lg font-bold">Total Sales: <span id="total-sales-display">0.00 MAD</span></p></div>
                     <button type="submit" id="save-sales-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Sales Data</button>
                 </form>
             </div>
         </div>
+        
         <div id="ingredient-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
-           </div>
+            <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg"><h3 id="modal-title" class="text-2xl font-bold text-gray-800 mb-4">Add New Ingredient</h3><form id="ingredient-form" class="space-y-4"><div><label for="ingredient-name" class="block text-sm font-medium">Ingredient Name</label><input type="text" id="ingredient-name" required class="w-full mt-1 p-2 border rounded-md"></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="ingredient-category" class="block text-sm font-medium">Category</label><input type="text" id="ingredient-category" class="w-full mt-1 p-2 border rounded-md" placeholder="e.g., Dairy, Meat, Vegetable"></div><div><label for="ingredient-unit" class="block text-sm font-medium">Unit</label><input type="text" id="ingredient-unit" required class="w-full mt-1 p-2 border rounded-md" placeholder="e.g., kg, L, pcs"></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="ingredient-unit-cost" class="block text-sm font-medium">Cost per Unit (MAD)</label><input type="number" id="ingredient-unit-cost" step="0.01" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="ingredient-supplier" class="block text-sm font-medium">Supplier</label><input type="text" id="ingredient-supplier" class="w-full mt-1 p-2 border rounded-md"></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="ingredient-stock-level" class="block text-sm font-medium">Initial Stock Level</label><input type="number" id="ingredient-stock-level" step="0.1" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="low-stock-threshold" class="block text-sm font-medium">Low Stock Threshold</label><input type="number" id="low-stock-threshold" step="0.1" required class="w-full mt-1 p-2 border rounded-md"></div></div><div class="flex justify-end gap-4 pt-4"><button type="button" id="cancel-modal-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Save Ingredient</button></div></form></div>
+        </div>
     `;
 
-    // --- Attach Event Listeners ---
     ingredientModal = panelRoot.querySelector('#ingredient-modal');
     ingredientForm = panelRoot.querySelector('#ingredient-form');
     modalTitle = panelRoot.querySelector('#modal-title');
@@ -357,12 +360,10 @@ export function loadPanel(root, panelTitle) {
     });
     panelRoot.querySelector('#save-daily-count-btn')?.addEventListener('click', saveDailyCount);
     
-    // New listeners for Sales Input tab
     panelRoot.querySelector('#sales-date-picker')?.addEventListener('change', loadSalesData);
     panelRoot.querySelector('#sales-form')?.addEventListener('input', updateTotalSales);
     panelRoot.querySelector('#sales-form')?.addEventListener('submit', saveSalesData);
 
-    // Initial state
     switchTab('ingredients');
     loadAndRenderIngredients();
 }
