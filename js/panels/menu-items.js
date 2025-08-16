@@ -3,7 +3,7 @@
 const db = firebase.database();
 
 // --- MODAL ELEMENTS ---
-let editModal, editModalTitle, editForm, recipeModal, panelRoot; // Added panelRoot
+let editModal, editModalTitle, editForm, recipeModal, panelRoot;
 let currentEditId = ''; // Firebase key of the item being edited
 let currentRecipeItemId = ''; // ID of the item for which the recipe is being edited
 let ingredientsCache = {}; // Cache for the master ingredient list
@@ -160,13 +160,12 @@ async function handleSaveRecipe(e) {
     }
 }
 
-// ... (Rest of your functions like openEditModal, closeEditModal, etc., are correct and remain here)
 function openEditModal(id, data) {
     currentEditId = id;
     const formFieldsContainer = document.getElementById('edit-form-fields');
     if (!formFieldsContainer) return;
     editModalTitle.textContent = `Edit Menu Item`;
-    formFieldsContainer.innerHTML = ''; // Clear previous form content
+    formFieldsContainer.innerHTML = '';
     let formHtml = `
         <input type="hidden" id="edit-item-category-id" value="${data.category}">
         <div>
@@ -219,12 +218,10 @@ async function saveEditedEntity(event) { event.preventDefault(); const categoryI
 function loadMenuItems() { db.ref('menu').on('value', (snapshot) => { const menuItemsList = document.getElementById('menu-items-list'); if (menuItemsList) { menuItemsList.innerHTML = ''; if (snapshot.exists()) { let itemsHtml = ''; snapshot.forEach((categorySnapshot) => { const categoryId = categorySnapshot.key; const categoryData = categorySnapshot.val(); if (categoryData.items) { for (const itemId in categoryData.items) { itemsHtml += createMenuItemRow(categoryId, itemId, categoryData.items[itemId]); } } }); menuItemsList.innerHTML = itemsHtml || `<tr><td colspan="6" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`; } else { menuItemsList.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`; } populateCategoryDropdown(); } }); }
 function populateCategoryDropdown() { const categorySelect = document.getElementById('new-item-category'); if (!categorySelect) return; db.ref('menu').once('value').then(snapshot => { categorySelect.innerHTML = '<option value="">Select a category</option>'; if (snapshot.exists()) { snapshot.forEach(categorySnap => { const categoryName = categorySnap.val().category; const categoryId = categorySnap.key; const option = document.createElement('option'); option.value = categoryId; option.textContent = categoryName; categorySelect.appendChild(option); }); } }); }
 
-
 export function loadPanel(root, panelTitle) {
-    panelRoot = root; // Assign panelRoot to module-level scope
+    panelRoot = root; 
     panelTitle.textContent = 'Menu Items Management';
     
-    // The full HTML for the panel, including the modals
     panelRoot.innerHTML = `
         <div id="menu-items-section" class="bg-white rounded-xl shadow-lg p-6 animate-fadeInUp">
             <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">Add New Menu Item</h2>
@@ -254,30 +251,23 @@ export function loadPanel(root, panelTitle) {
                         </tr>
                     </thead>
                     <tbody id="menu-items-list" class="bg-white divide-y divide-gray-200">
-                        <tr><td colspan="6" class="text-center p-4 text-gray-500">Loading menu items...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
-
         <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4"><div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg flex flex-col"><h3 id="edit-modal-title" class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3 flex-shrink-0">Edit Item</h3><form id="edit-form" class="flex-grow overflow-hidden flex flex-col"><div id="edit-form-fields" class="space-y-4 flex-grow overflow-y-auto pr-4"></div><div class="flex justify-end space-x-2 pt-4 border-t mt-4 flex-shrink-0"><button type="button" id="cancel-edit-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition">Cancel</button><button type="submit" id="save-edit-btn" class="bg-green-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-700 transition">Save Changes</button></div></form></div></div>
-
         <div id="recipe-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
             <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-2xl">
                 <h3 id="recipe-modal-title" class="text-2xl font-bold mb-4">Recipe Editor</h3>
                 <div class="grid grid-cols-2 gap-6">
                     <div>
                         <h4 class="font-semibold mb-2">Available Ingredients</h4>
-                        <div id="available-ingredients" class="h-64 overflow-y-auto border p-2 rounded-md">
-                            <p class="text-gray-500">Loading ingredients...</p>
-                        </div>
+                        <div id="available-ingredients" class="h-64 overflow-y-auto border p-2 rounded-md"></div>
                     </div>
                     <div>
                         <h4 class="font-semibold mb-2">Recipe Ingredients</h4>
                          <form id="recipe-form">
-                             <div id="recipe-ingredients-list" class="h-64 overflow-y-auto border p-2 rounded-md space-y-2">
-                                <p class="text-gray-500">Add ingredients from the left.</p>
-                             </div>
+                             <div id="recipe-ingredients-list" class="h-64 overflow-y-auto border p-2 rounded-md space-y-2"></div>
                              <div class="flex justify-end gap-4 pt-4 border-t mt-4">
                                 <button type="button" id="cancel-recipe-modal-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button>
                                 <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Save Recipe</button>
@@ -289,26 +279,16 @@ export function loadPanel(root, panelTitle) {
         </div>
     `;
 
-    // --- Assign UI elements and attach event listeners safely ---
-    // The panelRoot now contains all the HTML, so we search within it.
     editModal = panelRoot.querySelector('#edit-modal');
     editModalTitle = panelRoot.querySelector('#edit-modal-title');
     editForm = panelRoot.querySelector('#edit-form');
     recipeModal = panelRoot.querySelector('#recipe-modal');
     
-    // Attaching listeners with checks to prevent errors
-    const cancelEditBtn = panelRoot.querySelector('#cancel-edit-btn');
-    if (cancelEditBtn) cancelEditBtn.addEventListener('click', closeEditModal);
+    panelRoot.querySelector('#cancel-edit-btn').addEventListener('click', closeEditModal);
+    panelRoot.querySelector('#cancel-recipe-modal-btn').addEventListener('click', closeRecipeModal);
+    editForm.addEventListener('submit', saveEditedEntity);
+    panelRoot.querySelector('#recipe-form').addEventListener('submit', handleSaveRecipe);
 
-    const cancelRecipeBtn = panelRoot.querySelector('#cancel-recipe-modal-btn');
-    if (cancelRecipeBtn) cancelRecipeBtn.addEventListener('click', closeRecipeModal);
-
-    if (editForm) editForm.addEventListener('submit', saveEditedEntity);
-    
-    const recipeForm = panelRoot.querySelector('#recipe-form');
-    if(recipeForm) recipeForm.addEventListener('submit', handleSaveRecipe);
-
-    // Event delegation for recipe modal interactions
     if (recipeModal) {
         recipeModal.addEventListener('click', (e) => {
             const addBtn = e.target.closest('.add-ingredient-to-recipe-btn');
@@ -322,9 +302,7 @@ export function loadPanel(root, panelTitle) {
         });
     }
 
-    const addItemForm = panelRoot.querySelector('#add-item-form');
-    if (addItemForm) addItemForm.addEventListener('submit', async (e) => { e.preventDefault(); const newItemPrice = parseFloat(document.getElementById('new-item-price').value); const sizes = []; document.querySelectorAll('#new-item-sizes-container .flex').forEach(row => { const sizeName = row.querySelector('.size-name-input').value.trim(); const sizePrice = parseFloat(row.querySelector('.size-price-input').value); if (sizeName && !isNaN(sizePrice)) { sizes.push({ size: sizeName, price: sizePrice }); } }); if (sizes.length === 0 && !isNaN(newItemPrice)) { sizes.push({ size: "Regular", price: newItemPrice }); } const recipesInput = document.getElementById('new-item-recipes').value.trim(); const recipes = recipesInput ? recipesInput.split(',').map(r => r.trim()).filter(r => r) : []; const options = []; document.querySelectorAll('#new-item-options-container .flex').forEach(row => { const optionName = row.querySelector('.option-name-input').value.trim(); const optionPrice = parseFloat(row.querySelector('.option-price-input').value); if (optionName && !isNaN(optionPrice)) { options.push({ name: optionName, price: { Triple: optionPrice } }); } }); const newItem = { name: document.getElementById('new-item-name').value, description: document.getElementById('new-item-description').value, price: newItemPrice, category: document.getElementById('new-item-category').value, image_url: document.getElementById('new-item-image-url').value || 'https://www.pizzahut.ma/images/Default_pizza.png', sizes: sizes, recipes: recipes, options: options, allergies: document.getElementById('new-item-allergies').value.trim(), inStock: true }; if (!newItem.category) { alert('Please select a category.'); return; } try { const newRef = await db.ref(`menu/${newItem.category}/items`).push(); await newRef.set({ ...newItem, id: newRef.key }); alert('Item added successfully!'); e.target.reset(); document.getElementById('new-item-sizes-container').innerHTML = ''; document.getElementById('new-item-options-container').innerHTML = ''; document.getElementById('new-item-recipes').value = ''; document.getElementById('new-item-allergies').value = ''; loadMenuItems(); } catch (error) { alert("Failed to add item: " + error.message); } });
-
+    panelRoot.querySelector('#add-item-form').addEventListener('submit', async (e) => { e.preventDefault(); const newItemPrice = parseFloat(document.getElementById('new-item-price').value); const sizes = []; panelRoot.querySelectorAll('#new-item-sizes-container .flex').forEach(row => { const sizeName = row.querySelector('.size-name-input').value.trim(); const sizePrice = parseFloat(row.querySelector('.size-price-input').value); if (sizeName && !isNaN(sizePrice)) { sizes.push({ size: sizeName, price: sizePrice }); } }); if (sizes.length === 0 && !isNaN(newItemPrice)) { sizes.push({ size: "Regular", price: newItemPrice }); } const recipesInput = panelRoot.querySelector('#new-item-recipes').value.trim(); const recipes = recipesInput ? recipesInput.split(',').map(r => r.trim()).filter(r => r) : []; const options = []; panelRoot.querySelectorAll('#new-item-options-container .flex').forEach(row => { const optionName = row.querySelector('.option-name-input').value.trim(); const optionPrice = parseFloat(row.querySelector('.option-price-input').value); if (optionName && !isNaN(optionPrice)) { options.push({ name: optionName, price: { Triple: optionPrice } }); } }); const newItem = { name: panelRoot.querySelector('#new-item-name').value, description: panelRoot.querySelector('#new-item-description').value, price: newItemPrice, category: panelRoot.querySelector('#new-item-category').value, image_url: panelRoot.querySelector('#new-item-image-url').value || 'https://www.pizzahut.ma/images/Default_pizza.png', sizes: sizes, recipes: recipes, options: options, allergies: panelRoot.querySelector('#new-item-allergies').value.trim(), inStock: true }; if (!newItem.category) { alert('Please select a category.'); return; } try { const newRef = await db.ref(`menu/${newItem.category}/items`).push(); await newRef.set({ ...newItem, id: newRef.key }); alert('Item added successfully!'); e.target.reset(); panelRoot.querySelector('#new-item-sizes-container').innerHTML = ''; panelRoot.querySelector('#new-item-options-container').innerHTML = ''; panelRoot.querySelector('#new-item-recipes').value = ''; panelRoot.querySelector('#new-item-allergies').value = ''; loadMenuItems(); } catch (error) { alert("Failed to add item: " + error.message); } });
     panelRoot.querySelector('#add-new-size-btn').addEventListener('click', () => addSizeField(panelRoot.querySelector('#new-item-sizes-container')));
     panelRoot.querySelector('#add-new-option-btn').addEventListener('click', () => addOptionField(panelRoot.querySelector('#new-item-options-container')));
     
