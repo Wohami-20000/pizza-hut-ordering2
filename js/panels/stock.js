@@ -15,7 +15,6 @@ let ingredientModal, ingredientForm, modalTitle, panelRoot, activeTab;
 
 /**
  * Handles switching between the different tabs in the panel.
- * @param {string} tabName - The name of the tab to switch to.
  */
 function switchTab(tabName) {
     if (!panelRoot) return;
@@ -36,10 +35,6 @@ function switchTab(tabName) {
 }
 
 // --- WAREHOUSE FUNCTIONS ---
-
-/**
- * Adds a new row to the warehouse delivery form for adding an ingredient.
- */
 function addWarehouseItemRow() {
     const container = document.getElementById('warehouse-items-container');
     const ingredientOptions = Object.entries(ingredientsCache).map(([id, data]) => 
@@ -57,14 +52,8 @@ function addWarehouseItemRow() {
         </div>
     `;
     container.appendChild(div);
-
     div.querySelector('.remove-warehouse-item-btn').addEventListener('click', () => div.remove());
 }
-
-/**
- * Saves a new warehouse delivery and updates ingredient stock levels.
- * @param {Event} e - The form submission event.
- */
 async function saveWarehouseDelivery(e) {
     e.preventDefault();
     const deliveryData = {
@@ -73,41 +62,29 @@ async function saveWarehouseDelivery(e) {
         items: {},
         total_cost: 0
     };
-
     const itemRows = document.querySelectorAll('#warehouse-items-container > div');
     if (itemRows.length === 0) {
         alert("Please add at least one ingredient to the delivery.");
         return;
     }
-
     const stockUpdates = {};
     let totalCost = 0;
-
     itemRows.forEach(row => {
         const id = row.querySelector('.warehouse-item-select').value;
         const qty = parseFloat(row.querySelector('.warehouse-item-qty').value) || 0;
         const unit_cost = parseFloat(row.querySelector('.warehouse-item-cost').value) || 0;
         const total = qty * unit_cost;
-
         if (id && qty > 0) {
             deliveryData.items[id] = { qty, unit_cost, total };
             totalCost += total;
-            // Prepare the stock update operation
             stockUpdates[`/ingredients/${id}/stock_level`] = firebase.database.ServerValue.increment(qty);
             stockUpdates[`/ingredients/${id}/last_restocked`] = deliveryData.date;
-
         }
     });
-
     deliveryData.total_cost = totalCost;
-
     try {
-        // 1. Save the warehouse delivery record
         await db.ref('warehouse').push(deliveryData);
-
-        // 2. Atomically update all ingredient stock levels
         await db.ref().update(stockUpdates);
-        
         alert('Warehouse delivery saved and stock levels updated!');
         document.getElementById('warehouse-form').reset();
         document.getElementById('warehouse-items-container').innerHTML = '';
@@ -117,8 +94,7 @@ async function saveWarehouseDelivery(e) {
     }
 }
 
-
-// --- All previous functions remain unchanged here ---
+// --- All other functions remain unchanged ---
 async function loadSalesData() {
     const salesDate = document.getElementById('sales-date-picker').value;
     const salesRef = db.ref(`sales/${salesDate}`);
@@ -350,7 +326,11 @@ export function loadPanel(root, panelTitle) {
 
     panelRoot.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            </div>
+            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Today's Sales</h4><p class="text-2xl font-bold">0 MAD</p></div>
+            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Today's Loss Value</h4><p class="text-2xl font-bold text-red-500">0 MAD</p></div>
+            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Food Cost %</h4><p class="text-2xl font-bold">0%</p></div>
+            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Low Stock Items</h4><p class="text-2xl font-bold">0</p></div>
+        </div>
         <div class="bg-white rounded-xl shadow-lg p-6">
             <div class="border-b mb-4">
                 <nav class="flex space-x-4">
@@ -361,62 +341,68 @@ export function loadPanel(root, panelTitle) {
                 </nav>
             </div>
 
-            <div id="ingredients-section" class="tab-content"></div>
-            <div id="daily-count-section" class="tab-content" style="display: none;"></div>
-            <div id="sales-input-section" class="tab-content" style="display: none;"></div>
+            <div id="ingredients-section" class="tab-content">
+                <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-gray-800">Master Ingredient List</h3><button id="add-ingredient-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition"><i class="fas fa-plus mr-2"></i>Add Ingredient</button></div>
+                <div class="overflow-x-auto"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-xs font-semibold uppercase">Name</th><th class="p-3 text-left text-xs font-semibold uppercase">Category</th><th class="p-3 text-center text-xs font-semibold uppercase">Current Stock</th><th class="p-3 text-left text-xs font-semibold uppercase">Cost/Unit</th><th class="p-3 text-left text-xs font-semibold uppercase">Supplier</th><th class="p-3 text-center text-xs font-semibold uppercase">Actions</th></tr></thead><tbody id="ingredients-tbody" class="divide-y"></tbody></table></div>
+            </div>
+
+            <div id="daily-count-section" class="tab-content" style="display: none;">
+                <div class="flex justify-between items-center mb-4"><div><h3 class="text-xl font-bold text-gray-800">Daily Stock Count</h3><input type="date" id="stock-date-picker" value="${currentStockDate}" class="mt-1 p-2 border rounded-md"></div><button id="save-daily-count-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Today's Count</button></div>
+                <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-gray-50"><tr><th class="p-2 text-left">Ingredient</th><th class="p-2 text-center">Opening</th><th class="p-2 text-center">Purchases</th><th class="p-2 text-center">Used (Theory)</th><th class="p-2 text-center">Wastage</th><th class="p-2 text-center">Closing (Theory)</th><th class="p-2 text-center">Closing (Actual)</th><th class="p-2 text-center">Variance</th></tr></thead><tbody id="daily-count-tbody" class="divide-y"></tbody></table></div>
+            </div>
+
+            <div id="sales-input-section" class="tab-content" style="display: none;">
+                <div class="flex justify-between items-center mb-4"><div><h3 class="text-xl font-bold text-gray-800">Daily Sales Input</h3><input type="date" id="sales-date-picker" value="${currentStockDate}" class="mt-1 p-2 border rounded-md"></div></div>
+                <form id="sales-form" class="max-w-md space-y-4"><label for="platform-sales" class="block font-medium">Platform Sales (MAD)</label><input type="number" id="platform-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"><div><label for="glovo-sales" class="block font-medium">Glovo Sales (MAD)</label><input type="number" id="glovo-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"></div><div><label for="regular-sales" class="block font-medium">Regular/In-House Sales (MAD)</label><input type="number" id="regular-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"></div><div class="border-t pt-4"><p class="text-lg font-bold">Total Sales: <span id="total-sales-display">0.00 MAD</span></p></div><button type="submit" id="save-sales-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Sales Data</button></form>
+            </div>
 
             <div id="warehouse-section" class="tab-content" style="display: none;">
                 <h3 class="text-xl font-bold text-gray-800 mb-4">Log New Warehouse Delivery</h3>
                 <form id="warehouse-form" class="space-y-4 p-4 border rounded-lg bg-gray-50">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="warehouse-date" class="block text-sm font-medium">Delivery Date</label>
-                            <input type="date" id="warehouse-date" value="${currentStockDate}" class="w-full mt-1 p-2 border rounded-md">
-                        </div>
-                        <div>
-                            <label for="warehouse-supplier" class="block text-sm font-medium">Supplier</label>
-                            <input type="text" id="warehouse-supplier" class="w-full mt-1 p-2 border rounded-md" placeholder="e.g., Supplier A">
-                        </div>
-                    </div>
-                    <div class="border-t pt-4">
-                        <label class="block text-sm font-medium mb-2">Delivered Items</label>
-                        <div id="warehouse-items-container" class="space-y-2"></div>
-                        <button type="button" id="add-warehouse-item-btn" class="mt-2 bg-gray-200 text-sm py-1 px-3 rounded-md hover:bg-gray-300">
-                            <i class="fas fa-plus mr-1"></i>Add Item
-                        </button>
-                    </div>
-                    <div class="flex justify-end pt-4">
-                        <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700">Save Delivery</button>
-                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="warehouse-date" class="block text-sm font-medium">Delivery Date</label><input type="date" id="warehouse-date" value="${currentStockDate}" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="warehouse-supplier" class="block text-sm font-medium">Supplier</label><input type="text" id="warehouse-supplier" class="w-full mt-1 p-2 border rounded-md" placeholder="e.g., Supplier A"></div></div>
+                    <div class="border-t pt-4"><label class="block text-sm font-medium mb-2">Delivered Items</label><div id="warehouse-items-container" class="space-y-2"></div><button type="button" id="add-warehouse-item-btn" class="mt-2 bg-gray-200 text-sm py-1 px-3 rounded-md hover:bg-gray-300"><i class="fas fa-plus mr-1"></i>Add Item</button></div>
+                    <div class="flex justify-end pt-4"><button type="submit" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700">Save Delivery</button></div>
                 </form>
             </div>
         </div>
+
         <div id="ingredient-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
-            </div>
+            <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg"><h3 id="modal-title" class="text-2xl font-bold text-gray-800 mb-4">Add New Ingredient</h3><form id="ingredient-form" class="space-y-4"><div><label for="ingredient-name" class="block text-sm font-medium">Ingredient Name</label><input type="text" id="ingredient-name" required class="w-full mt-1 p-2 border rounded-md"></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="ingredient-category" class="block text-sm font-medium">Category</label><input type="text" id="ingredient-category" class="w-full mt-1 p-2 border rounded-md" placeholder="e.g., Dairy, Meat, Vegetable"></div><div><label for="ingredient-unit" class="block text-sm font-medium">Unit</label><input type="text" id="ingredient-unit" required class="w-full mt-1 p-2 border rounded-md" placeholder="e.g., kg, L, pcs"></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="ingredient-unit-cost" class="block text-sm font-medium">Cost per Unit (MAD)</label><input type="number" id="ingredient-unit-cost" step="0.01" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="ingredient-supplier" class="block text-sm font-medium">Supplier</label><input type="text" id="ingredient-supplier" class="w-full mt-1 p-2 border rounded-md"></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="ingredient-stock-level" class="block text-sm font-medium">Initial Stock Level</label><input type="number" id="ingredient-stock-level" step="0.1" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="low-stock-threshold" class="block text-sm font-medium">Low Stock Threshold</label><input type="number" id="low-stock-threshold" step="0.1" required class="w-full mt-1 p-2 border rounded-md"></div></div><div class="flex justify-end gap-4 pt-4"><button type="button" id="cancel-modal-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Save Ingredient</button></div></form></div>
+        </div>
     `;
 
-    // --- Attach Event Listeners ---
-    // ... (All previous listeners for ingredients, daily count, sales)
-
-    // New listeners for Warehouse tab
-    const addWarehouseItemBtn = panelRoot.querySelector('#add-warehouse-item-btn');
-    if(addWarehouseItemBtn) addWarehouseItemBtn.addEventListener('click', addWarehouseItemRow);
+    // --- Attach Event Listeners Safely ---
+    ingredientModal = panelRoot.querySelector('#ingredient-modal');
+    ingredientForm = panelRoot.querySelector('#ingredient-form');
+    modalTitle = panelRoot.querySelector('#modal-title');
     
-    const warehouseForm = panelRoot.querySelector('#warehouse-form');
-    if(warehouseForm) warehouseForm.addEventListener('submit', saveWarehouseDelivery);
+    panelRoot.querySelector('#add-ingredient-btn')?.addEventListener('click', () => openIngredientModal());
+    panelRoot.querySelector('#cancel-modal-btn')?.addEventListener('click', closeIngredientModal);
+    if(ingredientForm) ingredientForm.addEventListener('submit', handleSaveIngredient);
+    panelRoot.querySelector('#ingredients-tbody')?.addEventListener('click', handleTableClick);
 
-    // Initial setup
-    switchTab('ingredients');
-    loadAndRenderIngredients();
-    
-    // Make sure other tabs load their specific data when switched to
     panelRoot.querySelectorAll('.tab-button').forEach(btn => {
         btn.addEventListener('click', () => {
             const tabName = btn.dataset.tab;
             switchTab(tabName);
             if (tabName === 'daily-count') loadDailyCountData();
             if (tabName === 'sales-input') loadSalesData();
-            // No initial data load needed for warehouse, it's a manual entry form
         });
     });
+    
+    panelRoot.querySelector('#stock-date-picker')?.addEventListener('change', (e) => { currentStockDate = e.target.value; loadDailyCountData(); });
+    panelRoot.querySelector('#daily-count-tbody')?.addEventListener('input', (e) => { if (e.target.classList.contains('daily-input')) calculateRow(e.target.closest('tr')); });
+    panelRoot.querySelector('#save-daily-count-btn')?.addEventListener('click', saveDailyCount);
+    
+    panelRoot.querySelector('#sales-date-picker')?.addEventListener('change', loadSalesData);
+    panelRoot.querySelector('#sales-form')?.addEventListener('input', updateTotalSales);
+    panelRoot.querySelector('#sales-form')?.addEventListener('submit', saveSalesData);
+
+    const addWarehouseItemBtn = panelRoot.querySelector('#add-warehouse-item-btn');
+    if(addWarehouseItemBtn) addWarehouseItemBtn.addEventListener('click', addWarehouseItemRow);
+    const warehouseForm = panelRoot.querySelector('#warehouse-form');
+    if(warehouseForm) warehouseForm.addEventListener('submit', saveWarehouseDelivery);
+
+    switchTab('ingredients');
+    loadAndRenderIngredients();
 }
