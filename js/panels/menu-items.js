@@ -3,8 +3,9 @@
 const db = firebase.database();
 
 // --- MODAL ELEMENTS ---
-let editModal, editModalTitle, editForm;
+let editModal, editModalTitle, editForm, recipeModal;
 let currentEditId = ''; // Firebase key of the item being edited
+let currentRecipeItemId = ''; // ID of the item for which the recipe is being edited
 
 /**
  * Creates the HTML for a single menu item row.
@@ -42,6 +43,7 @@ function createMenuItemRow(categoryId, itemId, itemData) {
             </td>
             <td class="px-4 py-3 text-center text-sm">
                 <button class="edit-item-btn bg-blue-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-blue-600 transition shadow-sm mr-2">Edit</button>
+                <button class="recipe-item-btn bg-purple-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-purple-600 transition shadow-sm mr-2">Recipe</button>
                 <button class="delete-item-btn bg-red-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-red-600 transition shadow-sm">Delete</button>
             </td>
         </tr>
@@ -98,7 +100,7 @@ function openEditModal(id, data) {
             <textarea id="edit-item-allergies" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., Contains dairy, gluten-free option available">${data.allergies || ''}</textarea>
         </div>
     `;
-    
+
     formFieldsContainer.innerHTML = formHtml;
     editModal.classList.remove('hidden');
 
@@ -229,6 +231,17 @@ function populateCategoryDropdown() {
     });
 }
 
+function openRecipeModal(itemId, itemName) {
+    currentRecipeItemId = itemId;
+    document.getElementById('recipe-modal-title').textContent = `Recipe for ${itemName}`;
+    recipeModal.classList.remove('hidden');
+    // Functionality to load ingredients and current recipe will be added next
+}
+
+function closeRecipeModal() {
+    recipeModal.classList.add('hidden');
+}
+
 export function loadPanel(panelRoot, panelTitle) {
     panelTitle.textContent = 'Menu Items Management';
     panelRoot.innerHTML = `
@@ -265,15 +278,46 @@ export function loadPanel(panelRoot, panelTitle) {
                 </table>
             </div>
         </div>
+
         <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4"><div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg flex flex-col"><h3 id="edit-modal-title" class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3 flex-shrink-0">Edit Item</h3><form id="edit-form" class="flex-grow overflow-hidden flex flex-col"><div id="edit-form-fields" class="space-y-4 flex-grow overflow-y-auto pr-4"></div><div class="flex justify-end space-x-2 pt-4 border-t mt-4 flex-shrink-0"><button type="button" id="cancel-edit-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition">Cancel</button><button type="submit" id="save-edit-btn" class="bg-green-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-700 transition">Save Changes</button></div></form></div></div>
+
+        <div id="recipe-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
+            <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-2xl">
+                <h3 id="recipe-modal-title" class="text-2xl font-bold mb-4">Recipe Editor</h3>
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="font-semibold mb-2">Available Ingredients</h4>
+                        <div id="available-ingredients" class="h-64 overflow-y-auto border p-2 rounded-md">
+                            <p class="text-gray-500">Loading ingredients...</p>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold mb-2">Recipe Ingredients</h4>
+                         <form id="recipe-form" class="space-y-2">
+                             <div id="recipe-ingredients-list" class="h-64 overflow-y-auto border p-2 rounded-md">
+                                <p class="text-gray-500">Add ingredients from the left.</p>
+                             </div>
+                             <div class="flex justify-end gap-4 pt-4">
+                                <button type="button" id="cancel-recipe-modal-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Save Recipe</button>
+                            </div>
+                         </form>
+                    </div>
+                </div>
+            </div>
+        </div>
     `;
 
     editModal = document.getElementById('edit-modal');
     editModalTitle = document.getElementById('edit-modal-title');
     editForm = document.getElementById('edit-form');
+    recipeModal = document.getElementById('recipe-modal'); // New modal reference
+
     document.getElementById('cancel-edit-btn').addEventListener('click', closeEditModal);
+    document.getElementById('cancel-recipe-modal-btn').addEventListener('click', closeRecipeModal);
     editForm.addEventListener('submit', saveEditedEntity);
     loadMenuItems();
+
     document.getElementById('add-item-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const newItemPrice = parseFloat(document.getElementById('new-item-price').value);
@@ -328,18 +372,26 @@ export function loadPanel(panelRoot, panelTitle) {
             alert("Failed to add item: " + error.message);
         }
     });
+
     document.getElementById('add-new-size-btn').addEventListener('click', () => {
         addSizeField(document.getElementById('new-item-sizes-container'));
     });
     document.getElementById('add-new-option-btn').addEventListener('click', () => {
         addOptionField(document.getElementById('new-item-options-container'));
     });
+
     panelRoot.addEventListener('click', async (event) => {
-        const target = event.target;
+        const target = event.target.closest('button');
+        if (!target) return;
+
+        const row = target.closest('tr');
+        if (!row) return;
+
+        const categoryId = row.dataset.categoryId;
+        const itemId = row.dataset.itemId;
+        const itemName = row.querySelector('span').textContent;
+
         if (target.classList.contains('edit-item-btn')) {
-            const row = target.closest('tr');
-            const categoryId = row.dataset.categoryId;
-            const itemId = row.dataset.itemId;
             try {
                 const itemSnapshot = await db.ref(`menu/${categoryId}/items/${itemId}`).once('value');
                 if (itemSnapshot.exists()) {
@@ -351,12 +403,10 @@ export function loadPanel(panelRoot, panelTitle) {
             } catch (error) {
                 alert("Failed to fetch item details: " + error.message);
             }
-        } 
-        else if (target.classList.contains('delete-item-btn')) {
-            const row = target.closest('tr');
-            const categoryId = row.dataset.categoryId;
-            const itemId = row.dataset.itemId;
-            if (confirm(`Are you sure you want to delete item ${row.querySelector('span').textContent}? This cannot be undone.`)) {
+        } else if (target.classList.contains('recipe-item-btn')) {
+            openRecipeModal(itemId, itemName);
+        } else if (target.classList.contains('delete-item-btn')) {
+            if (confirm(`Are you sure you want to delete item ${itemName}? This cannot be undone.`)) {
                 try {
                     await db.ref(`menu/${categoryId}/items/${itemId}`).remove();
                     alert('Item deleted successfully!');
@@ -367,6 +417,7 @@ export function loadPanel(panelRoot, panelTitle) {
             }
         }
     });
+
     // Add event listener for the stock toggle
     panelRoot.addEventListener('change', (e) => {
         if (e.target.classList.contains('stock-toggle')) {
