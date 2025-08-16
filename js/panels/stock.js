@@ -15,18 +15,16 @@ let ingredientModal, ingredientForm, modalTitle, panelRoot, activeTab;
 
 /**
  * Handles switching between the different tabs in the panel.
+ * @param {string} tabName - The name of the tab to switch to.
  */
 function switchTab(tabName) {
     if (!panelRoot) return;
-    // Hide all tab content
     panelRoot.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-    // Deactivate all tab buttons
     panelRoot.querySelectorAll('.tab-button').forEach(el => {
         el.classList.remove('border-red-600', 'text-red-600');
         el.classList.add('text-gray-500', 'border-transparent');
     });
 
-    // Show the selected tab content and activate the button
     const contentToShow = panelRoot.querySelector(`#${tabName}-section`);
     const buttonToActivate = panelRoot.querySelector(`[data-tab="${tabName}"]`);
     if (contentToShow) contentToShow.style.display = 'block';
@@ -43,12 +41,12 @@ function switchTab(tabName) {
 async function loadDailyCountData() {
     const dailyTbody = document.getElementById('daily-count-tbody');
     if (!dailyTbody) return;
-    dailyTbody.innerHTML = '<tr><td colspan="9" class="text-center p-6"><i class="fas fa-spinner fa-spin mr-2"></i>Loading data for selected date...</td></tr>';
+    dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6"><i class="fas fa-spinner fa-spin mr-2"></i>Loading data for selected date...</td></tr>';
     
     const selectedDate = new Date(currentStockDate);
-    selectedDate.setDate(selectedDate.getDate()); // Use selected date for orders
+    selectedDate.setDate(selectedDate.getDate()); 
     const dayStart = selectedDate.toISOString().split('T')[0];
-    selectedDate.setDate(selectedDate.getDate() - 1); // Get previous day for closing stock
+    selectedDate.setDate(selectedDate.getDate() - 1);
     const prevDateStr = selectedDate.toISOString().split('T')[0];
 
     try {
@@ -83,7 +81,7 @@ async function loadDailyCountData() {
         }
         
         if (Object.keys(ingredientsCache).length === 0) {
-            dailyTbody.innerHTML = '<tr><td colspan="9" class="text-center p-6 text-gray-500">No ingredients defined. Please add ingredients first.</td></tr>';
+            dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6 text-gray-500">No ingredients defined. Please add ingredients first.</td></tr>';
             return;
         }
 
@@ -100,9 +98,9 @@ async function loadDailyCountData() {
                     <td class="p-2"><input type="number" step="0.1" value="0" class="daily-input purchases-input w-20 p-1 border rounded text-right"></td>
                     <td class="p-2 text-center" data-used>${usedExpected.toFixed(2)}</td>
                     <td class="p-2"><input type="number" step="0.1" value="0" class="daily-input wastage-input w-20 p-1 border rounded text-right"></td>
-                    <td class="p-2 text-center font-bold" data-closing-theory">0.00</td>
+                    <td class="p-2 text-center font-bold" data-closing-theory>0.00</td>
                     <td class="p-2"><input type="number" step="0.1" class="daily-input closing-actual-input w-20 p-1 border rounded text-right bg-yellow-50"></td>
-                    <td class="p-2 text-center font-semibold" data-variance">0.00</td>
+                    <td class="p-2 text-center font-semibold" data-variance>0.00</td>
                 </tr>
             `;
         }
@@ -111,7 +109,7 @@ async function loadDailyCountData() {
 
     } catch (error) {
         console.error("Error loading daily count data:", error);
-        dailyTbody.innerHTML = '<tr><td colspan="9" class="text-center p-6 text-red-500">Failed to load data.</td></tr>';
+        dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6 text-red-500">Failed to load data.</td></tr>';
     }
 }
 
@@ -130,12 +128,14 @@ function calculateRow(row) {
     const closingTheoryEl = row.querySelector('[data-closing-theory]');
     const varianceEl = row.querySelector('[data-variance]');
     
-    closingTheoryEl.textContent = closingTheoretical.toFixed(2);
-    varianceEl.textContent = (closingActual !== null) ? variance.toFixed(2) : '...';
+    if(closingTheoryEl) closingTheoryEl.textContent = closingTheoretical.toFixed(2);
+    if(varianceEl) varianceEl.textContent = (closingActual !== null) ? variance.toFixed(2) : '...';
 
-    varianceEl.classList.remove('text-green-600', 'text-red-600');
-    if (variance > 0) varianceEl.classList.add('text-green-600');
-    else if (variance < 0) varianceEl.classList.add('text-red-600');
+    if(varianceEl) {
+        varianceEl.classList.remove('text-green-600', 'text-red-600');
+        if (variance > 0) varianceEl.classList.add('text-green-600');
+        else if (variance < 0) varianceEl.classList.add('text-red-600');
+    }
 }
 
 
@@ -167,7 +167,6 @@ async function saveDailyCount() {
     }
 }
 
-// ... All previous ingredient management functions (createIngredientRow, etc.) are correct and remain here ...
 function createIngredientRow(ingredientId, ingredientData) {
     const { name, category, unit, unit_cost, supplier, low_stock_threshold } = ingredientData;
     const isLowStock = ingredientData.stock_level && low_stock_threshold && ingredientData.stock_level < low_stock_threshold;
@@ -253,7 +252,6 @@ function handleTableClick(e) {
     }
 }
 
-
 export function loadPanel(root, panelTitle) {
     panelRoot = root;
     panelTitle.textContent = 'Stock & Sales Control';
@@ -286,7 +284,6 @@ export function loadPanel(root, panelTitle) {
         </div>
     `;
 
-    // --- Attach Event Listeners Safely ---
     ingredientModal = panelRoot.querySelector('#ingredient-modal');
     ingredientForm = panelRoot.querySelector('#ingredient-form');
     modalTitle = panelRoot.querySelector('#modal-title');
