@@ -11,8 +11,6 @@ let currentStockDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD for
 // --- UI ELEMENT REFERENCES ---
 let ingredientModal, ingredientForm, modalTitle, panelRoot, activeTab;
 
-// --- HELPER & CORE FUNCTIONS ---
-
 /**
  * Handles switching between the different tabs in the panel.
  */
@@ -335,6 +333,7 @@ export function loadPanel(root, panelTitle) {
             <div class="border-b mb-4">
                 <nav class="flex space-x-4">
                     <button data-tab="ingredients" class="tab-button py-2 px-4 font-semibold">Ingredients</button>
+                    <button data-tab="recipes" class="tab-button py-2 px-4 font-semibold">Recipes</button>
                     <button data-tab="daily-count" class="tab-button py-2 px-4 font-semibold">Daily Count</button>
                     <button data-tab="sales-input" class="tab-button py-2 px-4 font-semibold">Sales Input</button>
                     <button data-tab="warehouse" class="tab-button py-2 px-4 font-semibold">Warehouse</button>
@@ -345,6 +344,9 @@ export function loadPanel(root, panelTitle) {
                 <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-gray-800">Master Ingredient List</h3><button id="add-ingredient-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition"><i class="fas fa-plus mr-2"></i>Add Ingredient</button></div>
                 <div class="overflow-x-auto"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-xs font-semibold uppercase">Name</th><th class="p-3 text-left text-xs font-semibold uppercase">Category</th><th class="p-3 text-center text-xs font-semibold uppercase">Current Stock</th><th class="p-3 text-left text-xs font-semibold uppercase">Cost/Unit</th><th class="p-3 text-left text-xs font-semibold uppercase">Supplier</th><th class="p-3 text-center text-xs font-semibold uppercase">Actions</th></tr></thead><tbody id="ingredients-tbody" class="divide-y"></tbody></table></div>
             </div>
+
+            <div id="recipes-section" class="tab-content" style="display: none;">
+                </div>
 
             <div id="daily-count-section" class="tab-content" style="display: none;">
                 <div class="flex justify-between items-center mb-4"><div><h3 class="text-xl font-bold text-gray-800">Daily Stock Count</h3><input type="date" id="stock-date-picker" value="${currentStockDate}" class="mt-1 p-2 border rounded-md"></div><button id="save-daily-count-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Today's Count</button></div>

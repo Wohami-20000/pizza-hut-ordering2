@@ -19,6 +19,7 @@ import { loadPanel as loadTeamPanel } from './panels/team.js';
 import { loadPanel as loadAnalyticsPanel } from './panels/analytics.js';
 import { loadPanel as loadAssignDeliveriesPanel } from './panels/assign-deliveries.js';
 import { loadPanel as loadStockPanel } from './panels/stock.js';
+import { loadPanel as loadRecipesPanel } from './panels/recipes.js'; // Import the new panel
 import { loadPanel as loadSystemPanel } from './panels/system.js';
 
 /**
@@ -54,6 +55,20 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
     try {
         let panelModuleToLoad;
         let effectivePanelKey = targetPanelKey;
+
+        // NEW: Load the Stock panel if the target is 'recipes'
+        if (targetPanelKey === 'recipes') {
+            loadStockPanel(panelRoot, panelTitle, navContainer, db, auth);
+            // After loading, programmatically click the 'recipes' tab
+            setTimeout(() => {
+                const recipesTabButton = panelRoot.querySelector('button[data-tab="recipes"]');
+                if (recipesTabButton) {
+                    recipesTabButton.click();
+                }
+            }, 100);
+            return; // Exit after handling the special case
+        }
+
 
         if (role === 'admin') {
             switch (targetPanelKey) {
@@ -164,7 +179,18 @@ auth.onAuthStateChanged(async (user) => {
                     const targetLink = event.target.closest('a');
                     if (targetLink && targetLink.dataset.panel) {
                         event.preventDefault();
-                        loadRolePanel(userRole, targetLink.dataset.panel);
+                        const targetPanel = targetLink.dataset.panel;
+                        // Special handling for loading the stock panel and its tabs
+                        if (['ingredients', 'recipes', 'daily-count', 'sales-input', 'warehouse'].includes(targetPanel)) {
+                            loadRolePanel(userRole, 'stock').then(() => {
+                                setTimeout(() => {
+                                    const tabButton = document.querySelector(`button[data-tab="${targetPanel}"]`);
+                                    if (tabButton) tabButton.click();
+                                }, 100);
+                            });
+                        } else {
+                            loadRolePanel(userRole, targetPanel);
+                        }
                     }
                 });
                 navContainer.dataset.listenerAttached = 'true';
