@@ -19,149 +19,115 @@ import { loadPanel as loadTeamPanel } from './panels/team.js';
 import { loadPanel as loadAnalyticsPanel } from './panels/analytics.js';
 import { loadPanel as loadAssignDeliveriesPanel } from './panels/assign-deliveries.js';
 import { loadPanel as loadStockPanel } from './panels/stock.js';
-// import { loadPanel as loadRecipesPanel } from './panels/recipes.js'; // <-- THIS LINE IS NOW REMOVED
 import { loadPanel as loadSystemPanel } from './panels/system.js';
 
 /**
- * Dynamically loads the panel for the given role and content section.
- * @param {string} role The role of the current user.
- * @param {string} targetPanelKey The key from the data-panel attribute.
+ * Builds the sidebar navigation based on the user's role.
  */
-async function loadRolePanel(role, targetPanelKey = 'default') {
-    const panelRoot = document.getElementById('panel-root');
-    const panelTitle = document.getElementById('panel-title');
-    const userInfo = document.getElementById('user-info');
+function buildSidebarNav(role) {
     const navContainer = document.getElementById('sidebar-nav');
-    const sidebar = document.getElementById('sidebar');
-    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    if (!navContainer) return;
 
-    if (!panelRoot || !panelTitle || !userInfo || !navContainer || !sidebar || !sidebarOverlay) {
-        console.error('Dashboard layout elements are missing!');
-        return;
+    let navLinks = '';
+    if (role === 'admin') {
+        navLinks = `
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="users"><i class="fas fa-users-cog mr-3"></i>User Management</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="orders"><i class="fas fa-receipt mr-3"></i>Order Management</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="menu-items"><i class="fas fa-pizza-slice mr-3"></i>Menu Items</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="offers"><i class="fas fa-tags mr-3"></i>Offers</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="promo-codes"><i class="fas fa-percent mr-3"></i>Promo Codes</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="stock"><i class="fas fa-boxes mr-3"></i>Stock Control</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="assign-deliveries"><i class="fas fa-motorcycle mr-3"></i>Assign Deliveries</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="team"><i class="fas fa-users mr-3"></i>Team Roster</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="feedback"><i class="fas fa-comment-dots mr-3"></i>Feedback</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="analytics"><i class="fas fa-chart-line mr-3"></i>Analytics</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="system"><i class="fas fa-cogs mr-3"></i>System Config</a>
+        `;
     }
-
-    panelRoot.innerHTML = `
-        <div class="text-center py-20 bg-white rounded-xl shadow-lg">
-            <i class="fas fa-spinner fa-spin text-4xl text-brand-red mb-4"></i>
-            <p class="mt-4 text-lg text-gray-600">Loading ${capitalizeFirstLetter(targetPanelKey.replace('-', ' '))}...</p>
-        </div>
-    `;
-
-    if (window.innerWidth < 768) {
-        sidebar.classList.add('-translate-x-full');
-        sidebarOverlay.classList.add('hidden');
-    }
-
-    try {
-        let panelModuleToLoad;
-        let effectivePanelKey = targetPanelKey;
-
-        if (role === 'admin') {
-            switch (targetPanelKey) {
-                case 'users':
-                    panelModuleToLoad = loadAdminPanel;
-                    break;
-                case 'analytics':
-                    panelModuleToLoad = loadAnalyticsPanel;
-                    break;
-                case 'team':
-                    panelModuleToLoad = loadTeamPanel;
-                    break;
-                case 'assign-deliveries':
-                    panelModuleToLoad = loadAssignDeliveriesPanel;
-                    break;
-                case 'stock':
-                    panelModuleToLoad = loadStockPanel;
-                    break;
-                case 'orders':
-                    panelModuleToLoad = loadOrdersPanel;
-                    break;
-                case 'feedback':
-                    panelModuleToLoad = loadFeedbackPanel;
-                    break;
-                case 'menu-items':
-                    panelModuleToLoad = loadMenuItemsPanel;
-                    break;
-                case 'offers':
-                    panelModuleToLoad = loadOffersPanel;
-                    break;
-                case 'promo-codes':
-                    panelModuleToLoad = loadPromoCodesPanel;
-                    break;
-                case 'system':
-                    panelModuleToLoad = loadSystemPanel;
-                    break;
-                // NEW: Handle 'recipes' by loading the stock panel directly
-                case 'recipes':
-                    panelModuleToLoad = loadStockPanel;
-                    break;
-                default:
-                    panelModuleToLoad = loadAdminPanel;
-                    effectivePanelKey = 'users';
-                    break;
-            }
-        } else {
-            // Logic for other roles can be added here
-        }
-
-        if (typeof panelModuleToLoad === 'function') {
-            panelRoot.innerHTML = '';
-            panelModuleToLoad(panelRoot, panelTitle, navContainer, db, auth);
-
-            // If the target was 'recipes', programmatically switch to that tab after loading
-            if (targetPanelKey === 'recipes') {
-                setTimeout(() => {
-                    const recipesTabButton = panelRoot.querySelector('button[data-tab="recipes"]');
-                    if (recipesTabButton) {
-                        recipesTabButton.click();
-                    }
-                }, 100);
-            }
-
-            userInfo.innerHTML = `
-                <i class="fas fa-user-circle text-gray-400 text-3xl"></i>
-                <div>
-                    <p class="font-semibold text-gray-800">${auth.currentUser.email}</p>
-                    <p class="text-sm text-gray-500">${capitalizeFirstLetter(role)} View</p>
-                </div>
-            `;
-
-            navContainer.querySelectorAll('a').forEach(link => {
-                link.classList.remove('active-nav-link', 'bg-gray-700', 'text-white');
-                if (link.dataset.panel === effectivePanelKey) {
-                    link.classList.add('active-nav-link', 'bg-gray-700', 'text-white');
-                }
-            });
-
-        } else {
-            throw new Error(`The loaded module for role '${role}' (panel key '${effectivePanelKey}') does not export a 'loadPanel' function.`);
-        }
-    } catch (error) {
-        console.error(`Failed to load panel for role '${role}' (panel key '${targetPanelKey}'):`, error);
-        panelRoot.innerHTML = `<div class="text-center bg-red-50 p-6 rounded-xl shadow-lg mt-8"><p class="text-red-700">Error loading dashboard.</p></div>`;
-    }
+    // Add other roles here if needed (e.g., manager, staff)
+    navContainer.innerHTML = navLinks;
 }
-
 
 function capitalizeFirstLetter(string) {
     if (!string) return '';
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
+/**
+ * Dynamically loads the panel for the given role and content section.
+ */
+async function loadRolePanel(role, targetPanelKey = 'default') {
+    const panelRoot = document.getElementById('panel-root');
+    const panelTitle = document.getElementById('panel-title');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    const navContainer = document.getElementById('sidebar-nav');
+
+    if (!panelRoot || !panelTitle || !navContainer) return;
+
+    panelRoot.innerHTML = `<div class="text-center py-20"><i class="fas fa-spinner fa-spin text-4xl text-brand-red"></i></div>`;
+
+    if (window.innerWidth < 768) {
+        sidebar.classList.add('-translate-x-full');
+        sidebarOverlay.classList.add('hidden');
+    }
+
+    let panelModuleToLoad;
+    let effectivePanelKey = targetPanelKey;
+
+    switch (targetPanelKey) {
+        case 'users': panelModuleToLoad = loadAdminPanel; break;
+        case 'analytics': panelModuleToLoad = loadAnalyticsPanel; break;
+        case 'team': panelModuleToLoad = loadTeamPanel; break;
+        case 'assign-deliveries': panelModuleToLoad = loadAssignDeliveriesPanel; break;
+        case 'stock': panelModuleToLoad = loadStockPanel; break;
+        case 'orders': panelModuleToLoad = loadOrdersPanel; break;
+        case 'feedback': panelModuleToLoad = loadFeedbackPanel; break;
+        case 'menu-items': panelModuleToLoad = loadMenuItemsPanel; break;
+        case 'offers': panelModuleToLoad = loadOffersPanel; break;
+        case 'promo-codes': panelModuleToLoad = loadPromoCodesPanel; break;
+        case 'system': panelModuleToLoad = loadSystemPanel; break;
+        default:
+            effectivePanelKey = role === 'admin' ? 'users' : 'defaultPanel';
+            panelModuleToLoad = loadAdminPanel;
+            break;
+    }
+
+    if (typeof panelModuleToLoad === 'function') {
+        await panelModuleToLoad(panelRoot, panelTitle, db, auth);
+        
+        navContainer.querySelectorAll('a').forEach(link => {
+            link.classList.remove('bg-gray-700');
+            if (link.dataset.panel === effectivePanelKey) {
+                link.classList.add('bg-gray-700');
+            }
+        });
+    } else {
+        panelRoot.innerHTML = `<p class="text-red-500">Error: Could not load panel '${targetPanelKey}'.</p>`;
+    }
+}
+
 // Main Authentication Listener
 auth.onAuthStateChanged(async (user) => {
     if (user) {
-        const userRef = db.ref(`users/${user.uid}`);
-        const userSnapshot = await userRef.get();
-        let userRole = userSnapshot.exists() ? userSnapshot.val().role : null;
+        const userSnapshot = await db.ref(`users/${user.uid}`).get();
+        const userRole = userSnapshot.exists() ? userSnapshot.val().role : null;
         const staffRoles = ['admin', 'manager', 'staff', 'delivery', 'owner'];
 
         if (staffRoles.includes(userRole)) {
-            
             await user.getIdToken(true);
 
-            const initialPanel = 'stock'; // Default to stock panel
+            buildSidebarNav(userRole);
+            
+            const initialPanel = 'stock';
             loadRolePanel(userRole, initialPanel);
+
+            document.getElementById('user-info').innerHTML = `
+                <div>
+                    <p class="font-semibold text-gray-800">${user.email}</p>
+                    <p class="text-sm text-gray-500">${capitalizeFirstLetter(userRole)} View</p>
+                </div>
+            `;
 
             const navContainer = document.getElementById('sidebar-nav');
             if (!navContainer.dataset.listenerAttached) {
@@ -169,24 +135,11 @@ auth.onAuthStateChanged(async (user) => {
                     const targetLink = event.target.closest('a');
                     if (targetLink && targetLink.dataset.panel) {
                         event.preventDefault();
-                        const targetPanel = targetLink.dataset.panel;
-                        
-                        // Simplified logic: If it's a stock-related tab, load the stock panel.
-                        if (['stock', 'recipes'].includes(targetPanel)) {
-                           loadRolePanel(userRole, 'stock').then(() => {
-                               setTimeout(() => {
-                                   const tabButton = document.querySelector(`button[data-tab="${targetPanel === 'stock' ? 'ingredients' : 'recipes'}"]`);
-                                   if (tabButton) tabButton.click();
-                               }, 150);
-                           });
-                        } else {
-                            loadRolePanel(userRole, targetPanel);
-                        }
+                        loadRolePanel(userRole, targetLink.dataset.panel);
                     }
                 });
                 navContainer.dataset.listenerAttached = 'true';
             }
-
         } else {
             window.location.href = '../order-type-selection.html';
         }
@@ -202,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const openSidebarBtn = document.getElementById('open-sidebar-btn');
     const closeSidebarBtn = document.getElementById('close-sidebar-btn');
 
-    if (openSidebarBtn) openSidebarBtn.addEventListener('click', () => {
+    if(openSidebarBtn) openSidebarBtn.addEventListener('click', () => {
         sidebar.classList.remove('-translate-x-full');
         sidebarOverlay.classList.remove('hidden');
     });
@@ -212,6 +165,6 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebarOverlay.classList.add('hidden');
     };
 
-    if (closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
-    if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
+    if(closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
+    if(sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 });
