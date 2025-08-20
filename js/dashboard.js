@@ -19,7 +19,7 @@ import { loadPanel as loadTeamPanel } from './panels/team.js';
 import { loadPanel as loadAnalyticsPanel } from './panels/analytics.js';
 import { loadPanel as loadAssignDeliveriesPanel } from './panels/assign-deliveries.js';
 import { loadPanel as loadStockPanel } from './panels/stock.js';
-import { loadPanel as loadRecipesPanel } from './panels/recipes.js'; // Import the new panel
+// import { loadPanel as loadRecipesPanel } from './panels/recipes.js'; // <-- THIS LINE IS NOW REMOVED
 import { loadPanel as loadSystemPanel } from './panels/system.js';
 
 /**
@@ -56,20 +56,6 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
         let panelModuleToLoad;
         let effectivePanelKey = targetPanelKey;
 
-        // NEW: Load the Stock panel if the target is 'recipes'
-        if (targetPanelKey === 'recipes') {
-            loadStockPanel(panelRoot, panelTitle, navContainer, db, auth);
-            // After loading, programmatically click the 'recipes' tab
-            setTimeout(() => {
-                const recipesTabButton = panelRoot.querySelector('button[data-tab="recipes"]');
-                if (recipesTabButton) {
-                    recipesTabButton.click();
-                }
-            }, 100);
-            return; // Exit after handling the special case
-        }
-
-
         if (role === 'admin') {
             switch (targetPanelKey) {
                 case 'users':
@@ -105,6 +91,10 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
                 case 'system':
                     panelModuleToLoad = loadSystemPanel;
                     break;
+                // NEW: Handle 'recipes' by loading the stock panel directly
+                case 'recipes':
+                    panelModuleToLoad = loadStockPanel;
+                    break;
                 default:
                     panelModuleToLoad = loadAdminPanel;
                     effectivePanelKey = 'users';
@@ -112,15 +102,21 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
             }
         } else {
             // Logic for other roles can be added here
-            // Example:
-            // if (role === 'manager') {
-            //     panelModuleToLoad = loadManagerPanel;
-            // }
         }
 
         if (typeof panelModuleToLoad === 'function') {
             panelRoot.innerHTML = '';
             panelModuleToLoad(panelRoot, panelTitle, navContainer, db, auth);
+
+            // If the target was 'recipes', programmatically switch to that tab after loading
+            if (targetPanelKey === 'recipes') {
+                setTimeout(() => {
+                    const recipesTabButton = panelRoot.querySelector('button[data-tab="recipes"]');
+                    if (recipesTabButton) {
+                        recipesTabButton.click();
+                    }
+                }, 100);
+            }
 
             userInfo.innerHTML = `
                 <i class="fas fa-user-circle text-gray-400 text-3xl"></i>
@@ -146,6 +142,7 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
     }
 }
 
+
 function capitalizeFirstLetter(string) {
     if (!string) return '';
     return string.charAt(0).toUpperCase() + string.slice(1);
@@ -161,33 +158,27 @@ auth.onAuthStateChanged(async (user) => {
 
         if (staffRoles.includes(userRole)) {
             
-            // Force a refresh of the user's token to get admin claim
-            try {
-                await user.getIdToken(true);
-                console.log("User token refreshed. Admin claim should now be active.");
-            } catch (error) {
-                console.error("Error refreshing user token:", error);
-            }
+            await user.getIdToken(true);
 
-            const initialPanel = userRole === 'admin' ? 'users' : userRole;
+            const initialPanel = 'stock'; // Default to stock panel
             loadRolePanel(userRole, initialPanel);
 
             const navContainer = document.getElementById('sidebar-nav');
-            // Ensure we only have one listener attached
             if (!navContainer.dataset.listenerAttached) {
                 navContainer.addEventListener('click', (event) => {
                     const targetLink = event.target.closest('a');
                     if (targetLink && targetLink.dataset.panel) {
                         event.preventDefault();
                         const targetPanel = targetLink.dataset.panel;
-                        // Special handling for loading the stock panel and its tabs
-                        if (['ingredients', 'recipes', 'daily-count', 'sales-input', 'warehouse'].includes(targetPanel)) {
-                            loadRolePanel(userRole, 'stock').then(() => {
-                                setTimeout(() => {
-                                    const tabButton = document.querySelector(`button[data-tab="${targetPanel}"]`);
-                                    if (tabButton) tabButton.click();
-                                }, 100);
-                            });
+                        
+                        // Simplified logic: If it's a stock-related tab, load the stock panel.
+                        if (['stock', 'recipes'].includes(targetPanel)) {
+                           loadRolePanel(userRole, 'stock').then(() => {
+                               setTimeout(() => {
+                                   const tabButton = document.querySelector(`button[data-tab="${targetPanel === 'stock' ? 'ingredients' : 'recipes'}"]`);
+                                   if (tabButton) tabButton.click();
+                               }, 150);
+                           });
                         } else {
                             loadRolePanel(userRole, targetPanel);
                         }
@@ -211,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const openSidebarBtn = document.getElementById('open-sidebar-btn');
     const closeSidebarBtn = document.getElementById('close-sidebar-btn');
 
-    openSidebarBtn.addEventListener('click', () => {
+    if (openSidebarBtn) openSidebarBtn.addEventListener('click', () => {
         sidebar.classList.remove('-translate-x-full');
         sidebarOverlay.classList.remove('hidden');
     });
@@ -221,6 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebarOverlay.classList.add('hidden');
     };
 
-    closeSidebarBtn.addEventListener('click', closeSidebar);
-    sidebarOverlay.addEventListener('click', closeSidebar);
+    if (closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
+    if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 });
