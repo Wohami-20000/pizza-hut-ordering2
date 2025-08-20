@@ -1,34 +1,20 @@
-let db, auth; // Declare db and auth at the module level
+// /js/panels/admin.js
 
-export function loadPanel(root, panelTitle, navContainer, database, authentication) {
-  // Assign the passed-in Firebase services to the module-level variables
+let db, auth; 
+
+export function loadPanel(root, panelTitle, database, authentication) {
   db = database;
   auth = authentication;
 
-  // --- ADDED NAVIGATION ---
   panelTitle.textContent = 'User Management';
-  navContainer.innerHTML = `
-    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="users"><i class="fas fa-users-cog mr-3"></i>User Management</a>
-    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="orders"><i class="fas fa-receipt mr-3"></i>Order Management</a>
-    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="menu-items"><i class="fas fa-pizza-slice mr-3"></i>Menu Items</a>
-    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="offers"><i class="fas fa-tags mr-3"></i>Offers</a>
-    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="promo-codes"><i class="fas fa-percent mr-3"></i>Promo Codes</a>
-    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="stock"><i class="fas fa-boxes mr-3"></i>Stock Control</a>
-    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="assign-deliveries"><i class="fas fa-motorcycle mr-3"></i>Assign Deliveries</a>
-    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="team"><i class="fas fa-users mr-3"></i>Team Roster</a>
-    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="feedback"><i class="fas fa-comment-dots mr-3"></i>Feedback</a>
-    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="analytics"><i class="fas fa-chart-line mr-3"></i>Analytics</a>
-    <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="system"><i class="fas fa-cogs mr-3"></i>System Config</a>
-  `;
-  // --- END NAVIGATION ---
 
   root.innerHTML = `
     <h2 class="text-2xl font-bold mb-4">👥 User Management</h2>
     <div class="mb-4">
-      <input type="text" id="search-user" placeholder="Search by email..." class="border p-2 w-1/3">
+      <input type="text" id="search-user" placeholder="Search by email..." class="border p-2 w-1/3 rounded-md">
     </div>
 
-    <div class="mb-6 p-4 border rounded-lg">
+    <div class="mb-6 p-4 bg-white rounded-xl shadow-lg">
       <h3 class="font-semibold text-lg mb-4">➕ Add New Team Member</h3>
       <form id="add-user-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <input type="text" id="new-user-name" placeholder="Full Name" class="border p-2 rounded-md" required>
@@ -42,24 +28,26 @@ export function loadPanel(root, panelTitle, navContainer, database, authenticati
           <option value="delivery">Delivery</option>
           <option value="owner">Owner</option>
         </select>
-        <button type="submit" id="add-user-btn" class="bg-green-500 text-white p-2 rounded-md">Add User</button>
+        <button type="submit" id="add-user-btn" class="bg-green-500 text-white p-2 rounded-md hover:bg-green-600">Add User</button>
       </form>
     </div>
 
-    <table class="min-w-full text-left border">
-      <thead>
-        <tr>
-          <th>Full Name</th>
-          <th>Email</th>
-          <th>Mobile Number</th>
-          <th>Main Address</th>
-          <th>Role</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="users-body"></tbody>
-    </table>
+    <div class="overflow-x-auto bg-white rounded-xl shadow-lg">
+        <table class="min-w-full text-left">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="p-3">Full Name</th>
+              <th class="p-3">Email</th>
+              <th class="p-3">Mobile Number</th>
+              <th class="p-3">Main Address</th>
+              <th class="p-3">Role</th>
+              <th class="p-3">Status</th>
+              <th class="p-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-body" class="divide-y"></tbody>
+        </table>
+    </div>
   `;
 
   document.getElementById('search-user').addEventListener('input', filterUsers);
@@ -92,7 +80,7 @@ function createUserRow(uid, user) {
     return `<option value="${role}" ${user.role === role ? 'selected' : ''}>${role}</option>`;
   }).join('');
 
-  const status = user.disabled ? 'Suspended' : 'Active';
+  const status = user.isDisabled ? 'Suspended' : 'Active';
   
   let mainAddress = 'N/A';
   if (user.addresses) {
@@ -101,41 +89,45 @@ function createUserRow(uid, user) {
       mainAddress = `${firstAddress.street}, ${firstAddress.city}`;
   }
 
-
-  const viewOrdersLink = user.role === 'customer' 
-    ? `<a href="../customer-details.html?uid=${uid}" target="_blank" class="text-green-500 ml-2 hover:underline">View Details</a>`
-    : '';
-  
-  const userNameDisplay = user.role === 'customer'
-    ? `<a href="../customer-details.html?uid=${uid}" target="_blank" class="text-blue-600 hover:underline">${user.name || 'N/A'}</a>`
-    : (user.name || 'N/A');
-
+  const viewDetailsLink = `<a href="../customer-details.html?uid=${uid}" target="_blank" class="text-green-500 ml-2 hover:underline">View Details</a>`;
+  const userNameDisplay = `<a href="../customer-details.html?uid=${uid}" target="_blank" class="text-blue-600 hover:underline">${user.name || 'N/A'}</a>`;
 
   return `
-    <tr>
-      <td>${userNameDisplay}</td>
-      <td>${user.email || 'N/A'}</td>
-      <td>${user.phone || 'N/A'}</td>
-      <td>${mainAddress}</td>
-      <td>
-        <select onchange="updateUserRole('${uid}', this.value)">
+    <tr class="hover:bg-gray-50">
+      <td class="p-3">${userNameDisplay}</td>
+      <td class="p-3">${user.email || 'N/A'}</td>
+      <td class="p-3">${user.phone || 'N/A'}</td>
+      <td class="p-3">${mainAddress}</td>
+      <td class="p-3">
+        <select onchange="updateUserRole('${uid}', this.value)" class="border p-1 rounded-md bg-white">
           ${roleOptions}
         </select>
       </td>
-      <td>${status}</td>
-      <td>
-        <button onclick="toggleUserStatus('${uid}', ${user.disabled ? 'false' : 'true'})" class="text-red-500">${user.disabled ? 'Activate' : 'Suspend'}</button>
+      <td class="p-3">${status}</td>
+      <td class="p-3">
+        <button onclick="toggleUserStatus('${uid}', ${user.isDisabled ? 'false' : 'true'})" class="text-red-500">${user.isDisabled ? 'Activate' : 'Suspend'}</button>
         <button onclick="sendPasswordReset('${user.email}')" class="text-blue-500 ml-2">Reset Password</button>
-        ${viewOrdersLink}
+        ${viewDetailsLink}
       </td>
     </tr>
   `;
 }
 
 window.updateUserRole = function(uid, newRole) {
-  db.ref(`users/${uid}/role`).set(newRole)
-    .then(() => alert('Role updated!'))
-    .catch(err => console.error('Failed to update role:', err));
+    const currentUser = auth.currentUser;
+    currentUser.getIdToken().then(idToken => {
+        fetch('http://localhost:3000/set-role', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`
+            },
+            body: JSON.stringify({ uid, role: newRole })
+        })
+        .then(res => res.json())
+        .then(data => alert(data.message || data.error))
+        .catch(err => console.error('Role update failed:', err));
+    });
 };
 
 window.toggleUserStatus = function(uid, disable) {
@@ -165,7 +157,7 @@ window.sendPasswordReset = function(email) {
 function filterUsers(event) {
   const query = event.target.value.toLowerCase();
   const filtered = Object.keys(allUsers).reduce((acc, uid) => {
-    if (allUsers[uid].email?.toLowerCase().includes(query)) {
+    if (allUsers[uid].email?.toLowerCase().includes(query) || allUsers[uid].name?.toLowerCase().includes(query)) {
       acc[uid] = allUsers[uid];
     }
     return acc;
