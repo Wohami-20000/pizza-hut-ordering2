@@ -5,10 +5,11 @@ const db = firebase.database();
 // --- STATE MANAGEMENT ---
 let ingredientsCache = {};
 let recipesCache = {};
-let menuItemsCache = {}; 
+let menuItemsCache = {};
 let editingIngredientId = null;
-let currentRecipeMenuItemId = null; 
+let currentRecipeMenuItemId = null;
 let currentStockDate = new Date().toISOString().split('T')[0];
+let charts = {}; // To hold chart instances
 
 // --- UI ELEMENT REFERENCES ---
 let ingredientModal, ingredientForm, modalTitle, panelRoot, recipeModal, recipeForm, reportModal;
@@ -29,10 +30,12 @@ function switchTab(tabName) {
         buttonToActivate.classList.add('border-red-600', 'text-red-600');
         buttonToActivate.classList.remove('text-gray-500', 'border-transparent');
     }
+
     // Load data for the activated tab
     if (tabName === 'recipes') loadAndRenderRecipes();
     if (tabName === 'daily-count') loadDailyCountData();
     if (tabName === 'sales-input') loadSalesData();
+    if (tabName === 'analytics') loadAnalyticsReports();
 }
 
 // --- FINANCIAL KPI CALCULATIONS ---
@@ -88,8 +91,159 @@ async function updateFinancialKPIs() {
     }
 }
 
-// --- END-OF-DAY REPORT ---
+// --- ANALYTICS & REPORTING ---
+function destroyCharts() {
+    Object.values(charts).forEach(chart => chart.destroy());
+    charts = {};
+}
 
+async function loadAnalyticsReports() {
+    destroyCharts();
+    const container = document.getElementById('analytics-container');
+    container.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Loading analytics data...</p></div>`;
+
+    try {
+        const [salesSnapshot, stockCountsSnapshot, ingredientsSnapshot] = await Promise.all([
+            db.ref('sales').once('value'),
+            db.ref('stockCounts').once('value'),
+            db.ref('ingredients').once('value')
+        ]);
+
+        const sales = salesSnapshot.val() || {};
+        const stockCounts = stockCountsSnapshot.val() || {};
+        const ingredients = ingredientsSnapshot.val() || {};
+
+        renderWeeklyReport(sales, stockCounts, ingredients);
+        renderMonthlyReport(sales, stockCounts, ingredients);
+        renderYearlyReport(sales, stockCounts, ingredients);
+        
+    } catch (error) {
+        console.error("Error loading analytics:", error);
+        container.innerHTML = `<p class="text-red-500">Could not load analytics: ${error.message}</p>`;
+    }
+}
+
+function renderWeeklyReport(sales, stockCounts, ingredients) {
+    const weeklyContainer = document.getElementById('weekly-report-container');
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        return d.toISOString().split('T')[0];
+    }).reverse();
+
+    const weeklySalesData = { labels: [], data: [] };
+    const usageVsPurchases = { labels: [], usage: [], purchases: [] };
+    let lossData = {};
+
+    last7Days.forEach(date => {
+        const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'short' });
+        weeklySalesData.labels.push(dayOfWeek);
+        weeklySalesData.data.push(sales[date] ? sales[date].total : 0);
+
+        if (stockCounts[date]) {
+            let totalUsage = 0, totalPurchases = 0;
+            for (const ingId in stockCounts[date]) {
+                const ingredient = ingredients[ingId];
+                if (ingredient) {
+                    totalUsage += stockCounts[date][ingId].used_expected * (ingredient.unit_cost || 0);
+                    totalPurchases += stockCounts[date][ingId].purchases * (ingredient.unit_cost || 0);
+                    if (stockCounts[date][ingId].variance < 0) {
+                        lossData[ingredient.name] = (lossData[ingredient.name] || 0) + Math.abs(stockCounts[date][ingId].variance);
+                    }
+                }
+            }
+            usageVsPurchases.labels.push(dayOfWeek);
+            usageVsPurchases.usage.push(totalUsage);
+            usageVsPurchases.purchases.push(totalPurchases);
+        }
+    });
+
+    const top5Losses = Object.entries(lossData).sort(([, a], [, b]) => b - a).slice(0, 5).map(([name, qty]) => `<li>${name}: ${qty.toFixed(2)} units</li>`).join('') || "<li>No losses recorded this week.</li>";
+
+    weeklyContainer.innerHTML = `
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div><h4 class="font-bold mb-2">Weekly Sales Trend (Last 7 Days)</h4><canvas id="weekly-sales-chart"></canvas></div>
+            <div><h4 class="font-bold mb-2">Usage vs Purchases (Cost in MAD)</h4><canvas id="usage-purchases-chart"></canvas></div>
+            <div class="lg:col-span-2"><h4 class="font-bold mb-2">Top 5 Loss Ingredients (by Quantity)</h4><ul class="list-disc list-inside bg-gray-50 p-4 rounded-md">${top5Losses}</ul></div>
+        </div>
+    `;
+
+    charts.weeklySales = new Chart(document.getElementById('weekly-sales-chart'), { type: 'line', data: { labels: weeklySalesData.labels, datasets: [{ label: 'Sales (MAD)', data: weeklySalesData.data, borderColor: '#D71921', tension: 0.1 }] } });
+    charts.usagePurchases = new Chart(document.getElementById('usage-purchases-chart'), { type: 'bar', data: { labels: usageVsPurchases.labels, datasets: [{ label: 'Usage Cost', data: usageVsPurchases.usage, backgroundColor: '#EF4444' }, { label: 'Purchases Cost', data: usageVsPurchases.purchases, backgroundColor: '#3B82F6' }] }, options: { scales: { y: { beginAtZero: true } } } });
+}
+
+function renderMonthlyReport(sales, stockCounts, ingredients) {
+    const monthlyContainer = document.getElementById('monthly-report-container');
+    const monthlySales = {};
+    const monthlyCosts = {};
+
+    for (const date in sales) {
+        const month = date.substring(0, 7); // YYYY-MM
+        monthlySales[month] = (monthlySales[month] || 0) + sales[date].total;
+    }
+     for (const date in stockCounts) {
+        const month = date.substring(0, 7); // YYYY-MM
+        let dailyCost = 0;
+        for(const ingId in stockCounts[date]){
+            if(ingredients[ingId]){
+                 dailyCost += stockCounts[date][ingId].used_expected * (ingredients[ingId].unit_cost || 0);
+            }
+        }
+        monthlyCosts[month] = (monthlyCosts[month] || 0) + dailyCost;
+    }
+
+    const labels = Object.keys(monthlySales).sort();
+    const salesData = labels.map(month => monthlySales[month]);
+    const costData = labels.map(month => monthlyCosts[month] || 0);
+
+    monthlyContainer.innerHTML = `
+        <h3 class="text-xl font-bold text-gray-800 mt-8 mb-4 border-t pt-6">Monthly Report</h3>
+        <div><h4 class="font-bold mb-2">Cost vs Sales Trend</h4><canvas id="monthly-sales-chart"></canvas></div>
+    `;
+
+    charts.monthlySales = new Chart(document.getElementById('monthly-sales-chart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'Total Sales (MAD)', data: salesData, backgroundColor: '#22C55E' },
+                { label: 'Ingredient Cost (MAD)', data: costData, backgroundColor: '#F97316' }
+            ]
+        },
+        options: { scales: { y: { beginAtZero: true } } }
+    });
+}
+
+function renderYearlyReport(sales, stockCounts, ingredients) {
+    const yearlyContainer = document.getElementById('yearly-report-container');
+    let totalRevenue = 0, totalPurchases = 0, totalLosses = 0;
+
+    for(const date in sales) {
+        totalRevenue += sales[date].total;
+    }
+    for(const date in stockCounts){
+        for(const ingId in stockCounts[date]){
+            const ingredient = ingredients[ingId];
+            if(ingredient){
+                totalPurchases += stockCounts[date][ingId].purchases * (ingredient.unit_cost || 0);
+                if(stockCounts[date][ingId].variance < 0){
+                    totalLosses += Math.abs(stockCounts[date][ingId].variance) * (ingredient.unit_cost || 0);
+                }
+            }
+        }
+    }
+
+    yearlyContainer.innerHTML = `
+        <h3 class="text-xl font-bold text-gray-800 mt-8 mb-4 border-t pt-6">Year-to-Date Summary</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-green-100 p-4 rounded-lg text-center"><p class="text-sm font-semibold">Total Revenue</p><p class="text-2xl font-bold">${totalRevenue.toFixed(2)} MAD</p></div>
+            <div class="bg-blue-100 p-4 rounded-lg text-center"><p class="text-sm font-semibold">Total Purchases</p><p class="text-2xl font-bold">${totalPurchases.toFixed(2)} MAD</p></div>
+            <div class="bg-red-100 p-4 rounded-lg text-center"><p class="text-sm font-semibold">Total Losses</p><p class="text-2xl font-bold">${totalLosses.toFixed(2)} MAD</p></div>
+        </div>
+    `;
+}
+
+// --- END-OF-DAY REPORT ---
 async function generateEndOfDayReport() {
     const reportDate = document.getElementById('stock-date-picker').value;
     const reportModal = document.getElementById('report-modal');
@@ -111,10 +265,7 @@ async function generateEndOfDayReport() {
         const stockCounts = stockCountSnapshot.val() || {};
         const ingredients = ingredientsSnapshot.val() || {};
 
-        let totalLossValue = 0;
-        let ingredientCost = 0;
-        let varianceRows = '';
-        let wastageRows = '';
+        let totalLossValue = 0, ingredientCost = 0, varianceRows = '', wastageRows = '';
 
         for (const ingId in stockCounts) {
             const count = stockCounts[ingId];
@@ -140,37 +291,12 @@ async function generateEndOfDayReport() {
 
         reportContent.innerHTML = `
             <div class="space-y-6 text-sm">
-                <div class="p-4 bg-gray-50 rounded-lg">
-                    <h4 class="font-bold text-lg mb-2">Financial Summary</h4>
-                    <div class="grid grid-cols-2 gap-x-4 gap-y-2">
-                        <span class="font-semibold">Total Sales:</span> <span class="text-right font-bold text-green-600">${sales.total.toFixed(2)} MAD</span>
-                        <span class="font-semibold">Ingredient Cost:</span> <span class="text-right">-${ingredientCost.toFixed(2)} MAD</span>
-                        <span class="font-semibold">Variance Loss:</span> <span class="text-right text-red-600">-${totalLossValue.toFixed(2)} MAD</span>
-                        <span class="font-bold border-t pt-2 mt-1">Estimated Profit:</span> <span class="text-right font-bold border-t pt-2 mt-1">${profitEstimate.toFixed(2)} MAD</span>
-                    </div>
-                </div>
-
-                <div>
-                    <h4 class="font-bold text-lg mb-2">Sales Breakdown</h4>
-                    <div class="grid grid-cols-2 gap-x-4 gap-y-1">
-                        <span>Platform Sales:</span> <span class="text-right">${(sales.platform || 0).toFixed(2)} MAD</span>
-                        <span>Glovo Sales:</span> <span class="text-right">${(sales.glovo || 0).toFixed(2)} MAD</span>
-                        <span>In-House Sales:</span> <span class="text-right">${(sales.regular || 0).toFixed(2)} MAD</span>
-                    </div>
-                </div>
-
-                <div>
-                    <h4 class="font-bold text-lg mb-2">Stock Variance Report</h4>
-                    ${varianceRows ? `<table class="w-full"><thead><tr class="bg-gray-100"><th class="text-left px-2 py-1">Item</th><th class="text-center px-2 py-1">Qty Var.</th><th class="text-right px-2 py-1">Value Var.</th></tr></thead><tbody>${varianceRows}</tbody></table>` : '<p>No variances recorded.</p>'}
-                </div>
-
-                <div>
-                    <h4 class="font-bold text-lg mb-2">Wastage Report</h4>
-                    ${wastageRows ? `<table class="w-full"><thead><tr class="bg-gray-100"><th class="text-left px-2 py-1">Item</th><th class="text-center px-2 py-1">Qty</th><th class="text-right px-2 py-1">Value</th></tr></thead><tbody>${wastageRows}</tbody></table>` : '<p>No wastage recorded.</p>'}
-                </div>
+                <div class="p-4 bg-gray-50 rounded-lg"><h4 class="font-bold text-lg mb-2">Financial Summary</h4><div class="grid grid-cols-2 gap-x-4 gap-y-2"><span class="font-semibold">Total Sales:</span><span class="text-right font-bold text-green-600">${sales.total.toFixed(2)} MAD</span><span class="font-semibold">Ingredient Cost:</span><span class="text-right">-${ingredientCost.toFixed(2)} MAD</span><span class="font-semibold">Variance Loss:</span><span class="text-right text-red-600">-${totalLossValue.toFixed(2)} MAD</span><span class="font-bold border-t pt-2 mt-1">Estimated Profit:</span><span class="text-right font-bold border-t pt-2 mt-1">${profitEstimate.toFixed(2)} MAD</span></div></div>
+                <div><h4 class="font-bold text-lg mb-2">Sales Breakdown</h4><div class="grid grid-cols-2 gap-x-4 gap-y-1"><span>Platform Sales:</span><span class="text-right">${(sales.platform || 0).toFixed(2)} MAD</span><span>Glovo Sales:</span><span class="text-right">${(sales.glovo || 0).toFixed(2)} MAD</span><span>In-House Sales:</span><span class="text-right">${(sales.regular || 0).toFixed(2)} MAD</span></div></div>
+                <div><h4 class="font-bold text-lg mb-2">Stock Variance Report</h4>${varianceRows ? `<table class="w-full"><thead><tr class="bg-gray-100"><th class="text-left px-2 py-1">Item</th><th class="text-center px-2 py-1">Qty Var.</th><th class="text-right px-2 py-1">Value Var.</th></tr></thead><tbody>${varianceRows}</tbody></table>` : '<p>No variances recorded.</p>'}</div>
+                <div><h4 class="font-bold text-lg mb-2">Wastage Report</h4>${wastageRows ? `<table class="w-full"><thead><tr class="bg-gray-100"><th class="text-left px-2 py-1">Item</th><th class="text-center px-2 py-1">Qty</th><th class="text-right px-2 py-1">Value</th></tr></thead><tbody>${wastageRows}</tbody></table>` : '<p>No wastage recorded.</p>'}</div>
             </div>
         `;
-
     } catch (error) {
         console.error("Error generating report:", error);
         reportContent.innerHTML = `<p class="text-red-500">Could not generate report. Error: ${error.message}</p>`;
@@ -181,8 +307,8 @@ function printReport() {
     window.print();
 }
 
+
 // --- RECIPE MANAGEMENT FUNCTIONS ---
-// ... (code from previous step, no changes)
 function createRecipeRow(menuItemId, recipeData) {
     const menuItem = menuItemsCache[menuItemId] || { name: 'Unknown Item' };
     let ingredientsSummary = 'No ingredients set.';
@@ -329,8 +455,8 @@ function filterIngredients(query) {
         item.style.display = itemText.includes(query) ? '' : 'none';
     });
 }
-// ...
-// --- EXISTING WAREHOUSE, SALES, DAILY COUNT, INGREDIENT FUNCTIONS ---
+
+// --- INGREDIENT, DAILY COUNT, SALES, WAREHOUSE FUNCTIONS ---
 async function loadSalesData() {
     const salesDate = document.getElementById('sales-date-picker').value;
     const salesRef = db.ref(`sales/${salesDate}`);
@@ -351,6 +477,7 @@ async function loadSalesData() {
         alert("Could not load sales data.");
     }
 }
+
 function updateTotalSales() {
     const platform = parseFloat(document.getElementById('platform-sales').value) || 0;
     const glovo = parseFloat(document.getElementById('glovo-sales').value) || 0;
@@ -358,6 +485,7 @@ function updateTotalSales() {
     const total = platform + glovo + regular;
     document.getElementById('total-sales-display').textContent = `${total.toFixed(2)} MAD`;
 }
+
 async function saveSalesData(e) {
     e.preventDefault();
     const salesDate = document.getElementById('sales-date-picker').value;
@@ -376,6 +504,7 @@ async function saveSalesData(e) {
         alert("Failed to save sales data.");
     }
 }
+
 async function loadDailyCountData() {
     const dailyTbody = document.getElementById('daily-count-tbody');
     if (!dailyTbody) return;
@@ -426,6 +555,7 @@ async function loadDailyCountData() {
         dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6 text-red-500">Failed to load data.</td></tr>';
     }
 }
+
 function calculateRow(row) {
     const opening = parseFloat(row.querySelector('[data-opening]').textContent) || 0;
     const purchases = parseFloat(row.querySelector('.purchases-input').value) || 0;
@@ -445,6 +575,7 @@ function calculateRow(row) {
         else if (variance < 0) varianceEl.classList.add('text-red-600');
     }
 }
+
 async function saveDailyCount() {
     const saveData = {};
     const rows = document.querySelectorAll('#daily-count-tbody tr[data-id]');
@@ -470,11 +601,13 @@ async function saveDailyCount() {
         }
     }
 }
+
 function createIngredientRow(ingredientId, ingredientData) {
     const { name, category, unit, unit_cost, supplier, low_stock_threshold } = ingredientData;
     const isLowStock = ingredientData.stock_level && low_stock_threshold && ingredientData.stock_level < low_stock_threshold;
     return `<tr class="hover:bg-gray-50 transition ${isLowStock ? 'bg-yellow-50' : ''}" data-id="${ingredientId}"><td class="p-3 font-medium text-gray-800">${name || 'N/A'}</td><td class="p-3 text-sm text-gray-600">${category || 'N/A'}</td><td class="p-3 text-sm text-center">${ingredientData.stock_level || 0} ${unit || ''}</td><td class="p-3 text-sm">${(unit_cost || 0).toFixed(2)} MAD</td><td class="p-3 text-sm text-gray-500">${supplier || 'N/A'}</td><td class="p-3 text-center"><button class="edit-ingredient-btn bg-blue-500 text-white px-3 py-1 text-xs rounded-md hover:bg-blue-600">Edit</button><button class="delete-ingredient-btn bg-red-500 text-white px-3 py-1 text-xs rounded-md hover:bg-red-600 ml-2">Delete</button></td></tr>`;
 }
+
 function openIngredientModal(ingredientId = null) {
     editingIngredientId = ingredientId;
     ingredientForm.reset();
@@ -493,10 +626,12 @@ function openIngredientModal(ingredientId = null) {
     }
     ingredientModal.classList.remove('hidden');
 }
+
 function closeIngredientModal() {
     ingredientModal.classList.add('hidden');
     editingIngredientId = null;
 }
+
 async function handleSaveIngredient(e) {
     e.preventDefault();
     const saveBtn = ingredientForm.querySelector('button[type="submit"]');
@@ -522,6 +657,7 @@ async function handleSaveIngredient(e) {
         saveBtn.textContent = 'Save Ingredient';
     }
 }
+
 function loadAndRenderIngredients() {
     const ingredientsTbody = document.getElementById('ingredients-tbody');
     const ingredientsRef = db.ref('ingredients');
@@ -539,9 +675,10 @@ function loadAndRenderIngredients() {
             ingredientsCache = {};
             ingredientsTbody.innerHTML = '<tr><td colspan="6" class="text-center p-6 text-gray-500">No ingredients found. Add one to get started!</td></tr>';
         }
-        updateFinancialKPIs(); // Update KPIs whenever ingredients change
+        updateFinancialKPIs();
     });
 }
+
 function handleTableClick(e) {
     const target = e.target;
     const row = target.closest('tr');
@@ -558,7 +695,6 @@ function handleTableClick(e) {
 
 
 // --- MAIN PANEL LOADER ---
-
 export function loadPanel(root, panelTitle) {
     panelRoot = root;
     panelTitle.textContent = 'Stock & Sales Control';
@@ -578,6 +714,7 @@ export function loadPanel(root, panelTitle) {
                     <button data-tab="daily-count" class="tab-button py-2 px-4 font-semibold">Daily Count</button>
                     <button data-tab="sales-input" class="tab-button py-2 px-4 font-semibold">Sales Input</button>
                     <button data-tab="warehouse" class="tab-button py-2 px-4 font-semibold">Warehouse</button>
+                    <button data-tab="analytics" class="tab-button py-2 px-4 font-semibold">Analytics</button>
                 </nav>
             </div>
 
@@ -590,7 +727,7 @@ export function loadPanel(root, panelTitle) {
                 <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-gray-800">Menu Recipes</h3><button id="add-recipe-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition"><i class="fas fa-plus mr-2"></i>Add Recipe</button></div>
                 <div class="overflow-x-auto"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-xs font-semibold uppercase">Menu Item</th><th class="p-3 text-left text-xs font-semibold uppercase">Linked Ingredients</th><th class="p-3 text-center text-xs font-semibold uppercase">Actions</th></tr></thead><tbody id="recipes-tbody" class="divide-y"></tbody></table></div>
             </div>
-
+            
             <div id="daily-count-section" class="tab-content" style="display: none;">
                 <div class="flex justify-between items-center mb-4">
                     <div>
@@ -618,6 +755,15 @@ export function loadPanel(root, panelTitle) {
                     <div class="flex justify-end pt-4"><button type="submit" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700">Save Delivery</button></div>
                 </form>
             </div>
+
+            <div id="analytics-section" class="tab-content" style="display: none;">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Reports & Analytics</h3>
+                <div id="analytics-container" class="space-y-8">
+                    <div id="weekly-report-container"></div>
+                    <div id="monthly-report-container"></div>
+                    <div id="yearly-report-container"></div>
+                </div>
+            </div>
         </div>
 
         <div id="ingredient-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
@@ -635,7 +781,7 @@ export function loadPanel(root, panelTitle) {
     modalTitle = panelRoot.querySelector('#modal-title');
     recipeModal = panelRoot.querySelector('#recipe-modal');
     recipeForm = panelRoot.querySelector('#recipe-form');
-    reportModal = document.getElementById('report-modal'); // Get the main report modal
+    reportModal = document.getElementById('report-modal');
 
     panelRoot.querySelector('#add-ingredient-btn')?.addEventListener('click', () => openIngredientModal());
     panelRoot.querySelector('#cancel-modal-btn')?.addEventListener('click', closeIngredientModal);
@@ -651,13 +797,11 @@ export function loadPanel(root, panelTitle) {
     recipeForm?.addEventListener('submit', handleSaveRecipe);
     panelRoot.querySelector('#ingredient-search')?.addEventListener('input', (e) => filterIngredients(e.target.value.toLowerCase()));
     
-    // NEW: Report button listeners
     panelRoot.querySelector('#generate-report-btn')?.addEventListener('click', generateEndOfDayReport);
     document.getElementById('close-report-btn')?.addEventListener('click', () => reportModal.classList.add('hidden'));
     document.getElementById('print-report-btn')?.addEventListener('click', printReport);
 
 
-    // Event delegation for recipe modal and table
     panelRoot.addEventListener('click', (e) => {
         const addBtn = e.target.closest('.add-ingredient-to-recipe-btn');
         const removeBtn = e.target.closest('.remove-ingredient-from-recipe-btn');
@@ -689,6 +833,6 @@ export function loadPanel(root, panelTitle) {
             }
         })]);
         switchTab('ingredients');
-        updateFinancialKPIs(); // Initial KPI load
+        updateFinancialKPIs();
     })();
 }
