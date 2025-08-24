@@ -35,6 +35,63 @@ function switchTab(tabName) {
     if (tabName === 'sales-input') loadSalesData();
 }
 
+// --- FINANCIAL KPI CALCULATIONS ---
+async function updateFinancialKPIs() {
+    const today = new Date().toISOString().split('T')[0];
+    const salesRef = db.ref(`sales/${today}`);
+    const stockCountRef = db.ref(`stockCounts/${today}`);
+    const ingredientsRef = db.ref('ingredients');
+
+    try {
+        const [salesSnapshot, stockCountSnapshot, ingredientsSnapshot] = await Promise.all([
+            salesRef.once('value'),
+            stockCountRef.once('value'),
+            ingredientsRef.once('value')
+        ]);
+
+        const salesData = salesSnapshot.exists() ? salesSnapshot.val() : { total: 0 };
+        const stockCountData = stockCountSnapshot.exists() ? stockCountSnapshot.val() : {};
+        const ingredientsData = ingredientsSnapshot.exists() ? ingredientsSnapshot.val() : {};
+
+        let totalSales = salesData.total || 0;
+        let ingredientCost = 0;
+        let totalLossValue = 0;
+        let lowStockItems = 0;
+
+        for (const id in ingredientsData) {
+            const ingredient = ingredientsData[id];
+            if (ingredient.stock_level < ingredient.low_stock_threshold) {
+                lowStockItems++;
+            }
+        }
+
+        for (const ingId in stockCountData) {
+            const count = stockCountData[ingId];
+            const ingredient = ingredientsData[ingId];
+            if (ingredient) {
+                ingredientCost += count.used_expected * (ingredient.unit_cost || 0);
+                if (count.variance < 0) {
+                    totalLossValue += Math.abs(count.variance) * (ingredient.unit_cost || 0);
+                }
+            }
+        }
+
+        const foodCostPercentage = totalSales > 0 ? (ingredientCost / totalSales) * 100 : 0;
+        const profitEstimate = totalSales - ingredientCost - totalLossValue;
+
+        // Update KPI cards
+        panelRoot.querySelector('#todays-sales').textContent = `${totalSales.toFixed(2)} MAD`;
+        panelRoot.querySelector('#todays-loss').textContent = `${totalLossValue.toFixed(2)} MAD`;
+        panelRoot.querySelector('#food-cost').textContent = `${foodCostPercentage.toFixed(2)}%`;
+        panelRoot.querySelector('#low-stock-items').textContent = lowStockItems;
+        // Assuming you add an ID for profit estimate
+        // panelRoot.querySelector('#profit-estimate').textContent = `${profitEstimate.toFixed(2)} MAD`;
+
+    } catch (error) {
+        console.error("Error updating financial KPIs:", error);
+    }
+}
+
 
 // --- RECIPE MANAGEMENT FUNCTIONS (NEW) ---
 
@@ -87,10 +144,10 @@ function openRecipeModal(menuItemId = null) {
     currentRecipeMenuItemId = menuItemId;
     recipeForm.reset();
     document.getElementById('recipe-ingredients-list').innerHTML = '<p class="text-gray-500 p-4 text-center">Add ingredients from the left.</p>';
-    
+
     const menuItemSelect = document.getElementById('menu-item-select');
     menuItemSelect.innerHTML = '<option value="">-- Select a Menu Item --</option>';
-    
+
     Object.entries(menuItemsCache).forEach(([id, item]) => {
         if (!recipesCache[id] || id === menuItemId) {
             const option = new Option(item.name, id);
@@ -110,7 +167,7 @@ function openRecipeModal(menuItemId = null) {
         document.getElementById('recipe-modal-title').textContent = `Edit Recipe for ${menuItemsCache[menuItemId].name}`;
         menuItemSelect.value = menuItemId;
         menuItemSelect.disabled = true;
-        
+
         const recipeData = recipesCache[menuItemId];
         if (recipeData && recipeData.ingredients) {
             const recipeList = document.getElementById('recipe-ingredients-list');
@@ -399,6 +456,7 @@ function loadAndRenderIngredients() {
             ingredientsCache = {};
             ingredientsTbody.innerHTML = '<tr><td colspan="6" class="text-center p-6 text-gray-500">No ingredients found. Add one to get started!</td></tr>';
         }
+        updateFinancialKPIs(); // Update KPIs whenever ingredients change
     });
 }
 function handleTableClick(e) {
@@ -424,10 +482,10 @@ export function loadPanel(root, panelTitle) {
 
     panelRoot.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Today's Sales</h4><p class="text-2xl font-bold">0 MAD</p></div>
-            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Today's Loss Value</h4><p class="text-2xl font-bold text-red-500">0 MAD</p></div>
-            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Food Cost %</h4><p class="text-2xl font-bold">0%</p></div>
-            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Low Stock Items</h4><p class="text-2xl font-bold">0</p></div>
+            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Today's Sales</h4><p id="todays-sales" class="text-2xl font-bold">0 MAD</p></div>
+            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Today's Loss Value</h4><p id="todays-loss" class="text-2xl font-bold text-red-500">0 MAD</p></div>
+            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Food Cost %</h4><p id="food-cost" class="text-2xl font-bold">0%</p></div>
+            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Low Stock Items</h4><p id="low-stock-items" class="text-2xl font-bold">0</p></div>
         </div>
         <div class="bg-white rounded-xl shadow-lg p-6">
             <div class="border-b mb-4">
@@ -532,5 +590,6 @@ export function loadPanel(root, panelTitle) {
             }
         })]);
         switchTab('ingredients');
+        updateFinancialKPIs(); // Initial KPI load
     })();
 }
