@@ -418,7 +418,7 @@ function handleTableClick(e) {
 
 // --- MAIN PANEL LOADER ---
 
-export function loadPanel(panelRoot, panelTitle) {
+export function loadPanel(root, panelTitle) {
     panelRoot = root;
     panelTitle.textContent = 'Stock & Sales Control';
 
