@@ -36,7 +36,64 @@ function switchTab(tabName) {
     if (tabName === 'daily-count') loadDailyCountData();
     if (tabName === 'sales-input') loadSalesData();
     if (tabName === 'analytics') loadAnalyticsReports();
+    if (tabName === 'alerts') checkAndDisplayAlerts(); // Load alerts when tab is clicked
 }
+
+// --- ALERTS & NOTIFICATIONS ---
+async function checkAndDisplayAlerts() {
+    const alertsContainer = document.getElementById('alerts-container');
+    if (!alertsContainer) return;
+    alertsContainer.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Checking for alerts...</p></div>`;
+
+    let alertsHtml = '';
+    const today = new Date().toISOString().split('T')[0];
+
+    try {
+        const [ingredientsSnapshot, stockCountSnapshot] = await Promise.all([
+            db.ref('ingredients').once('value'),
+            db.ref(`stockCounts/${today}`).once('value')
+        ]);
+
+        const ingredients = ingredientsSnapshot.val() || {};
+        const stockCounts = stockCountSnapshot.val() || {};
+
+        // 1. Low Stock Alerts
+        let lowStockAlerts = '';
+        for (const id in ingredients) {
+            const ing = ingredients[id];
+            if (ing.stock_level < ing.low_stock_threshold) {
+                lowStockAlerts += `<li class="p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg"><strong>Low Stock:</strong> ${ing.name} is at ${ing.stock_level} ${ing.unit} (Threshold: ${ing.low_stock_threshold} ${ing.unit}).</li>`;
+            }
+        }
+        if (lowStockAlerts) {
+            alertsHtml += `<div><h4 class="font-bold text-lg mb-2 text-yellow-700">Low Stock Warnings</h4><ul class="space-y-2">${lowStockAlerts}</ul></div>`;
+        }
+
+        // 2. High Variance Alerts
+        let highVarianceAlerts = '';
+        for (const id in stockCounts) {
+            const count = stockCounts[id];
+            const ingredient = ingredients[id];
+            if (ingredient && count.variance < 0) { // Only show negative variances as alerts
+                 const variancePercentage = (Math.abs(count.variance) / count.opening) * 100;
+                 if(variancePercentage > 5) { // Example threshold: 5% variance
+                    highVarianceAlerts += `<li class="p-3 bg-red-50 border-l-4 border-red-400 rounded-r-lg"><strong>High Variance:</strong> ${ingredient.name} has a variance of ${count.variance.toFixed(2)} ${ingredient.unit} (${variancePercentage.toFixed(1)}% loss).</li>`;
+                 }
+            }
+        }
+         if (highVarianceAlerts) {
+            alertsHtml += `<div><h4 class="font-bold text-lg mb-2 text-red-700">High Variance Alerts (Today)</h4><ul class="space-y-2">${highVarianceAlerts}</ul></div>`;
+        }
+
+
+        alertsContainer.innerHTML = alertsHtml || '<p class="text-center text-gray-500 p-8">No alerts to show right now. Everything looks good!</p>';
+
+    } catch (error) {
+        console.error("Error checking alerts:", error);
+        alertsContainer.innerHTML = `<p class="text-red-500">Could not check for alerts: ${error.message}</p>`;
+    }
+}
+
 
 // --- FINANCIAL KPI CALCULATIONS ---
 async function updateFinancialKPIs() {
@@ -100,7 +157,7 @@ function destroyCharts() {
 async function loadAnalyticsReports() {
     destroyCharts();
     const container = document.getElementById('analytics-container');
-    if (!container) return; // Add a guard clause
+    if (!container) return;
     container.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Loading analytics data...</p></div>`;
 
     try {
@@ -126,7 +183,7 @@ async function loadAnalyticsReports() {
 
 function renderWeeklyReport(sales, stockCounts, ingredients) {
     const weeklyContainer = document.getElementById('weekly-report-container');
-    if (!weeklyContainer) return; // Add a guard clause
+    if (!weeklyContainer) return;
     const last7Days = Array.from({ length: 7 }, (_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - i);
@@ -176,7 +233,7 @@ function renderWeeklyReport(sales, stockCounts, ingredients) {
 
 function renderMonthlyReport(sales, stockCounts, ingredients) {
     const monthlyContainer = document.getElementById('monthly-report-container');
-    if (!monthlyContainer) return; // Add a guard clause
+    if (!monthlyContainer) return;
     const monthlySales = {};
     const monthlyCosts = {};
 
@@ -219,7 +276,7 @@ function renderMonthlyReport(sales, stockCounts, ingredients) {
 
 function renderYearlyReport(sales, stockCounts, ingredients) {
     const yearlyContainer = document.getElementById('yearly-report-container');
-    if (!yearlyContainer) return; // Add a guard clause
+    if (!yearlyContainer) return;
     let totalRevenue = 0, totalPurchases = 0, totalLosses = 0;
 
     for(const date in sales) {
@@ -719,6 +776,7 @@ export function loadPanel(root, panelTitle) {
                     <button data-tab="sales-input" class="tab-button py-2 px-4 font-semibold">Sales Input</button>
                     <button data-tab="warehouse" class="tab-button py-2 px-4 font-semibold">Warehouse</button>
                     <button data-tab="analytics" class="tab-button py-2 px-4 font-semibold">Analytics</button>
+                    <button data-tab="alerts" class="tab-button py-2 px-4 font-semibold">Alerts</button>
                 </nav>
             </div>
 
@@ -767,6 +825,11 @@ export function loadPanel(root, panelTitle) {
                     <div id="monthly-report-container"></div>
                     <div id="yearly-report-container"></div>
                 </div>
+            </div>
+
+            <div id="alerts-section" class="tab-content" style="display: none;">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Alerts & Notifications</h3>
+                <div id="alerts-container" class="space-y-4"></div>
             </div>
         </div>
 
