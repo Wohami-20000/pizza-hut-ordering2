@@ -100,6 +100,7 @@ function destroyCharts() {
 async function loadAnalyticsReports() {
     destroyCharts();
     const container = document.getElementById('analytics-container');
+    if (!container) return; // Add a guard clause
     container.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Loading analytics data...</p></div>`;
 
     try {
@@ -125,6 +126,7 @@ async function loadAnalyticsReports() {
 
 function renderWeeklyReport(sales, stockCounts, ingredients) {
     const weeklyContainer = document.getElementById('weekly-report-container');
+    if (!weeklyContainer) return; // Add a guard clause
     const last7Days = Array.from({ length: 7 }, (_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - i);
@@ -174,6 +176,7 @@ function renderWeeklyReport(sales, stockCounts, ingredients) {
 
 function renderMonthlyReport(sales, stockCounts, ingredients) {
     const monthlyContainer = document.getElementById('monthly-report-container');
+    if (!monthlyContainer) return; // Add a guard clause
     const monthlySales = {};
     const monthlyCosts = {};
 
@@ -216,6 +219,7 @@ function renderMonthlyReport(sales, stockCounts, ingredients) {
 
 function renderYearlyReport(sales, stockCounts, ingredients) {
     const yearlyContainer = document.getElementById('yearly-report-container');
+    if (!yearlyContainer) return; // Add a guard clause
     let totalRevenue = 0, totalPurchases = 0, totalLosses = 0;
 
     for(const date in sales) {
