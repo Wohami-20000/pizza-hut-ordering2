@@ -66,8 +66,13 @@ async function calculateAnalytics() {
     if (!statsContainer || !popularItemsContainer || !salesOverTimeContainer || !revenueByOrderTypeContainer || !customerSatisfactionContainer) return;
 
     try {
-        const ordersSnapshot = await db.ref('orders').once('value');
-        const feedbackSnapshot = await db.ref('general_feedback').once('value');
+        const [ordersSnapshot, feedbackSnapshot, ingredientsSnapshot, recipesSnapshot, stockCountsSnapshot] = await Promise.all([
+            db.ref('orders').once('value'),
+            db.ref('general_feedback').once('value'),
+            db.ref('ingredients').once('value'),
+            db.ref('recipes').once('value'),
+            db.ref('stockCounts').once('value')
+        ]);
 
         if (!ordersSnapshot.exists()) {
             statsContainer.innerHTML = '<p class="text-center col-span-full">No order data available to generate analytics.</p>';
@@ -76,6 +81,10 @@ async function calculateAnalytics() {
 
         const orders = Object.values(ordersSnapshot.val());
         const generalFeedback = feedbackSnapshot.exists() ? Object.values(feedbackSnapshot.val()) : [];
+        const ingredients = ingredientsSnapshot.exists() ? ingredientsSnapshot.val() : {};
+        const recipes = recipesSnapshot.exists() ? recipesSnapshot.val() : {};
+        const stockCounts = stockCountsSnapshot.exists() ? stockCountsSnapshot.val() : {};
+
 
         // Combine order-specific feedback
         orders.forEach(order => {
@@ -85,15 +94,52 @@ async function calculateAnalytics() {
         });
 
 
-        // 1. Calculate Key Stats (Existing)
+        // 1. Calculate Key Stats
         const totalRevenue = orders.reduce((sum, order) => sum + order.priceDetails.finalTotal, 0);
         const totalOrders = orders.length;
         const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+        // Calculate Total Ingredient Cost
+        let totalIngredientCost = 0;
+        orders.forEach(order => {
+            order.items.forEach(item => {
+                const recipe = recipes[item.id];
+                if (recipe && recipe.ingredients) {
+                    for (const ingredientId in recipe.ingredients) {
+                        const recipeIngredient = recipe.ingredients[ingredientId];
+                        const ingredient = ingredients[ingredientId];
+                        if (ingredient && ingredient.unit_cost) {
+                            totalIngredientCost += (recipeIngredient.qty * item.quantity) * ingredient.unit_cost;
+                        }
+                    }
+                }
+            });
+        });
+
+        // Calculate Total Variance Loss
+        let totalVarianceLoss = 0;
+        for (const date in stockCounts) {
+            const dayCount = stockCounts[date];
+            for (const ingredientId in dayCount) {
+                const count = dayCount[ingredientId];
+                const ingredient = ingredients[ingredientId];
+                if (count.variance < 0 && ingredient && ingredient.unit_cost) {
+                    totalVarianceLoss += Math.abs(count.variance) * ingredient.unit_cost;
+                }
+            }
+        }
+        
+        const foodCostPercentage = totalRevenue > 0 ? (totalIngredientCost / totalRevenue) * 100 : 0;
+        const profitEstimate = totalRevenue - totalIngredientCost - totalVarianceLoss;
 
         statsContainer.innerHTML = `
             ${createStatCard('fa-dollar-sign', 'Total Revenue', `${totalRevenue.toFixed(2)} MAD`, 'green')}
             ${createStatCard('fa-receipt', 'Total Orders', totalOrders, 'blue')}
             ${createStatCard('fa-calculator', 'Average Order Value', `${averageOrderValue.toFixed(2)} MAD`, 'yellow')}
+            ${createStatCard('fa-pepper-hot', 'Ingredient Cost', `${totalIngredientCost.toFixed(2)} MAD`, 'purple')}
+            ${createStatCard('fa-balance-scale-right', 'Total Loss', `${totalVarianceLoss.toFixed(2)} MAD`, 'red')}
+            ${createStatCard('fa-chart-pie', 'Food Cost', `${foodCostPercentage.toFixed(2)}%`, 'indigo')}
+            ${createStatCard('fa-cash-register', 'Profit Estimate', `${profitEstimate.toFixed(2)} MAD`, 'pink')}
         `;
 
         // 2. Sales Over Time (Daily, Weekly, Monthly)
@@ -211,7 +257,7 @@ export function loadPanel(panelRoot, panelTitle) {
 
     panelRoot.innerHTML = `
         <div class="space-y-8">
-            <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div class="col-span-full text-center py-10">
                     <i class="fas fa-spinner fa-spin text-3xl text-brand-red"></i>
                     <p class="mt-4 text-lg text-gray-600">Loading Key Metrics...</p>
