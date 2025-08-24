@@ -5,13 +5,13 @@ const db = firebase.database();
 // --- STATE MANAGEMENT ---
 let ingredientsCache = {};
 let recipesCache = {};
-let menuItemsCache = {}; // <-- NEW: Cache for menu items
+let menuItemsCache = {}; 
 let editingIngredientId = null;
-let currentRecipeMenuItemId = null; // <-- NEW: For recipe editing
+let currentRecipeMenuItemId = null; 
 let currentStockDate = new Date().toISOString().split('T')[0];
 
 // --- UI ELEMENT REFERENCES ---
-let ingredientModal, ingredientForm, modalTitle, panelRoot, recipeModal, recipeForm;
+let ingredientModal, ingredientForm, modalTitle, panelRoot, recipeModal, recipeForm, reportModal;
 
 // --- TABS & NAVIGATION ---
 function switchTab(tabName) {
@@ -77,24 +77,112 @@ async function updateFinancialKPIs() {
         }
 
         const foodCostPercentage = totalSales > 0 ? (ingredientCost / totalSales) * 100 : 0;
-        const profitEstimate = totalSales - ingredientCost - totalLossValue;
-
-        // Update KPI cards
+        
         panelRoot.querySelector('#todays-sales').textContent = `${totalSales.toFixed(2)} MAD`;
         panelRoot.querySelector('#todays-loss').textContent = `${totalLossValue.toFixed(2)} MAD`;
         panelRoot.querySelector('#food-cost').textContent = `${foodCostPercentage.toFixed(2)}%`;
         panelRoot.querySelector('#low-stock-items').textContent = lowStockItems;
-        // Assuming you add an ID for profit estimate
-        // panelRoot.querySelector('#profit-estimate').textContent = `${profitEstimate.toFixed(2)} MAD`;
 
     } catch (error) {
         console.error("Error updating financial KPIs:", error);
     }
 }
 
+// --- END-OF-DAY REPORT ---
 
-// --- RECIPE MANAGEMENT FUNCTIONS (NEW) ---
+async function generateEndOfDayReport() {
+    const reportDate = document.getElementById('stock-date-picker').value;
+    const reportModal = document.getElementById('report-modal');
+    const reportTitle = document.getElementById('report-modal-title');
+    const reportContent = document.getElementById('report-modal-content');
 
+    reportTitle.textContent = `End of Day Report for ${reportDate}`;
+    reportContent.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Generating report...</p></div>`;
+    reportModal.classList.remove('hidden');
+
+    try {
+        const [salesSnapshot, stockCountSnapshot, ingredientsSnapshot] = await Promise.all([
+            db.ref(`sales/${reportDate}`).once('value'),
+            db.ref(`stockCounts/${reportDate}`).once('value'),
+            db.ref('ingredients').once('value')
+        ]);
+
+        const sales = salesSnapshot.val() || { total: 0, platform: 0, glovo: 0, regular: 0 };
+        const stockCounts = stockCountSnapshot.val() || {};
+        const ingredients = ingredientsSnapshot.val() || {};
+
+        let totalLossValue = 0;
+        let ingredientCost = 0;
+        let varianceRows = '';
+        let wastageRows = '';
+
+        for (const ingId in stockCounts) {
+            const count = stockCounts[ingId];
+            const ingredient = ingredients[ingId];
+            if (!ingredient) continue;
+
+            ingredientCost += count.used_expected * (ingredient.unit_cost || 0);
+            
+            if (count.variance !== 0) {
+                const varianceValue = count.variance * (ingredient.unit_cost || 0);
+                if (varianceValue < 0) totalLossValue += Math.abs(varianceValue);
+                const varianceColor = count.variance < 0 ? 'text-red-600' : 'text-green-600';
+                varianceRows += `<tr><td class="py-1 px-2">${ingredient.name}</td><td class="py-1 px-2 text-center ${varianceColor}">${count.variance.toFixed(2)} ${ingredient.unit}</td><td class="py-1 px-2 text-right ${varianceColor}">${varianceValue.toFixed(2)} MAD</td></tr>`;
+            }
+
+            if (count.wastage > 0) {
+                const wastageValue = count.wastage * (ingredient.unit_cost || 0);
+                wastageRows += `<tr><td class="py-1 px-2">${ingredient.name}</td><td class="py-1 px-2 text-center">${count.wastage.toFixed(2)} ${ingredient.unit}</td><td class="py-1 px-2 text-right">${wastageValue.toFixed(2)} MAD</td></tr>`;
+            }
+        }
+
+        const profitEstimate = sales.total - ingredientCost - totalLossValue;
+
+        reportContent.innerHTML = `
+            <div class="space-y-6 text-sm">
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-bold text-lg mb-2">Financial Summary</h4>
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                        <span class="font-semibold">Total Sales:</span> <span class="text-right font-bold text-green-600">${sales.total.toFixed(2)} MAD</span>
+                        <span class="font-semibold">Ingredient Cost:</span> <span class="text-right">-${ingredientCost.toFixed(2)} MAD</span>
+                        <span class="font-semibold">Variance Loss:</span> <span class="text-right text-red-600">-${totalLossValue.toFixed(2)} MAD</span>
+                        <span class="font-bold border-t pt-2 mt-1">Estimated Profit:</span> <span class="text-right font-bold border-t pt-2 mt-1">${profitEstimate.toFixed(2)} MAD</span>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-lg mb-2">Sales Breakdown</h4>
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <span>Platform Sales:</span> <span class="text-right">${(sales.platform || 0).toFixed(2)} MAD</span>
+                        <span>Glovo Sales:</span> <span class="text-right">${(sales.glovo || 0).toFixed(2)} MAD</span>
+                        <span>In-House Sales:</span> <span class="text-right">${(sales.regular || 0).toFixed(2)} MAD</span>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-lg mb-2">Stock Variance Report</h4>
+                    ${varianceRows ? `<table class="w-full"><thead><tr class="bg-gray-100"><th class="text-left px-2 py-1">Item</th><th class="text-center px-2 py-1">Qty Var.</th><th class="text-right px-2 py-1">Value Var.</th></tr></thead><tbody>${varianceRows}</tbody></table>` : '<p>No variances recorded.</p>'}
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-lg mb-2">Wastage Report</h4>
+                    ${wastageRows ? `<table class="w-full"><thead><tr class="bg-gray-100"><th class="text-left px-2 py-1">Item</th><th class="text-center px-2 py-1">Qty</th><th class="text-right px-2 py-1">Value</th></tr></thead><tbody>${wastageRows}</tbody></table>` : '<p>No wastage recorded.</p>'}
+                </div>
+            </div>
+        `;
+
+    } catch (error) {
+        console.error("Error generating report:", error);
+        reportContent.innerHTML = `<p class="text-red-500">Could not generate report. Error: ${error.message}</p>`;
+    }
+}
+
+function printReport() {
+    window.print();
+}
+
+// --- RECIPE MANAGEMENT FUNCTIONS ---
+// ... (code from previous step, no changes)
 function createRecipeRow(menuItemId, recipeData) {
     const menuItem = menuItemsCache[menuItemId] || { name: 'Unknown Item' };
     let ingredientsSummary = 'No ingredients set.';
@@ -144,10 +232,10 @@ function openRecipeModal(menuItemId = null) {
     currentRecipeMenuItemId = menuItemId;
     recipeForm.reset();
     document.getElementById('recipe-ingredients-list').innerHTML = '<p class="text-gray-500 p-4 text-center">Add ingredients from the left.</p>';
-
+    
     const menuItemSelect = document.getElementById('menu-item-select');
     menuItemSelect.innerHTML = '<option value="">-- Select a Menu Item --</option>';
-
+    
     Object.entries(menuItemsCache).forEach(([id, item]) => {
         if (!recipesCache[id] || id === menuItemId) {
             const option = new Option(item.name, id);
@@ -167,7 +255,7 @@ function openRecipeModal(menuItemId = null) {
         document.getElementById('recipe-modal-title').textContent = `Edit Recipe for ${menuItemsCache[menuItemId].name}`;
         menuItemSelect.value = menuItemId;
         menuItemSelect.disabled = true;
-
+        
         const recipeData = recipesCache[menuItemId];
         if (recipeData && recipeData.ingredients) {
             const recipeList = document.getElementById('recipe-ingredients-list');
@@ -241,13 +329,8 @@ function filterIngredients(query) {
         item.style.display = itemText.includes(query) ? '' : 'none';
     });
 }
-
-// --- END RECIPE FUNCTIONS ---
-
-
+// ...
 // --- EXISTING WAREHOUSE, SALES, DAILY COUNT, INGREDIENT FUNCTIONS ---
-// (No changes needed for these functions, they remain the same as before)
-// ... all functions from createIngredientRow down to handleTableClick ...
 async function loadSalesData() {
     const salesDate = document.getElementById('sales-date-picker').value;
     const salesRef = db.ref(`sales/${salesDate}`);
@@ -509,7 +592,16 @@ export function loadPanel(root, panelTitle) {
             </div>
 
             <div id="daily-count-section" class="tab-content" style="display: none;">
-                <div class="flex justify-between items-center mb-4"><div><h3 class="text-xl font-bold text-gray-800">Daily Stock Count</h3><input type="date" id="stock-date-picker" value="${currentStockDate}" class="mt-1 p-2 border rounded-md"></div><button id="save-daily-count-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Today's Count</button></div>
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-800">Daily Stock Count</h3>
+                        <input type="date" id="stock-date-picker" value="${currentStockDate}" class="mt-1 p-2 border rounded-md">
+                    </div>
+                    <div class="flex gap-2">
+                         <button id="generate-report-btn" class="bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition"><i class="fas fa-file-alt mr-2"></i>Generate Report</button>
+                         <button id="save-daily-count-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Today's Count</button>
+                    </div>
+                </div>
                 <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-gray-50"><tr><th class="p-2 text-left">Ingredient</th><th class="p-2 text-center">Opening</th><th class="p-2 text-center">Purchases</th><th class="p-2 text-center">Used (Theory)</th><th class="p-2 text-center">Wastage</th><th class="p-2 text-center">Closing (Theory)</th><th class="p-2 text-center">Closing (Actual)</th><th class="p-2 text-center">Variance</th></tr></thead><tbody id="daily-count-tbody" class="divide-y"></tbody></table></div>
             </div>
 
@@ -543,6 +635,7 @@ export function loadPanel(root, panelTitle) {
     modalTitle = panelRoot.querySelector('#modal-title');
     recipeModal = panelRoot.querySelector('#recipe-modal');
     recipeForm = panelRoot.querySelector('#recipe-form');
+    reportModal = document.getElementById('report-modal'); // Get the main report modal
 
     panelRoot.querySelector('#add-ingredient-btn')?.addEventListener('click', () => openIngredientModal());
     panelRoot.querySelector('#cancel-modal-btn')?.addEventListener('click', closeIngredientModal);
@@ -558,6 +651,12 @@ export function loadPanel(root, panelTitle) {
     recipeForm?.addEventListener('submit', handleSaveRecipe);
     panelRoot.querySelector('#ingredient-search')?.addEventListener('input', (e) => filterIngredients(e.target.value.toLowerCase()));
     
+    // NEW: Report button listeners
+    panelRoot.querySelector('#generate-report-btn')?.addEventListener('click', generateEndOfDayReport);
+    document.getElementById('close-report-btn')?.addEventListener('click', () => reportModal.classList.add('hidden'));
+    document.getElementById('print-report-btn')?.addEventListener('click', printReport);
+
+
     // Event delegation for recipe modal and table
     panelRoot.addEventListener('click', (e) => {
         const addBtn = e.target.closest('.add-ingredient-to-recipe-btn');
