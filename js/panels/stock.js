@@ -162,25 +162,27 @@ async function loadAnalyticsReports() {
     if (!container) return;
     container.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Loading analytics data...</p></div>`;
 
-    try {
-        const [salesSnapshot, stockCountsSnapshot, ingredientsSnapshot] = await Promise.all([
-            db.ref('sales').once('value'),
-            db.ref('stockCounts').once('value'),
-            db.ref('ingredients').once('value')
-        ]);
+    setTimeout(async () => {
+        try {
+            const [salesSnapshot, stockCountsSnapshot, ingredientsSnapshot] = await Promise.all([
+                db.ref('sales').once('value'),
+                db.ref('stockCounts').once('value'),
+                db.ref('ingredients').once('value')
+            ]);
 
-        const sales = salesSnapshot.val() || {};
-        const stockCounts = stockCountsSnapshot.val() || {};
-        const ingredients = ingredientsSnapshot.val() || {};
+            const sales = salesSnapshot.val() || {};
+            const stockCounts = stockCountsSnapshot.val() || {};
+            const ingredients = ingredientsSnapshot.val() || {};
 
-        renderWeeklyReport(sales, stockCounts, ingredients);
-        renderMonthlyReport(sales, stockCounts, ingredients);
-        renderYearlyReport(sales, stockCounts, ingredients);
-        
-    } catch (error) {
-        console.error("Error loading analytics:", error);
-        container.innerHTML = `<p class="text-red-500">Could not load analytics: ${error.message}</p>`;
-    }
+            renderWeeklyReport(sales, stockCounts, ingredients);
+            renderMonthlyReport(sales, stockCounts, ingredients);
+            renderYearlyReport(sales, stockCounts, ingredients);
+            
+        } catch (error) {
+            console.error("Error loading analytics:", error);
+            container.innerHTML = `<p class="text-red-500">Could not load analytics: ${error.message}</p>`;
+        }
+    }, 0);
 }
 
 function renderWeeklyReport(sales, stockCounts, ingredients) {
@@ -870,6 +872,10 @@ export function loadPanel(root, panelTitle) {
     document.getElementById('close-report-btn')?.addEventListener('click', () => reportModal.classList.add('hidden'));
     document.getElementById('print-report-btn')?.addEventListener('click', printReport);
     
+    // CORRECTED: Attach save listeners
+    panelRoot.querySelector('#sales-form')?.addEventListener('submit', saveSalesData);
+    panelRoot.querySelector('#save-daily-count-btn')?.addEventListener('click', saveDailyCount);
+
     const stockDatePicker = panelRoot.querySelector('#stock-date-picker');
     if (stockDatePicker) {
         stockDatePicker.addEventListener('change', (e) => {
