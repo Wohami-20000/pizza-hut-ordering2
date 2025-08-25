@@ -41,12 +41,12 @@ function switchTab(tabName) {
 
 // --- ALERTS & NOTIFICATIONS ---
 async function checkAndDisplayAlerts() {
-    const alertsContainer = document.getElementById('alerts-container');
+    const alertsContainer = panelRoot.querySelector('#alerts-container');
     if (!alertsContainer) return;
     alertsContainer.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Checking for alerts...</p></div>`;
 
     let alertsHtml = '';
-    const selectedDate = document.getElementById('stock-date-picker').value;
+    const selectedDate = panelRoot.querySelector('#stock-date-picker').value;
 
     try {
         const [ingredientsSnapshot, stockCountSnapshot] = await Promise.all([
@@ -98,7 +98,7 @@ async function checkAndDisplayAlerts() {
 
 // --- FINANCIAL KPI CALCULATIONS ---
 async function updateFinancialKPIs() {
-    const selectedDate = document.getElementById('stock-date-picker').value;
+    const selectedDate = panelRoot.querySelector('#stock-date-picker').value;
     const salesRef = db.ref(`sales/${selectedDate}`);
     const stockCountRef = db.ref(`stockCounts/${selectedDate}`);
     const ingredientsRef = db.ref('ingredients');
@@ -158,7 +158,7 @@ function destroyCharts() {
 
 async function loadAnalyticsReports() {
     destroyCharts();
-    const container = document.getElementById('analytics-container');
+    const container = panelRoot.querySelector('#analytics-container');
     if (!container) return;
     container.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Loading analytics data...</p></div>`;
 
@@ -184,7 +184,7 @@ async function loadAnalyticsReports() {
 }
 
 function renderWeeklyReport(sales, stockCounts, ingredients) {
-    const weeklyContainer = document.getElementById('weekly-report-container');
+    const weeklyContainer = panelRoot.querySelector('#weekly-report-container');
     if (!weeklyContainer) return;
     const last7Days = Array.from({ length: 7 }, (_, i) => {
         const d = new Date();
@@ -229,12 +229,12 @@ function renderWeeklyReport(sales, stockCounts, ingredients) {
         </div>
     `;
 
-    charts.weeklySales = new Chart(document.getElementById('weekly-sales-chart'), { type: 'line', data: { labels: weeklySalesData.labels, datasets: [{ label: 'Sales (MAD)', data: weeklySalesData.data, borderColor: '#D71921', tension: 0.1 }] } });
-    charts.usagePurchases = new Chart(document.getElementById('usage-purchases-chart'), { type: 'bar', data: { labels: usageVsPurchases.labels, datasets: [{ label: 'Usage Cost', data: usageVsPurchases.usage, backgroundColor: '#EF4444' }, { label: 'Purchases Cost', data: usageVsPurchases.purchases, backgroundColor: '#3B82F6' }] }, options: { scales: { y: { beginAtZero: true } } } });
+    charts.weeklySales = new Chart(panelRoot.querySelector('#weekly-sales-chart'), { type: 'line', data: { labels: weeklySalesData.labels, datasets: [{ label: 'Sales (MAD)', data: weeklySalesData.data, borderColor: '#D71921', tension: 0.1 }] } });
+    charts.usagePurchases = new Chart(panelRoot.querySelector('#usage-purchases-chart'), { type: 'bar', data: { labels: usageVsPurchases.labels, datasets: [{ label: 'Usage Cost', data: usageVsPurchases.usage, backgroundColor: '#EF4444' }, { label: 'Purchases Cost', data: usageVsPurchases.purchases, backgroundColor: '#3B82F6' }] }, options: { scales: { y: { beginAtZero: true } } } });
 }
 
 function renderMonthlyReport(sales, stockCounts, ingredients) {
-    const monthlyContainer = document.getElementById('monthly-report-container');
+    const monthlyContainer = panelRoot.querySelector('#monthly-report-container');
     if (!monthlyContainer) return;
     const monthlySales = {};
     const monthlyCosts = {};
@@ -263,7 +263,7 @@ function renderMonthlyReport(sales, stockCounts, ingredients) {
         <div><h4 class="font-bold mb-2">Cost vs Sales Trend</h4><canvas id="monthly-sales-chart"></canvas></div>
     `;
 
-    charts.monthlySales = new Chart(document.getElementById('monthly-sales-chart'), {
+    charts.monthlySales = new Chart(panelRoot.querySelector('#monthly-sales-chart'), {
         type: 'bar',
         data: {
             labels: labels,
@@ -277,7 +277,7 @@ function renderMonthlyReport(sales, stockCounts, ingredients) {
 }
 
 function renderYearlyReport(sales, stockCounts, ingredients) {
-    const yearlyContainer = document.getElementById('yearly-report-container');
+    const yearlyContainer = panelRoot.querySelector('#yearly-report-container');
     if (!yearlyContainer) return;
     let totalRevenue = 0, totalPurchases = 0, totalLosses = 0;
 
@@ -308,7 +308,7 @@ function renderYearlyReport(sales, stockCounts, ingredients) {
 
 // --- END-OF-DAY REPORT ---
 async function generateEndOfDayReport() {
-    const reportDate = document.getElementById('stock-date-picker').value;
+    const reportDate = panelRoot.querySelector('#stock-date-picker').value;
     const reportModal = document.getElementById('report-modal');
     const reportTitle = document.getElementById('report-modal-title');
     const reportContent = document.getElementById('report-modal-content');
@@ -396,7 +396,7 @@ function createRecipeRow(menuItemId, recipeData) {
 }
 
 async function loadAndRenderRecipes() {
-    const recipesTbody = document.getElementById('recipes-tbody');
+    const recipesTbody = panelRoot.querySelector('#recipes-tbody');
     if (!recipesTbody) return;
     recipesTbody.innerHTML = '<tr><td colspan="3" class="text-center p-6"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
 
@@ -420,9 +420,9 @@ async function loadAndRenderRecipes() {
 function openRecipeModal(menuItemId = null) {
     currentRecipeMenuItemId = menuItemId;
     recipeForm.reset();
-    document.getElementById('recipe-ingredients-list').innerHTML = '<p class="text-gray-500 p-4 text-center">Add ingredients from the left.</p>';
+    panelRoot.querySelector('#recipe-ingredients-list').innerHTML = '<p class="text-gray-500 p-4 text-center">Add ingredients from the left.</p>';
     
-    const menuItemSelect = document.getElementById('menu-item-select');
+    const menuItemSelect = panelRoot.querySelector('#menu-item-select');
     menuItemSelect.innerHTML = '<option value="">-- Select a Menu Item --</option>';
     
     Object.entries(menuItemsCache).forEach(([id, item]) => {
@@ -432,7 +432,7 @@ function openRecipeModal(menuItemId = null) {
         }
     });
 
-    const availableList = document.getElementById('available-ingredients');
+    const availableList = panelRoot.querySelector('#available-ingredients');
     availableList.innerHTML = Object.entries(ingredientsCache).map(([id, data]) => `
         <div class="flex justify-between items-center p-2 hover:bg-gray-100 rounded-md">
             <span>${data.name} (${data.unit})</span>
@@ -441,20 +441,20 @@ function openRecipeModal(menuItemId = null) {
     `).join('');
 
     if (menuItemId) {
-        document.getElementById('recipe-modal-title').textContent = `Edit Recipe for ${menuItemsCache[menuItemId].name}`;
+        panelRoot.querySelector('#recipe-modal-title').textContent = `Edit Recipe for ${menuItemsCache[menuItemId].name}`;
         menuItemSelect.value = menuItemId;
         menuItemSelect.disabled = true;
         
         const recipeData = recipesCache[menuItemId];
         if (recipeData && recipeData.ingredients) {
-            const recipeList = document.getElementById('recipe-ingredients-list');
+            const recipeList = panelRoot.querySelector('#recipe-ingredients-list');
             recipeList.innerHTML = '';
             Object.entries(recipeData.ingredients).forEach(([ingId, data]) => {
                 addIngredientToRecipeList(ingId, data.qty);
             });
         }
     } else {
-        document.getElementById('recipe-modal-title').textContent = 'Add New Recipe';
+        panelRoot.querySelector('#recipe-modal-title').textContent = 'Add New Recipe';
         menuItemSelect.disabled = false;
     }
     recipeModal.classList.remove('hidden');
@@ -466,7 +466,7 @@ function closeRecipeModal() {
 }
 
 function addIngredientToRecipeList(ingredientId, quantity = 0.1) {
-    const recipeList = document.getElementById('recipe-ingredients-list');
+    const recipeList = panelRoot.querySelector('#recipe-ingredients-list');
     if (!ingredientsCache[ingredientId]) return;
 
     if (recipeList.querySelector(`[data-id="${ingredientId}"]`)) return;
@@ -489,10 +489,10 @@ function addIngredientToRecipeList(ingredientId, quantity = 0.1) {
 
 async function handleSaveRecipe(e) {
     e.preventDefault();
-    const menuItemId = currentRecipeMenuItemId || document.getElementById('menu-item-select').value;
+    const menuItemId = currentRecipeMenuItemId || panelRoot.querySelector('#menu-item-select').value;
     if (!menuItemId) { alert('Please select a menu item.'); return; }
 
-    const ingredientRows = document.querySelectorAll('#recipe-ingredients-list [data-id]');
+    const ingredientRows = panelRoot.querySelectorAll('#recipe-ingredients-list [data-id]');
     const recipeData = { name: menuItemsCache[menuItemId].name, ingredients: {} };
 
     ingredientRows.forEach(row => {
@@ -512,7 +512,7 @@ async function handleSaveRecipe(e) {
 }
 
 function filterIngredients(query) {
-    const items = document.querySelectorAll('#available-ingredients > div');
+    const items = panelRoot.querySelectorAll('#available-ingredients > div');
     items.forEach(item => {
         const itemText = item.textContent.toLowerCase();
         item.style.display = itemText.includes(query) ? '' : 'none';
@@ -521,18 +521,18 @@ function filterIngredients(query) {
 
 // --- INGREDIENT, DAILY COUNT, SALES, WAREHOUSE FUNCTIONS ---
 async function loadSalesData() {
-    const salesDate = document.getElementById('sales-date-picker').value;
+    const salesDate = panelRoot.querySelector('#sales-date-picker').value;
     const salesRef = db.ref(`sales/${salesDate}`);
     try {
         const snapshot = await salesRef.once('value');
         if (snapshot.exists()) {
             const data = snapshot.val();
-            document.getElementById('platform-sales').value = data.platform || 0;
-            document.getElementById('glovo-sales').value = data.glovo || 0;
-            document.getElementById('regular-sales').value = data.regular || 0;
+            panelRoot.querySelector('#platform-sales').value = data.platform || 0;
+            panelRoot.querySelector('#glovo-sales').value = data.glovo || 0;
+            panelRoot.querySelector('#regular-sales').value = data.regular || 0;
             updateTotalSales();
         } else {
-            document.getElementById('sales-form').reset();
+            panelRoot.querySelector('#sales-form').reset();
             updateTotalSales();
         }
     } catch (error) {
@@ -542,20 +542,20 @@ async function loadSalesData() {
 }
 
 function updateTotalSales() {
-    const platform = parseFloat(document.getElementById('platform-sales').value) || 0;
-    const glovo = parseFloat(document.getElementById('glovo-sales').value) || 0;
-    const regular = parseFloat(document.getElementById('regular-sales').value) || 0;
+    const platform = parseFloat(panelRoot.querySelector('#platform-sales').value) || 0;
+    const glovo = parseFloat(panelRoot.querySelector('#glovo-sales').value) || 0;
+    const regular = parseFloat(panelRoot.querySelector('#regular-sales').value) || 0;
     const total = platform + glovo + regular;
-    document.getElementById('total-sales-display').textContent = `${total.toFixed(2)} MAD`;
+    panelRoot.querySelector('#total-sales-display').textContent = `${total.toFixed(2)} MAD`;
 }
 
 async function saveSalesData(e) {
     e.preventDefault();
-    const salesDate = document.getElementById('sales-date-picker').value;
+    const salesDate = panelRoot.querySelector('#sales-date-picker').value;
     const salesData = {
-        platform: parseFloat(document.getElementById('platform-sales').value) || 0,
-        glovo: parseFloat(document.getElementById('glovo-sales').value) || 0,
-        regular: parseFloat(document.getElementById('regular-sales').value) || 0,
+        platform: parseFloat(panelRoot.querySelector('#platform-sales').value) || 0,
+        glovo: parseFloat(panelRoot.querySelector('#glovo-sales').value) || 0,
+        regular: parseFloat(panelRoot.querySelector('#regular-sales').value) || 0,
         total: 0
     };
     salesData.total = salesData.platform + salesData.glovo + salesData.regular;
@@ -570,11 +570,10 @@ async function saveSalesData(e) {
 }
 
 async function loadDailyCountData() {
-    const dailyTbody = document.getElementById('daily-count-tbody');
+    const dailyTbody = panelRoot.querySelector('#daily-count-tbody');
     if (!dailyTbody) return;
     dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6"><i class="fas fa-spinner fa-spin mr-2"></i>Loading data for selected date...</td></tr>';
     const selectedDate = new Date(currentStockDate);
-    selectedDate.setDate(selectedDate.getDate());
     const dayStart = selectedDate.toISOString().split('T')[0];
     selectedDate.setDate(selectedDate.getDate() - 1);
     const prevDateStr = selectedDate.toISOString().split('T')[0];
@@ -642,7 +641,7 @@ function calculateRow(row) {
 
 async function saveDailyCount() {
     const saveData = {};
-    const rows = document.querySelectorAll('#daily-count-tbody tr[data-id]');
+    const rows = panelRoot.querySelectorAll('#daily-count-tbody tr[data-id]');
     rows.forEach(row => {
         const id = row.dataset.id;
         saveData[id] = {
@@ -679,13 +678,13 @@ function openIngredientModal(ingredientId = null) {
     if (ingredientId && ingredientsCache[ingredientId]) {
         modalTitle.textContent = 'Edit Ingredient';
         const data = ingredientsCache[ingredientId];
-        document.getElementById('ingredient-name').value = data.name || '';
-        document.getElementById('ingredient-category').value = data.category || '';
-        document.getElementById('ingredient-unit').value = data.unit || '';
-        document.getElementById('ingredient-unit-cost').value = data.unit_cost || 0;
-        document.getElementById('ingredient-supplier').value = data.supplier || '';
-        document.getElementById('ingredient-stock-level').value = data.stock_level || 0;
-        document.getElementById('low-stock-threshold').value = data.low_stock_threshold || 0;
+        panelRoot.querySelector('#ingredient-name').value = data.name || '';
+        panelRoot.querySelector('#ingredient-category').value = data.category || '';
+        panelRoot.querySelector('#ingredient-unit').value = data.unit || '';
+        panelRoot.querySelector('#ingredient-unit-cost').value = data.unit_cost || 0;
+        panelRoot.querySelector('#ingredient-supplier').value = data.supplier || '';
+        panelRoot.querySelector('#ingredient-stock-level').value = data.stock_level || 0;
+        panelRoot.querySelector('#low-stock-threshold').value = data.low_stock_threshold || 0;
     } else {
         modalTitle.textContent = 'Add New Ingredient';
     }
@@ -702,7 +701,7 @@ async function handleSaveIngredient(e) {
     const saveBtn = ingredientForm.querySelector('button[type="submit"]');
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving...';
-    const ingredientData = { name: document.getElementById('ingredient-name').value.trim(), category: document.getElementById('ingredient-category').value.trim(), unit: document.getElementById('ingredient-unit').value.trim(), unit_cost: parseFloat(document.getElementById('ingredient-unit-cost').value) || 0, supplier: document.getElementById('ingredient-supplier').value.trim(), stock_level: parseFloat(document.getElementById('ingredient-stock-level').value) || 0, low_stock_threshold: parseFloat(document.getElementById('low-stock-threshold').value) || 0 };
+    const ingredientData = { name: panelRoot.querySelector('#ingredient-name').value.trim(), category: panelRoot.querySelector('#ingredient-category').value.trim(), unit: panelRoot.querySelector('#ingredient-unit').value.trim(), unit_cost: parseFloat(panelRoot.querySelector('#ingredient-unit-cost').value) || 0, supplier: panelRoot.querySelector('#ingredient-supplier').value.trim(), stock_level: parseFloat(panelRoot.querySelector('#ingredient-stock-level').value) || 0, low_stock_threshold: parseFloat(panelRoot.querySelector('#low-stock-threshold').value) || 0 };
     try {
         let dbRef;
         if (editingIngredientId) {
@@ -724,7 +723,7 @@ async function handleSaveIngredient(e) {
 }
 
 function loadAndRenderIngredients() {
-    const ingredientsTbody = document.getElementById('ingredients-tbody');
+    const ingredientsTbody = panelRoot.querySelector('#ingredients-tbody');
     const ingredientsRef = db.ref('ingredients');
     ingredientsRef.on('value', (snapshot) => {
         if (!ingredientsTbody) return;
