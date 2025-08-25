@@ -36,7 +36,7 @@ function switchTab(tabName) {
     if (tabName === 'daily-count') loadDailyCountData();
     if (tabName === 'sales-input') loadSalesData();
     if (tabName === 'analytics') loadAnalyticsReports();
-    if (tabName === 'alerts') checkAndDisplayAlerts(); // Load alerts when tab is clicked
+    if (tabName === 'alerts') checkAndDisplayAlerts();
 }
 
 // --- ALERTS & NOTIFICATIONS ---
@@ -46,23 +46,24 @@ async function checkAndDisplayAlerts() {
     alertsContainer.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Checking for alerts...</p></div>`;
 
     let alertsHtml = '';
-    const today = new Date().toISOString().split('T')[0];
+    const selectedDate = document.getElementById('stock-date-picker').value;
 
     try {
         const [ingredientsSnapshot, stockCountSnapshot] = await Promise.all([
             db.ref('ingredients').once('value'),
-            db.ref(`stockCounts/${today}`).once('value')
+            db.ref(`stockCounts/${selectedDate}`).once('value')
         ]);
 
         const ingredients = ingredientsSnapshot.val() || {};
         const stockCounts = stockCountSnapshot.val() || {};
 
-        // 1. Low Stock Alerts
+        // 1. Low Stock Alerts (based on the closing stock of the selected day)
         let lowStockAlerts = '';
         for (const id in ingredients) {
             const ing = ingredients[id];
-            if (ing.stock_level < ing.low_stock_threshold) {
-                lowStockAlerts += `<li class="p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg"><strong>Low Stock:</strong> ${ing.name} is at ${ing.stock_level} ${ing.unit} (Threshold: ${ing.low_stock_threshold} ${ing.unit}).</li>`;
+            const closingStock = stockCounts[id]?.closing_actual;
+            if (closingStock !== undefined && closingStock < ing.low_stock_threshold) {
+                lowStockAlerts += `<li class="p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg"><strong>Low Stock:</strong> ${ing.name} is at ${closingStock} ${ing.unit} (Threshold: ${ing.low_stock_threshold} ${ing.unit}).</li>`;
             }
         }
         if (lowStockAlerts) {
@@ -74,15 +75,15 @@ async function checkAndDisplayAlerts() {
         for (const id in stockCounts) {
             const count = stockCounts[id];
             const ingredient = ingredients[id];
-            if (ingredient && count.variance < 0) { // Only show negative variances as alerts
-                 const variancePercentage = (Math.abs(count.variance) / count.opening) * 100;
-                 if(variancePercentage > 5) { // Example threshold: 5% variance
+            if (ingredient && count.variance < 0) {
+                 const variancePercentage = (count.opening > 0) ? (Math.abs(count.variance) / count.opening) * 100 : 0;
+                 if(variancePercentage > 5) { // Threshold: 5% variance
                     highVarianceAlerts += `<li class="p-3 bg-red-50 border-l-4 border-red-400 rounded-r-lg"><strong>High Variance:</strong> ${ingredient.name} has a variance of ${count.variance.toFixed(2)} ${ingredient.unit} (${variancePercentage.toFixed(1)}% loss).</li>`;
                  }
             }
         }
          if (highVarianceAlerts) {
-            alertsHtml += `<div><h4 class="font-bold text-lg mb-2 text-red-700">High Variance Alerts (Today)</h4><ul class="space-y-2">${highVarianceAlerts}</ul></div>`;
+            alertsHtml += `<div><h4 class="font-bold text-lg mb-2 text-red-700">High Variance Alerts (for ${selectedDate})</h4><ul class="space-y-2">${highVarianceAlerts}</ul></div>`;
         }
 
 
@@ -97,9 +98,9 @@ async function checkAndDisplayAlerts() {
 
 // --- FINANCIAL KPI CALCULATIONS ---
 async function updateFinancialKPIs() {
-    const today = new Date().toISOString().split('T')[0];
-    const salesRef = db.ref(`sales/${today}`);
-    const stockCountRef = db.ref(`stockCounts/${today}`);
+    const selectedDate = document.getElementById('stock-date-picker').value;
+    const salesRef = db.ref(`sales/${selectedDate}`);
+    const stockCountRef = db.ref(`stockCounts/${selectedDate}`);
     const ingredientsRef = db.ref('ingredients');
 
     try {
@@ -120,7 +121,8 @@ async function updateFinancialKPIs() {
 
         for (const id in ingredientsData) {
             const ingredient = ingredientsData[id];
-            if (ingredient.stock_level < ingredient.low_stock_threshold) {
+            const closingStock = stockCountData[id]?.closing_actual;
+            if (closingStock !== undefined && closingStock < ingredient.low_stock_threshold) {
                 lowStockItems++;
             }
         }
@@ -560,6 +562,7 @@ async function saveSalesData(e) {
     try {
         await db.ref(`sales/${salesDate}`).set(salesData);
         alert(`Sales for ${salesDate} saved successfully!`);
+        updateFinancialKPIs();
     } catch (error) {
         console.error("Error saving sales data:", error);
         alert("Failed to save sales data.");
@@ -656,6 +659,7 @@ async function saveDailyCount() {
         try {
             await db.ref(`stockCounts/${currentStockDate}`).set(saveData);
             alert(`Stock count for ${currentStockDate} saved successfully!`);
+            updateFinancialKPIs();
         } catch (error) {
             console.error("Error saving stock count:", error);
             alert("Failed to save stock count.");
@@ -736,7 +740,6 @@ function loadAndRenderIngredients() {
             ingredientsCache = {};
             ingredientsTbody.innerHTML = '<tr><td colspan="6" class="text-center p-6 text-gray-500">No ingredients found. Add one to get started!</td></tr>';
         }
-        updateFinancialKPIs();
     });
 }
 
@@ -762,9 +765,9 @@ export function loadPanel(root, panelTitle) {
 
     panelRoot.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Today's Sales</h4><p id="todays-sales" class="text-2xl font-bold">0 MAD</p></div>
-            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Today's Loss Value</h4><p id="todays-loss" class="text-2xl font-bold text-red-500">0 MAD</p></div>
-            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Food Cost %</h4><p id="food-cost" class="text-2xl font-bold">0%</p></div>
+            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Sales for Date</h4><p id="todays-sales" class="text-2xl font-bold">0 MAD</p></div>
+            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Loss Value for Date</h4><p id="todays-loss" class="text-2xl font-bold text-red-500">0 MAD</p></div>
+            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Food Cost % for Date</h4><p id="food-cost" class="text-2xl font-bold">0%</p></div>
             <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Low Stock Items</h4><p id="low-stock-items" class="text-2xl font-bold">0</p></div>
         </div>
         <div class="bg-white rounded-xl shadow-lg p-6">
@@ -798,7 +801,7 @@ export function loadPanel(root, panelTitle) {
                     </div>
                     <div class="flex gap-2">
                          <button id="generate-report-btn" class="bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition"><i class="fas fa-file-alt mr-2"></i>Generate Report</button>
-                         <button id="save-daily-count-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Today's Count</button>
+                         <button id="save-daily-count-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Count</button>
                     </div>
                 </div>
                 <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-gray-50"><tr><th class="p-2 text-left">Ingredient</th><th class="p-2 text-center">Opening</th><th class="p-2 text-center">Purchases</th><th class="p-2 text-center">Used (Theory)</th><th class="p-2 text-center">Wastage</th><th class="p-2 text-center">Closing (Theory)</th><th class="p-2 text-center">Closing (Actual)</th><th class="p-2 text-center">Variance</th></tr></thead><tbody id="daily-count-tbody" class="divide-y"></tbody></table></div>
@@ -806,7 +809,7 @@ export function loadPanel(root, panelTitle) {
 
             <div id="sales-input-section" class="tab-content" style="display: none;">
                  <div class="flex justify-between items-center mb-4"><div><h3 class="text-xl font-bold text-gray-800">Daily Sales Input</h3><input type="date" id="sales-date-picker" value="${currentStockDate}" class="mt-1 p-2 border rounded-md"></div></div>
-                <form id="sales-form" class="max-w-md space-y-4"><label for="platform-sales" class="block font-medium">Platform Sales (MAD)</label><input type="number" id="platform-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"><div><label for="glovo-sales" class="block font-medium">Glovo Sales (MAD)</label><input type="number" id="glovo-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"></div><div><label for="regular-sales" class="block font-medium">Regular/In-House Sales (MAD)</label><input type="number" id="regular-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"></div><div class="border-t pt-4"><p class="text-lg font-bold">Total Sales: <span id="total-sales-display">0.00 MAD</span></p></div><button type="submit" id="save-sales-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Sales Data</button></form>
+                <form id="sales-form" class="max-w-md space-y-4"><label for="platform-sales" class="block font-medium">Platform Sales (MAD)</label><input type="number" id="platform-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"><div><label for="glovo-sales" class="block font-medium">Glovo Sales (MAD)</label><input type="number" id="glovo-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"></div><div><label for="regular-sales" class="block font-medium">Regular/In-House Sales (MAD)</label><input type="number" id="regular-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"></div><div class="border-t pt-4"><p class="text-lg font-bold">Total Sales: <span id="total-sales-display">0.00 MAD</span></p></div><button type="submit" id="save-sales-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Sales</button></form>
             </div>
 
             <div id="warehouse-section" class="tab-content" style="display: none;">
@@ -867,7 +870,22 @@ export function loadPanel(root, panelTitle) {
     panelRoot.querySelector('#generate-report-btn')?.addEventListener('click', generateEndOfDayReport);
     document.getElementById('close-report-btn')?.addEventListener('click', () => reportModal.classList.add('hidden'));
     document.getElementById('print-report-btn')?.addEventListener('click', printReport);
-
+    
+    const stockDatePicker = panelRoot.querySelector('#stock-date-picker');
+    if (stockDatePicker) {
+        stockDatePicker.addEventListener('change', (e) => {
+            currentStockDate = e.target.value;
+            loadDailyCountData();
+            updateFinancialKPIs();
+        });
+    }
+    
+    const salesDatePicker = panelRoot.querySelector('#sales-date-picker');
+    if(salesDatePicker){
+        salesDatePicker.addEventListener('change', (e) => {
+           loadSalesData();
+        });
+    }
 
     panelRoot.addEventListener('click', (e) => {
         const addBtn = e.target.closest('.add-ingredient-to-recipe-btn');
