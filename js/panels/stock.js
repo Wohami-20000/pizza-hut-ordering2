@@ -614,7 +614,12 @@ async function loadDailyCountData() {
             tableHtml += `<tr data-id="${ingId}"><td class="p-2 font-medium">${ingredient.name} <span class="text-xs text-gray-400">(${ingredient.unit})</span></td><td class="p-2 text-center" data-opening>${openingStock.toFixed(2)}</td><td class="p-2"><input type="number" step="0.1" value="0" class="daily-input purchases-input w-20 p-1 border rounded text-right"></td><td class="p-2 text-center" data-used>${usedExpected.toFixed(2)}</td><td class="p-2"><input type="number" step="0.1" value="0" class="daily-input wastage-input w-20 p-1 border rounded text-right"></td><td class="p-2 text-center font-bold" data-closing-theory>0.00</td><td class="p-2"><input type="number" step="0.1" class="daily-input closing-actual-input w-20 p-1 border rounded text-right bg-yellow-50"></td><td class="p-2 text-center font-semibold" data-variance>0.00</td></tr>`;
         }
         dailyTbody.innerHTML = tableHtml;
-        dailyTbody.querySelectorAll('tr').forEach(calculateRow);
+        dailyTbody.querySelectorAll('tr[data-id]').forEach(row => {
+            calculateRow(row); // Initial calculation
+            row.querySelectorAll('.daily-input').forEach(input => {
+                input.addEventListener('input', () => calculateRow(row));
+            });
+        });
     } catch (error) {
         console.error("Error loading daily count data:", error);
         dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6 text-red-500">Failed to load data.</td></tr>';
