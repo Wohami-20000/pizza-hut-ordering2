@@ -646,14 +646,17 @@ async function saveDailyCount() {
     const rows = panelRoot.querySelectorAll('#daily-count-tbody tr[data-id]');
     rows.forEach(row => {
         const id = row.dataset.id;
+        const varianceText = row.querySelector('[data-variance]').textContent;
+        const closingActualValue = row.querySelector('.closing-actual-input').value;
+
         saveData[id] = {
-            opening: parseFloat(row.querySelector('[data-opening]').textContent),
-            purchases: parseFloat(row.querySelector('.purchases-input').value),
-            used_expected: parseFloat(row.querySelector('[data-used]').textContent),
-            wastage: parseFloat(row.querySelector('.wastage-input').value),
-            closing_theoretical: parseFloat(row.querySelector('[data-closing-theory]').textContent),
-            closing_actual: parseFloat(row.querySelector('.closing-actual-input').value),
-            variance: parseFloat(row.querySelector('[data-variance]').textContent)
+            opening: parseFloat(row.querySelector('[data-opening]').textContent) || 0,
+            purchases: parseFloat(row.querySelector('.purchases-input').value) || 0,
+            used_expected: parseFloat(row.querySelector('[data-used]').textContent) || 0,
+            wastage: parseFloat(row.querySelector('.wastage-input').value) || 0,
+            closing_theoretical: parseFloat(row.querySelector('[data-closing-theory]').textContent) || 0,
+            closing_actual: closingActualValue === '' ? 0 : parseFloat(closingActualValue),
+            variance: !isNaN(parseFloat(varianceText)) ? parseFloat(varianceText) : 0
         };
     });
     if (Object.keys(saveData).length > 0) {
