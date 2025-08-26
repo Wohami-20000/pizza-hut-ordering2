@@ -1,237 +1,328 @@
-// /js/panels/orders.js
+import { showToast } from '../../ui-components.js';
 
+// Store a reference to the database
 const db = firebase.database();
-let allOrdersCache = {};
-let isInitialLoad = true;
-let deliveryStaff = []; // Cache for delivery staff
 
-const STATUS_OPTIONS = ['pending', 'preparing', 'ready', 'out for delivery', 'delivered', 'completed', 'cancelled'];
+// --- Helper Functions for Stock Management ---
 
 /**
- * Fetches users with the 'delivery' role.
+ * Gets today's date in YYYY-MM-DD format.
+ * @returns {string} The formatted date string.
  */
-async function fetchDeliveryStaff() {
+function getTodayDateString() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+/**
+ * Processes a completed order to deduct ingredients from stock using Realtime Database.
+ * @param {string} orderId - The ID of the order.
+ * @param {object} orderData - The data object of the order.
+ */
+async function processOrderForStockRTDB(orderId, orderData) {
+    if (orderData.stock_updated) {
+        console.log(`Order ${orderId} has already been processed for stock. Skipping.`);
+        return;
+    }
+    if (!orderData.cart || orderData.cart.length === 0) {
+        console.log(`Order ${orderId} has no cart items. Marking as processed.`);
+        await db.ref(`orders/${orderId}`).update({ stock_updated: true });
+        return;
+    }
+
+    console.log(`Processing order ${orderId} for stock deduction.`);
+
     try {
-        const usersSnapshot = await db.ref('users').orderByChild('role').equalTo('delivery').once('value');
-        deliveryStaff = [];
-        if (usersSnapshot.exists()) {
-            usersSnapshot.forEach(userSnap => {
-                deliveryStaff.push({ uid: userSnap.key, ...userSnap.val() });
-            });
-        }
-    } catch (error) {
-        console.error("Error fetching delivery staff:", error);
-    }
-}
+        // 1. Aggregate total usage for each ingredient based on recipes.
+        const ingredientUsage = new Map();
+        const recipePromises = orderData.cart.map(item =>
+            db.ref(`recipes/${item.id}`).once('value')
+        );
+        const recipeSnapshots = await Promise.all(recipePromises);
 
-
-/**
- * Creates the HTML for a single order row in the table.
- */
-function createOrderRow(orderId, orderData) {
-    const { customerInfo, timestamp, priceDetails, status, orderType, allergyInfo } = orderData;
-    const customerName = customerInfo ? customerInfo.name : 'N/A';
-    const customerId = customerInfo ? customerInfo.userId : null;
-    const customerLink = customerId ? `<a href="../customer-details.html?uid=${customerId}" target="_blank" class="text-blue-600 hover:underline">${customerName}</a>` : customerName;
-    const orderDate = new Date(timestamp).toLocaleString();
-    const finalTotal = priceDetails ? priceDetails.finalTotal.toFixed(2) : '0.00';
-    const isCancellable = status !== 'cancelled' && status !== 'delivered' && status !== 'completed';
-    const notes = allergyInfo ? `<span class="text-red-600 font-semibold">${allergyInfo}</span>` : 'N/A';
-
-    // Determine if the assignment UI should be shown
-    const isAssignable = orderType === 'delivery' && (status === 'preparing' || status === 'ready');
-
-    const statusDropdown = STATUS_OPTIONS.map(opt =>
-        `<option value="${opt}" ${status === opt ? 'selected' : ''}>${opt.charAt(0).toUpperCase() + opt.slice(1)}</option>`
-    ).join('');
-
-    // Generate driver options for the dropdown
-    const driverOptions = deliveryStaff.map(driver =>
-        `<option value="${driver.uid}">${driver.name}</option>`
-    ).join('');
-
-    // Conditionally create the assignment UI
-    const assignmentHtml = isAssignable ? `
-        <div class="mt-2 flex items-center gap-2">
-            <select class="driver-select w-full p-1 border rounded-md text-xs bg-white">
-                <option value="">Assign Driver...</option>
-                ${driverOptions}
-            </select>
-            <button class="assign-driver-btn bg-green-600 text-white px-2 py-1 rounded-md text-xs font-semibold hover:bg-green-700">Assign</button>
-        </div>
-    ` : '';
-
-
-    return `
-        <tr class="hover:bg-gray-50 transition" data-order-id="${orderId}">
-            <td class="p-3 text-sm font-medium text-blue-600">
-                <a href="../order-details.html?orderId=${orderId}" target="_blank" class="hover:underline">${orderId}</a>
-            </td>
-            <td class="p-3 text-sm text-gray-700">${customerLink}</td>
-            <td class="p-3 text-sm text-gray-600">${orderDate}</td>
-            <td class="p-3 text-sm capitalize">${orderType.replace(/([A-Z])/g, ' $1').trim()}</td>
-            <td class="p-3 text-sm text-gray-600">${notes}</td>
-            <td class="p-3 text-sm font-semibold">${finalTotal} MAD</td>
-            <td class="p-3">
-                <select class="status-select w-full p-2 border rounded-md text-sm bg-white">
-                    ${statusDropdown}
-                </select>
-            </td>
-            <td class="p-3 text-center">
-                <a href="../edit-order.html?orderId=${orderId}" class="edit-order-btn bg-blue-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-blue-600">Edit</a>
-                ${isCancellable ? `<button class="cancel-order-btn bg-red-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-red-600 ml-2">Cancel</button>` : ''}
-                ${assignmentHtml}
-            </td>
-        </tr>
-    `;
-}
-
-
-/**
- * Renders orders based on current filters.
- */
-function renderFilteredOrders() {
-    const orderListBody = document.getElementById('order-list-body');
-    if (!orderListBody) return;
-
-    const searchInput = document.getElementById('order-search').value.toLowerCase();
-    const statusFilter = document.getElementById('status-filter').value;
-
-    const ordersArray = Object.values(allOrdersCache)
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-    const filteredOrders = ordersArray.filter(order => {
-        const matchesSearch = order.id.toLowerCase().includes(searchInput) ||
-                              (order.customerInfo && order.customerInfo.name.toLowerCase().includes(searchInput));
-        const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-        return matchesSearch && matchesStatus;
-    });
-
-    orderListBody.innerHTML = filteredOrders.length
-        ? filteredOrders.map(order => createOrderRow(order.id, order)).join('')
-        : `<tr><td colspan="8" class="text-center p-4 text-gray-500">No matching orders found.</td></tr>`;
-}
-
-function playNotificationSound() {
-    const sound = document.getElementById('notification-sound');
-    if (sound) {
-        sound.play().catch(error => console.warn("Audio playback failed.", error));
-    }
-}
-
-/**
- * Main function to load the Orders Panel.
- */
-export async function loadPanel(panelRoot, panelTitle) {
-    panelTitle.textContent = 'Order Management';
-    isInitialLoad = true;
-    
-    // Fetch delivery staff before rendering anything
-    await fetchDeliveryStaff();
-
-    const statusFilterOptions = ['all', ...STATUS_OPTIONS]
-        .map(s => `<option value="${s}">${s.charAt(0).toUpperCase() + s.slice(1)}</option>`).join('');
-
-    panelRoot.innerHTML = `
-        <div class="bg-white rounded-xl shadow-lg p-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">All Orders</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <input type="search" id="order-search" placeholder="Search by Order ID or Customer..." class="w-full p-2 border rounded-md">
-                <select id="status-filter" class="w-full p-2 border rounded-md bg-white">${statusFilterOptions}</select>
-            </div>
-            <div class="overflow-y-auto" style="max-height: 70vh;">
-                <table class="min-w-full">
-                    <thead class="bg-gray-50 sticky top-0">
-                        <tr>
-                            <th class="p-3 text-left text-xs font-semibold uppercase">Order ID</th>
-                            <th class="p-3 text-left text-xs font-semibold uppercase">Customer</th>
-                            <th class="p-3 text-left text-xs font-semibold uppercase">Date</th>
-                            <th class="p-3 text-left text-xs font-semibold uppercase">Type</th>
-                            <th class="p-3 text-left text-xs font-semibold uppercase">Customer Notes</th>
-                            <th class="p-3 text-left text-xs font-semibold uppercase">Total</th>
-                            <th class="p-3 text-left text-xs font-semibold uppercase">Status</th>
-                            <th class="p-3 text-center text-xs font-semibold uppercase">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="order-list-body" class="divide-y divide-gray-200">
-                        <tr><td colspan="8" class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl text-brand-red"></i></td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('order-search').addEventListener('input', renderFilteredOrders);
-    document.getElementById('status-filter').addEventListener('change', renderFilteredOrders);
-
-    panelRoot.addEventListener('change', (e) => {
-        if (e.target.classList.contains('status-select')) {
-            const orderId = e.target.closest('tr').dataset.orderId;
-            const newStatus = e.target.value;
-            db.ref(`orders/${orderId}/status`).set(newStatus);
-        }
-    });
-
-    // Combined event listener for cancel and assign buttons
-    panelRoot.addEventListener('click', (e) => {
-        const button = e.target.closest('button');
-        if (!button) return;
-
-        const row = button.closest('tr');
-        if (!row) return;
-
-        const orderId = row.dataset.orderId;
-
-        if (button.classList.contains('cancel-order-btn')) {
-            if (confirm(`Are you sure you want to cancel order #${orderId}? This action cannot be undone.`)) {
-                db.ref(`orders/${orderId}/status`).set('cancelled');
-            }
-        } else if (button.classList.contains('assign-driver-btn')) {
-            const selectEl = row.querySelector('.driver-select');
-            const driverUid = selectEl.value;
-
-            if (!driverUid) {
-                alert('Please select a driver first.');
-                return;
-            }
-            
-            const driverName = selectEl.options[selectEl.selectedIndex].text;
-            const updates = {
-                status: 'out for delivery',
-                assignedDriver: {
-                    uid: driverUid,
-                    name: driverName
+        recipeSnapshots.forEach((snap, index) => {
+            if (snap.exists()) {
+                const recipe = snap.val();
+                const cartItem = orderData.cart[index];
+                if (recipe.ingredients) {
+                    for (const [ingredientId, quantityNeeded] of Object.entries(recipe.ingredients)) {
+                        const totalUsage = Number(quantityNeeded) * Number(cartItem.quantity);
+                        if (totalUsage > 0) {
+                            const currentTotal = ingredientUsage.get(ingredientId) || 0;
+                            ingredientUsage.set(ingredientId, currentTotal + totalUsage);
+                        }
+                    }
                 }
-            };
+            } else {
+                 console.warn(`Recipe for item ID ${orderData.cart[index].id} not found.`);
+            }
+        });
 
-            db.ref(`orders/${orderId}`).update(updates);
-        }
-    });
-
-    const ordersRef = db.ref('orders');
-    ordersRef.on('value', (snapshot) => {
-        if (!snapshot.exists()) {
-            allOrdersCache = {};
-            document.getElementById('order-list-body').innerHTML = '<tr><td colspan="8" class="text-center p-4">No orders found.</td></tr>';
+        if (ingredientUsage.size === 0) {
+            console.log(`No ingredients to update for order ${orderId}. Marking as processed.`);
+            await db.ref(`orders/${orderId}`).update({ stock_updated: true });
             return;
         }
 
-        const ordersData = snapshot.val();
-
-        if (!isInitialLoad) {
-            const newOrderIds = Object.keys(ordersData);
-            const cachedOrderIds = Object.keys(allOrdersCache);
-            if (newOrderIds.length > cachedOrderIds.length) {
-                playNotificationSound();
-            }
+        // 2. Fetch current stock and daily count values for all needed ingredients.
+        const dateString = getTodayDateString();
+        const dataFetchPromises = [];
+        ingredientUsage.forEach((_, ingredientId) => {
+            dataFetchPromises.push(db.ref(`/ingredients/${ingredientId}`).once('value'));
+            dataFetchPromises.push(db.ref(`/stockCounts/${dateString}/ingredients/${ingredientId}`).once('value'));
+        });
+        
+        // Ensure the daily stock count document itself exists
+        const dailyCountExists = (await db.ref(`stockCounts/${dateString}`).once('value')).exists();
+        if(!dailyCountExists){
+             throw new Error(`Daily stock count for ${dateString} is not initialized. Please open the "Daily Count" tab first.`);
         }
 
-        allOrdersCache = Object.keys(ordersData).reduce((acc, key) => {
-            acc[key] = { id: key, ...ordersData[key] };
-            return acc;
-        }, {});
+        const snapshots = await Promise.all(dataFetchPromises);
 
-        renderFilteredOrders();
-        isInitialLoad = false;
+        // 3. Build the atomic update object.
+        const updates = {};
+        let i = 0;
+        for (const [ingredientId, totalUsage] of ingredientUsage.entries()) {
+            const ingredientSnap = snapshots[i++];
+            const stockCountSnap = snapshots[i++];
+
+            const currentStock = ingredientSnap.val()?.current_stock ?? 0;
+            const usedExpected = stockCountSnap.val()?.used_expected ?? 0;
+
+            updates[`/ingredients/${ingredientId}/current_stock`] = currentStock - totalUsage;
+            updates[`/stockCounts/${dateString}/ingredients/${ingredientId}/used_expected`] = usedExpected + totalUsage;
+        }
+
+        // Mark the order as processed.
+        updates[`/orders/${orderId}/stock_updated`] = true;
+
+        // 4. Execute the single atomic update.
+        await db.ref().update(updates);
+        
+        console.log(`Successfully updated stock for order ${orderId}.`);
+        showToast(`Stock updated for order ${orderId.substring(0, 6)}...`);
+
+    } catch (error) {
+        console.error(`Stock update failed for order ${orderId}:`, error);
+        showToast(`Error updating stock: ${error.message}`, true);
+    }
+}
+
+
+// --- Main Panel Rendering and Logic ---
+
+let allOrders = []; // Cache for all orders
+let deliveryMen = {}; // Cache for delivery men
+
+// Fetches all delivery men for the assignment dropdown
+function fetchDeliveryMen() {
+    const deliveryRef = db.ref('users').orderByChild('role').equalTo('delivery');
+    deliveryRef.on('value', snapshot => {
+        deliveryMen = {};
+        snapshot.forEach(childSnapshot => {
+            deliveryMen[childSnapshot.key] = childSnapshot.val().name;
+        });
+    });
+}
+
+// Updates the status of an order
+async function updateOrderStatus(orderId, status) {
+    const orderRef = db.ref('orders/' + orderId);
+    try {
+        await orderRef.update({ status: status });
+        showToast('Order status updated successfully.');
+
+        // === [NEW] RECIPE INTEGRATION LOGIC ===
+        if (status.toLowerCase() === 'delivered') {
+            const orderSnapshot = await orderRef.once('value');
+            if (orderSnapshot.exists()) {
+                await processOrderForStockRTDB(orderId, orderSnapshot.val());
+            }
+        }
+        // No need to call loadOrders() here as the 'on' listener will handle it
+    } catch (error) {
+        console.error('Error updating order status:', error);
+        showToast('Failed to update order status.', true);
+    }
+}
+
+// Assigns a delivery person to an order
+function assignDelivery(orderId, deliveryManId) {
+    if (!deliveryManId) {
+        showToast('Please select a delivery person.', true);
+        return;
+    }
+    const orderRef = db.ref('orders/' + orderId);
+    orderRef.update({
+        deliveryBoy: deliveryManId,
+        status: 'Out for Delivery'
+    }).then(() => {
+        showToast('Delivery assigned successfully.');
+    }).catch(error => {
+        console.error('Error assigning delivery:', error);
+        showToast('Failed to assign delivery.', true);
+    });
+}
+
+// Renders the list of orders based on the current filter
+function renderFilteredOrders(filter = 'All') {
+    const ordersContainer = document.getElementById('orders-container');
+    if (!ordersContainer) return;
+
+    const filteredOrders = filter === 'All' ? allOrders : allOrders.filter(order => order.status === filter);
+
+    if (filteredOrders.length === 0) {
+        ordersContainer.innerHTML = `<div class="text-center py-12 bg-white rounded-lg shadow"><p class="text-gray-500">No ${filter !== 'All' ? filter : ''} orders found.</p></div>`;
+        return;
+    }
+
+    const statusClasses = {
+        'Pending': 'bg-yellow-100 text-yellow-800',
+        'Confirmed': 'bg-blue-100 text-blue-800',
+        'Preparing': 'bg-indigo-100 text-indigo-800',
+        'Out for Delivery': 'bg-purple-100 text-purple-800',
+        'Delivered': 'bg-green-100 text-green-800',
+        'Cancelled': 'bg-red-100 text-red-800',
+    };
+
+    ordersContainer.innerHTML = filteredOrders.map(order => {
+        const orderDate = new Date(order.timestamp);
+        const formattedDate = `${orderDate.toLocaleDateString()} ${orderDate.toLocaleTimeString()}`;
+        
+        const itemsHtml = order.cart.map(item => `
+            <li class="flex justify-between text-gray-600">
+                <span>${item.quantity} x ${item.name}</span>
+                <span class="font-mono">${(item.price * item.quantity).toFixed(2)} MAD</span>
+            </li>
+        `).join('');
+
+        const statusButtons = ['Pending', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'].map(status => `
+            <button data-order-id="${order.id}" data-status="${status}" class="status-btn px-2 py-1 text-xs rounded transition-colors ${order.status === status ? 'bg-blue-600 text-white font-bold' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}">
+                ${status}
+            </button>
+        `).join('');
+
+        const deliveryOptions = Object.entries(deliveryMen).map(([id, name]) =>
+            `<option value="${id}" ${order.deliveryBoy === id ? 'selected' : ''}>${name}</option>`
+        ).join('');
+
+        return `
+            <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                <div class="flex flex-wrap justify-between items-start gap-4">
+                    <div>
+                        <h3 class="font-bold text-lg text-gray-800">Order #${order.id.substring(0, 6)}</h3>
+                        <p class="text-sm text-gray-500">${formattedDate}</p>
+                        <p class="text-sm text-gray-600 mt-2"><strong>Customer:</strong> ${order.customerName || 'N/A'} (${order.customerPhone || 'N/A'})</p>
+                        <p class="text-sm text-gray-600"><strong>Address:</strong> ${order.customerAddress || 'N/A'}</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="px-3 py-1 text-sm font-semibold rounded-full ${statusClasses[order.status] || 'bg-gray-100 text-gray-800'}">
+                            ${order.status}
+                        </span>
+                        <p class="text-2xl font-bold mt-2 text-gray-800">${order.totalPrice.toFixed(2)} MAD</p>
+                    </div>
+                </div>
+                <div class="mt-4 border-t pt-4">
+                    <h4 class="font-semibold text-md mb-2 text-gray-700">Items:</h4>
+                    <ul class="space-y-1 text-sm">${itemsHtml}</ul>
+                </div>
+                <div class="mt-4 border-t pt-4">
+                    <h4 class="font-semibold text-md mb-2 text-gray-700">Update Status:</h4>
+                    <div class="flex flex-wrap gap-2">${statusButtons}</div>
+                </div>
+                <div class="mt-4 border-t pt-4">
+                     <h4 class="font-semibold text-md mb-2 text-gray-700">Assign Delivery:</h4>
+                     <div class="flex gap-2">
+                        <select class="delivery-select bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                            <option value="">Select Delivery Person</option>
+                            ${deliveryOptions}
+                        </select>
+                        <button data-order-id="${order.id}" class="assign-btn bg-green-500 text-white px-4 py-2 rounded-lg shadow hover:bg-green-600">Assign</button>
+                     </div>
+                </div>
+                 ${order.stock_updated ? '<p class="text-xs text-green-600 mt-3 font-semibold flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>Stock Deducted</p>' : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+// Initial data load and sets up real-time listener
+function loadOrders() {
+    const ordersRef = db.ref('orders').orderByChild('timestamp');
+    const ordersContainer = document.getElementById('orders-container');
+
+    ordersRef.on('value', snapshot => {
+        allOrders = [];
+        snapshot.forEach(childSnapshot => {
+            allOrders.push({ id: childSnapshot.key, ...childSnapshot.val() });
+        });
+        allOrders.reverse(); // Show newest orders first
+        
+        const currentFilter = document.querySelector('.filter-btn.bg-blue-500')?.dataset.status || 'All';
+        renderFilteredOrders(currentFilter);
+    }, error => {
+        console.error("Error fetching orders: ", error);
+        if (ordersContainer) {
+            ordersContainer.innerHTML = '<div class="text-center py-12 bg-white rounded-lg shadow"><p class="text-red-500">Failed to load orders.</p></div>';
+        }
+    });
+}
+
+// Main function to render the panel and set up event listeners
+export function renderOrdersPanel(container) {
+    container.innerHTML = `
+        <div class="p-4 md:p-8 bg-gray-50 min-h-screen">
+            <h1 class="text-3xl font-bold mb-6 text-gray-800">Live Orders</h1>
+            <div id="order-filters" class="mb-4 flex flex-wrap gap-2">
+                <button class="filter-btn bg-blue-500 text-white px-4 py-2 rounded-lg shadow" data-status="All">All</button>
+                <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Pending">Pending</button>
+                <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Confirmed">Confirmed</button>
+                <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Preparing">Preparing</button>
+                <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Out for Delivery">Out for Delivery</button>
+                <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Delivered">Delivered</button>
+                <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Cancelled">Cancelled</button>
+            </div>
+            <div id="orders-container" class="space-y-6">
+                <p class="text-center text-gray-500 mt-8">Loading orders...</p>
+            </div>
+        </div>
+    `;
+
+    fetchDeliveryMen();
+    loadOrders();
+
+    // Event Delegation for all actions
+    container.addEventListener('click', e => {
+        const target = e.target;
+        
+        // Filter button clicks
+        if (target.classList.contains('filter-btn')) {
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-500', 'text-white');
+                btn.classList.add('bg-white', 'text-gray-700', 'border');
+            });
+            target.classList.add('bg-blue-500', 'text-white');
+            target.classList.remove('bg-white', 'text-gray-700', 'border');
+            renderFilteredOrders(target.dataset.status);
+        }
+
+        // Status update button clicks
+        if (target.classList.contains('status-btn')) {
+            const orderId = target.dataset.orderId;
+            const status = target.dataset.status;
+            updateOrderStatus(orderId, status);
+        }
+
+        // Assign delivery button clicks
+        if (target.classList.contains('assign-btn')) {
+            const orderId = target.dataset.orderId;
+            const select = target.previousElementSibling;
+            const deliveryManId = select.value;
+            assignDelivery(orderId, deliveryManId);
+        }
     });
 }
