@@ -76,14 +76,14 @@ async function checkAndDisplayAlerts() {
             const count = stockCounts[id];
             const ingredient = ingredients[id];
             if (ingredient && count.variance < 0) {
-                 const variancePercentage = (count.opening > 0) ? (Math.abs(count.variance) / count.opening) * 100 : 0;
-                 if(variancePercentage > 5) { // Threshold: 5% variance
+                const variancePercentage = (count.opening > 0) ? (Math.abs(count.variance) / count.opening) * 100 : 0;
+                if (variancePercentage > 5) { // Threshold: 5% variance
                     highVarianceAlerts += `<li class="p-3 bg-red-50 border-l-4 border-red-400 rounded-r-lg"><strong>High Variance:</strong> ${ingredient.name} has a variance of ${count.variance.toFixed(2)} ${ingredient.unit} (${variancePercentage.toFixed(1)}% loss).</li>`;
-                 }
+                }
             }
         }
-         if (highVarianceAlerts) {
-            alertsHtml += `<div><h4 class="font-bold text-lg mb-2 text-red-700">High Variance Alerts (for ${selectedDate})</h4><ul class="space-y-2">${highVarianceAlerts}</ul></div>`;
+        if (highVarianceAlerts) {
+            alertsHtml += `<div class="mt-6"><h4 class="font-bold text-lg mb-2 text-red-700">High Variance Alerts (for ${selectedDate})</h4><ul class="space-y-2">${highVarianceAlerts}</ul></div>`;
         }
 
 
@@ -110,7 +110,9 @@ async function updateFinancialKPIs() {
             ingredientsRef.once('value')
         ]);
 
-        const salesData = salesSnapshot.exists() ? salesSnapshot.val() : { total: 0 };
+        const salesData = salesSnapshot.exists() ? salesSnapshot.val() : {
+            total: 0
+        };
         const stockCountData = stockCountSnapshot.exists() ? stockCountSnapshot.val() : {};
         const ingredientsData = ingredientsSnapshot.exists() ? ingredientsSnapshot.val() : {};
 
@@ -139,7 +141,7 @@ async function updateFinancialKPIs() {
         }
 
         const foodCostPercentage = totalSales > 0 ? (ingredientCost / totalSales) * 100 : 0;
-        
+
         panelRoot.querySelector('#todays-sales').textContent = `${totalSales.toFixed(2)} MAD`;
         panelRoot.querySelector('#todays-loss').textContent = `${totalLossValue.toFixed(2)} MAD`;
         panelRoot.querySelector('#food-cost').textContent = `${foodCostPercentage.toFixed(2)}%`;
@@ -177,7 +179,7 @@ async function loadAnalyticsReports() {
             renderWeeklyReport(sales, stockCounts, ingredients);
             renderMonthlyReport(sales, stockCounts, ingredients);
             renderYearlyReport(sales, stockCounts, ingredients);
-            
+
         } catch (error) {
             console.error("Error loading analytics:", error);
             container.innerHTML = `<p class="text-red-500">Could not load analytics: ${error.message}</p>`;
@@ -188,23 +190,35 @@ async function loadAnalyticsReports() {
 function renderWeeklyReport(sales, stockCounts, ingredients) {
     const weeklyContainer = panelRoot.querySelector('#weekly-report-container');
     if (!weeklyContainer) return;
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const last7Days = Array.from({
+        length: 7
+    }, (_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - i);
         return d.toISOString().split('T')[0];
     }).reverse();
 
-    const weeklySalesData = { labels: [], data: [] };
-    const usageVsPurchases = { labels: [], usage: [], purchases: [] };
+    const weeklySalesData = {
+        labels: [],
+        data: []
+    };
+    const usageVsPurchases = {
+        labels: [],
+        usage: [],
+        purchases: []
+    };
     let lossData = {};
 
     last7Days.forEach(date => {
-        const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'short' });
+        const dayOfWeek = new Date(date).toLocaleDateString('en-US', {
+            weekday: 'short'
+        });
         weeklySalesData.labels.push(dayOfWeek);
         weeklySalesData.data.push(sales[date] ? sales[date].total : 0);
 
         if (stockCounts[date]) {
-            let totalUsage = 0, totalPurchases = 0;
+            let totalUsage = 0,
+                totalPurchases = 0;
             for (const ingId in stockCounts[date]) {
                 const ingredient = ingredients[ingId];
                 if (ingredient) {
@@ -231,8 +245,40 @@ function renderWeeklyReport(sales, stockCounts, ingredients) {
         </div>
     `;
 
-    charts.weeklySales = new Chart(panelRoot.querySelector('#weekly-sales-chart'), { type: 'line', data: { labels: weeklySalesData.labels, datasets: [{ label: 'Sales (MAD)', data: weeklySalesData.data, borderColor: '#D71921', tension: 0.1 }] } });
-    charts.usagePurchases = new Chart(panelRoot.querySelector('#usage-purchases-chart'), { type: 'bar', data: { labels: usageVsPurchases.labels, datasets: [{ label: 'Usage Cost', data: usageVsPurchases.usage, backgroundColor: '#EF4444' }, { label: 'Purchases Cost', data: usageVsPurchases.purchases, backgroundColor: '#3B82F6' }] }, options: { scales: { y: { beginAtZero: true } } } });
+    charts.weeklySales = new Chart(panelRoot.querySelector('#weekly-sales-chart'), {
+        type: 'line',
+        data: {
+            labels: weeklySalesData.labels,
+            datasets: [{
+                label: 'Sales (MAD)',
+                data: weeklySalesData.data,
+                borderColor: '#D71921',
+                tension: 0.1
+            }]
+        }
+    });
+    charts.usagePurchases = new Chart(panelRoot.querySelector('#usage-purchases-chart'), {
+        type: 'bar',
+        data: {
+            labels: usageVsPurchases.labels,
+            datasets: [{
+                label: 'Usage Cost',
+                data: usageVsPurchases.usage,
+                backgroundColor: '#EF4444'
+            }, {
+                label: 'Purchases Cost',
+                data: usageVsPurchases.purchases,
+                backgroundColor: '#3B82F6'
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
 }
 
 function renderMonthlyReport(sales, stockCounts, ingredients) {
@@ -245,12 +291,12 @@ function renderMonthlyReport(sales, stockCounts, ingredients) {
         const month = date.substring(0, 7); // YYYY-MM
         monthlySales[month] = (monthlySales[month] || 0) + sales[date].total;
     }
-     for (const date in stockCounts) {
+    for (const date in stockCounts) {
         const month = date.substring(0, 7); // YYYY-MM
         let dailyCost = 0;
-        for(const ingId in stockCounts[date]){
-            if(ingredients[ingId]){
-                 dailyCost += stockCounts[date][ingId].used_expected * (ingredients[ingId].unit_cost || 0);
+        for (const ingId in stockCounts[date]) {
+            if (ingredients[ingId]) {
+                dailyCost += stockCounts[date][ingId].used_expected * (ingredients[ingId].unit_cost || 0);
             }
         }
         monthlyCosts[month] = (monthlyCosts[month] || 0) + dailyCost;
@@ -269,29 +315,42 @@ function renderMonthlyReport(sales, stockCounts, ingredients) {
         type: 'bar',
         data: {
             labels: labels,
-            datasets: [
-                { label: 'Total Sales (MAD)', data: salesData, backgroundColor: '#22C55E' },
-                { label: 'Ingredient Cost (MAD)', data: costData, backgroundColor: '#F97316' }
-            ]
+            datasets: [{
+                label: 'Total Sales (MAD)',
+                data: salesData,
+                backgroundColor: '#22C55E'
+            }, {
+                label: 'Ingredient Cost (MAD)',
+                data: costData,
+                backgroundColor: '#F97316'
+            }]
         },
-        options: { scales: { y: { beginAtZero: true } } }
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
     });
 }
 
 function renderYearlyReport(sales, stockCounts, ingredients) {
     const yearlyContainer = panelRoot.querySelector('#yearly-report-container');
     if (!yearlyContainer) return;
-    let totalRevenue = 0, totalPurchases = 0, totalLosses = 0;
+    let totalRevenue = 0,
+        totalPurchases = 0,
+        totalLosses = 0;
 
-    for(const date in sales) {
+    for (const date in sales) {
         totalRevenue += sales[date].total;
     }
-    for(const date in stockCounts){
-        for(const ingId in stockCounts[date]){
+    for (const date in stockCounts) {
+        for (const ingId in stockCounts[date]) {
             const ingredient = ingredients[ingId];
-            if(ingredient){
+            if (ingredient) {
                 totalPurchases += stockCounts[date][ingId].purchases * (ingredient.unit_cost || 0);
-                if(stockCounts[date][ingId].variance < 0){
+                if (stockCounts[date][ingId].variance < 0) {
                     totalLosses += Math.abs(stockCounts[date][ingId].variance) * (ingredient.unit_cost || 0);
                 }
             }
@@ -326,11 +385,19 @@ async function generateEndOfDayReport() {
             db.ref('ingredients').once('value')
         ]);
 
-        const sales = salesSnapshot.val() || { total: 0, platform: 0, glovo: 0, regular: 0 };
+        const sales = salesSnapshot.val() || {
+            total: 0,
+            platform: 0,
+            glovo: 0,
+            regular: 0
+        };
         const stockCounts = stockCountSnapshot.val() || {};
         const ingredients = ingredientsSnapshot.val() || {};
 
-        let totalLossValue = 0, ingredientCost = 0, varianceRows = '', wastageRows = '';
+        let totalLossValue = 0,
+            ingredientCost = 0,
+            varianceRows = '',
+            wastageRows = '';
 
         for (const ingId in stockCounts) {
             const count = stockCounts[ingId];
@@ -338,7 +405,7 @@ async function generateEndOfDayReport() {
             if (!ingredient) continue;
 
             ingredientCost += count.used_expected * (ingredient.unit_cost || 0);
-            
+
             if (count.variance !== 0) {
                 const varianceValue = count.variance * (ingredient.unit_cost || 0);
                 if (varianceValue < 0) totalLossValue += Math.abs(varianceValue);
@@ -375,7 +442,9 @@ function printReport() {
 
 // --- RECIPE MANAGEMENT FUNCTIONS ---
 function createRecipeRow(menuItemId, recipeData) {
-    const menuItem = menuItemsCache[menuItemId] || { name: 'Unknown Item' };
+    const menuItem = menuItemsCache[menuItemId] || {
+        name: 'Unknown Item'
+    };
     let ingredientsSummary = 'No ingredients set.';
 
     if (recipeData.ingredients && Object.keys(recipeData.ingredients).length > 0) {
@@ -423,10 +492,10 @@ function openRecipeModal(menuItemId = null) {
     currentRecipeMenuItemId = menuItemId;
     recipeForm.reset();
     panelRoot.querySelector('#recipe-ingredients-list').innerHTML = '<p class="text-gray-500 p-4 text-center">Add ingredients from the left.</p>';
-    
+
     const menuItemSelect = panelRoot.querySelector('#menu-item-select');
     menuItemSelect.innerHTML = '<option value="">-- Select a Menu Item --</option>';
-    
+
     Object.entries(menuItemsCache).forEach(([id, item]) => {
         if (!recipesCache[id] || id === menuItemId) {
             const option = new Option(item.name, id);
@@ -446,7 +515,7 @@ function openRecipeModal(menuItemId = null) {
         panelRoot.querySelector('#recipe-modal-title').textContent = `Edit Recipe for ${menuItemsCache[menuItemId].name}`;
         menuItemSelect.value = menuItemId;
         menuItemSelect.disabled = true;
-        
+
         const recipeData = recipesCache[menuItemId];
         if (recipeData && recipeData.ingredients) {
             const recipeList = panelRoot.querySelector('#recipe-ingredients-list');
@@ -492,15 +561,24 @@ function addIngredientToRecipeList(ingredientId, quantity = 0.1) {
 async function handleSaveRecipe(e) {
     e.preventDefault();
     const menuItemId = currentRecipeMenuItemId || panelRoot.querySelector('#menu-item-select').value;
-    if (!menuItemId) { alert('Please select a menu item.'); return; }
+    if (!menuItemId) {
+        alert('Please select a menu item.');
+        return;
+    }
 
     const ingredientRows = panelRoot.querySelectorAll('#recipe-ingredients-list [data-id]');
-    const recipeData = { name: menuItemsCache[menuItemId].name, ingredients: {} };
+    const recipeData = {
+        name: menuItemsCache[menuItemId].name,
+        ingredients: {}
+    };
 
     ingredientRows.forEach(row => {
         const id = row.dataset.id;
         const qty = parseFloat(row.querySelector('.recipe-qty-input').value);
-        if (!isNaN(qty)) recipeData.ingredients[id] = { qty, unit: ingredientsCache[id].unit };
+        if (!isNaN(qty)) recipeData.ingredients[id] = {
+            qty,
+            unit: ingredientsCache[id].unit
+        };
     });
 
     try {
@@ -571,19 +649,34 @@ async function saveSalesData(e) {
     }
 }
 
+/**
+ * MERGED AND UPDATED FUNCTION
+ * Loads daily count data, populates saved values, and locks past dates.
+ */
 async function loadDailyCountData() {
     const dailyTbody = panelRoot.querySelector('#daily-count-tbody');
     if (!dailyTbody) return;
-    dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6"><i class="fas fa-spinner fa-spin mr-2"></i>Loading data for selected date...</td></tr>';
-    const selectedDate = new Date(currentStockDate);
-    const dayStart = selectedDate.toISOString().split('T')[0];
-    selectedDate.setDate(selectedDate.getDate() - 1);
-    const prevDateStr = selectedDate.toISOString().split('T')[0];
+    dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6"><i class="fas fa-spinner fa-spin mr-2"></i>Loading data...</td></tr>';
+
+    const selectedDateObj = new Date(currentStockDate);
+    const dayStart = selectedDateObj.toISOString().split('T')[0];
+    selectedDateObj.setDate(selectedDateObj.getDate() - 1);
+    const prevDateStr = selectedDateObj.toISOString().split('T')[0];
+
     try {
-        const [ingSnapshot, recSnapshot, prevStockSnapshot, ordersSnapshot] = await Promise.all([db.ref('ingredients').once('value'), db.ref('recipes').once('value'), db.ref(`stockCounts/${prevDateStr}`).once('value'), db.ref('orders').orderByChild('timestamp').startAt(dayStart).endAt(dayStart + '\uf8ff').once('value')]);
+        const [ingSnapshot, recSnapshot, prevStockSnapshot, currentStockSnapshot, ordersSnapshot] = await Promise.all([
+            db.ref('ingredients').once('value'),
+            db.ref('recipes').once('value'),
+            db.ref(`stockCounts/${prevDateStr}`).once('value'),
+            db.ref(`stockCounts/${currentStockDate}`).once('value'), // FIX 1: Fetch current day's data
+            db.ref('orders').orderByChild('timestamp').startAt(dayStart).endAt(dayStart + '\uf8ff').once('value')
+        ]);
+
         ingredientsCache = ingSnapshot.exists() ? ingSnapshot.val() : {};
         recipesCache = recSnapshot.exists() ? recSnapshot.val() : {};
         const prevStock = prevStockSnapshot.exists() ? prevStockSnapshot.val() : {};
+        const currentStock = currentStockSnapshot.exists() ? currentStockSnapshot.val() : {}; // FIX 1: Get current day's data
+
         const theoreticalUsage = {};
         if (ordersSnapshot.exists()) {
             const orders = ordersSnapshot.val();
@@ -602,29 +695,71 @@ async function loadDailyCountData() {
                 }
             }
         }
+
         if (Object.keys(ingredientsCache).length === 0) {
             dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6 text-gray-500">No ingredients defined. Please add ingredients first.</td></tr>';
             return;
         }
+
         let tableHtml = '';
         for (const ingId in ingredientsCache) {
             const ingredient = ingredientsCache[ingId];
             const openingStock = prevStock[ingId]?.closing_actual ?? ingredient.stock_level ?? 0;
             const usedExpected = theoreticalUsage[ingId] || 0;
-            tableHtml += `<tr data-id="${ingId}"><td class="p-2 font-medium">${ingredient.name} <span class="text-xs text-gray-400">(${ingredient.unit})</span></td><td class="p-2 text-center" data-opening>${openingStock.toFixed(2)}</td><td class="p-2"><input type="number" step="0.1" value="0" class="daily-input purchases-input w-20 p-1 border rounded text-right"></td><td class="p-2 text-center" data-used>${usedExpected.toFixed(2)}</td><td class="p-2"><input type="number" step="0.1" value="0" class="daily-input wastage-input w-20 p-1 border rounded text-right"></td><td class="p-2 text-center font-bold" data-closing-theory>0.00</td><td class="p-2"><input type="number" step="0.1" class="daily-input closing-actual-input w-20 p-1 border rounded text-right bg-yellow-50"></td><td class="p-2 text-center font-semibold" data-variance>0.00</td></tr>`;
+
+            // FIX 1: Use saved data for inputs, otherwise default.
+            const savedData = currentStock[ingId] || {};
+            const purchases = savedData.purchases ?? 0;
+            const wastage = savedData.wastage ?? 0;
+            const closingActual = savedData.closing_actual ?? ''; // Use empty string for input if not set
+
+            tableHtml += `
+                <tr data-id="${ingId}">
+                    <td class="p-2 font-medium">${ingredient.name} <span class="text-xs text-gray-400">(${ingredient.unit})</span></td>
+                    <td class="p-2 text-center" data-opening>${openingStock.toFixed(2)}</td>
+                    <td class="p-2"><input type="number" step="0.1" value="${purchases}" class="daily-input purchases-input w-20 p-1 border rounded text-right"></td>
+                    <td class="p-2 text-center" data-used>${usedExpected.toFixed(2)}</td>
+                    <td class="p-2"><input type="number" step="0.1" value="${wastage}" class="daily-input wastage-input w-20 p-1 border rounded text-right"></td>
+                    <td class="p-2 text-center font-bold" data-closing-theory>0.00</td>
+                    <td class="p-2"><input type="number" step="0.1" value="${closingActual}" class="daily-input closing-actual-input w-20 p-1 border rounded text-right bg-yellow-50"></td>
+                    <td class="p-2 text-center font-semibold" data-variance>0.00</td>
+                </tr>`;
         }
         dailyTbody.innerHTML = tableHtml;
+
+        // Add calculation listeners
         dailyTbody.querySelectorAll('tr[data-id]').forEach(row => {
             calculateRow(row); // Initial calculation
             row.querySelectorAll('.daily-input').forEach(input => {
                 input.addEventListener('input', () => calculateRow(row));
             });
         });
+
+        // FIX 2: Lock modifications for past dates
+        const today = new Date().toISOString().split("T")[0];
+        const isPastDay = currentStockDate < today;
+        const saveBtn = panelRoot.querySelector('#save-daily-count-btn');
+
+        if (isPastDay) {
+            dailyTbody.querySelectorAll(".daily-input").forEach(input => {
+                input.readOnly = true;
+                input.classList.add("bg-gray-100", "cursor-not-allowed");
+            });
+            if (saveBtn) saveBtn.style.display = "none";
+        } else {
+            dailyTbody.querySelectorAll(".daily-input").forEach(input => {
+                input.readOnly = false;
+                input.classList.remove("bg-gray-100", "cursor-not-allowed");
+            });
+            if (saveBtn) saveBtn.style.display = "block";
+        }
+
     } catch (error) {
         console.error("Error loading daily count data:", error);
         dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6 text-red-500">Failed to load data.</td></tr>';
     }
 }
+
 
 function calculateRow(row) {
     const opening = parseFloat(row.querySelector('[data-opening]').textContent) || 0;
@@ -677,7 +812,14 @@ async function saveDailyCount() {
 }
 
 function createIngredientRow(ingredientId, ingredientData) {
-    const { name, category, unit, unit_cost, supplier, low_stock_threshold } = ingredientData;
+    const {
+        name,
+        category,
+        unit,
+        unit_cost,
+        supplier,
+        low_stock_threshold
+    } = ingredientData;
     const isLowStock = ingredientData.stock_level && low_stock_threshold && ingredientData.stock_level < low_stock_threshold;
     return `<tr class="hover:bg-gray-50 transition ${isLowStock ? 'bg-yellow-50' : ''}" data-id="${ingredientId}"><td class="p-3 font-medium text-gray-800">${name || 'N/A'}</td><td class="p-3 text-sm text-gray-600">${category || 'N/A'}</td><td class="p-3 text-sm text-center">${ingredientData.stock_level || 0} ${unit || ''}</td><td class="p-3 text-sm">${(unit_cost || 0).toFixed(2)} MAD</td><td class="p-3 text-sm text-gray-500">${supplier || 'N/A'}</td><td class="p-3 text-center"><button class="edit-ingredient-btn bg-blue-500 text-white px-3 py-1 text-xs rounded-md hover:bg-blue-600">Edit</button><button class="delete-ingredient-btn bg-red-500 text-white px-3 py-1 text-xs rounded-md hover:bg-red-600 ml-2">Delete</button></td></tr>`;
 }
@@ -711,7 +853,15 @@ async function handleSaveIngredient(e) {
     const saveBtn = ingredientForm.querySelector('button[type="submit"]');
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving...';
-    const ingredientData = { name: panelRoot.querySelector('#ingredient-name').value.trim(), category: panelRoot.querySelector('#ingredient-category').value.trim(), unit: panelRoot.querySelector('#ingredient-unit').value.trim(), unit_cost: parseFloat(panelRoot.querySelector('#ingredient-unit-cost').value) || 0, supplier: panelRoot.querySelector('#ingredient-supplier').value.trim(), stock_level: parseFloat(panelRoot.querySelector('#ingredient-stock-level').value) || 0, low_stock_threshold: parseFloat(panelRoot.querySelector('#low-stock-threshold').value) || 0 };
+    const ingredientData = {
+        name: panelRoot.querySelector('#ingredient-name').value.trim(),
+        category: panelRoot.querySelector('#ingredient-category').value.trim(),
+        unit: panelRoot.querySelector('#ingredient-unit').value.trim(),
+        unit_cost: parseFloat(panelRoot.querySelector('#ingredient-unit-cost').value) || 0,
+        supplier: panelRoot.querySelector('#ingredient-supplier').value.trim(),
+        stock_level: parseFloat(panelRoot.querySelector('#ingredient-stock-level').value) || 0,
+        low_stock_threshold: parseFloat(panelRoot.querySelector('#low-stock-threshold').value) || 0
+    };
     try {
         let dbRef;
         if (editingIngredientId) {
@@ -794,54 +944,54 @@ export function loadPanel(root, panelTitle) {
 
             <div id="ingredients-section" class="tab-content">
                  <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-gray-800">Master Ingredient List</h3><button id="add-ingredient-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition"><i class="fas fa-plus mr-2"></i>Add Ingredient</button></div>
-                <div class="overflow-x-auto"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-xs font-semibold uppercase">Name</th><th class="p-3 text-left text-xs font-semibold uppercase">Category</th><th class="p-3 text-center text-xs font-semibold uppercase">Current Stock</th><th class="p-3 text-left text-xs font-semibold uppercase">Cost/Unit</th><th class="p-3 text-left text-xs font-semibold uppercase">Supplier</th><th class="p-3 text-center text-xs font-semibold uppercase">Actions</th></tr></thead><tbody id="ingredients-tbody" class="divide-y"></tbody></table></div>
+                 <div class="overflow-x-auto"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-xs font-semibold uppercase">Name</th><th class="p-3 text-left text-xs font-semibold uppercase">Category</th><th class="p-3 text-center text-xs font-semibold uppercase">Current Stock</th><th class="p-3 text-left text-xs font-semibold uppercase">Cost/Unit</th><th class="p-3 text-left text-xs font-semibold uppercase">Supplier</th><th class="p-3 text-center text-xs font-semibold uppercase">Actions</th></tr></thead><tbody id="ingredients-tbody" class="divide-y"></tbody></table></div>
             </div>
 
             <div id="recipes-section" class="tab-content" style="display: none;">
-                <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-gray-800">Menu Recipes</h3><button id="add-recipe-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition"><i class="fas fa-plus mr-2"></i>Add Recipe</button></div>
-                <div class="overflow-x-auto"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-xs font-semibold uppercase">Menu Item</th><th class="p-3 text-left text-xs font-semibold uppercase">Linked Ingredients</th><th class="p-3 text-center text-xs font-semibold uppercase">Actions</th></tr></thead><tbody id="recipes-tbody" class="divide-y"></tbody></table></div>
+                 <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-gray-800">Menu Recipes</h3><button id="add-recipe-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition"><i class="fas fa-plus mr-2"></i>Add Recipe</button></div>
+                 <div class="overflow-x-auto"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-xs font-semibold uppercase">Menu Item</th><th class="p-3 text-left text-xs font-semibold uppercase">Linked Ingredients</th><th class="p-3 text-center text-xs font-semibold uppercase">Actions</th></tr></thead><tbody id="recipes-tbody" class="divide-y"></tbody></table></div>
             </div>
             
             <div id="daily-count-section" class="tab-content" style="display: none;">
-                <div class="flex justify-between items-center mb-4">
-                    <div>
-                        <h3 class="text-xl font-bold text-gray-800">Daily Stock Count</h3>
-                        <input type="date" id="stock-date-picker" value="${currentStockDate}" class="mt-1 p-2 border rounded-md">
-                    </div>
-                    <div class="flex gap-2">
-                         <button id="generate-report-btn" class="bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition"><i class="fas fa-file-alt mr-2"></i>Generate Report</button>
-                         <button id="save-daily-count-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Count</button>
-                    </div>
-                </div>
-                <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-gray-50"><tr><th class="p-2 text-left">Ingredient</th><th class="p-2 text-center">Opening</th><th class="p-2 text-center">Purchases</th><th class="p-2 text-center">Used (Theory)</th><th class="p-2 text-center">Wastage</th><th class="p-2 text-center">Closing (Theory)</th><th class="p-2 text-center">Closing (Actual)</th><th class="p-2 text-center">Variance</th></tr></thead><tbody id="daily-count-tbody" class="divide-y"></tbody></table></div>
+                 <div class="flex justify-between items-center mb-4">
+                     <div>
+                         <h3 class="text-xl font-bold text-gray-800">Daily Stock Count</h3>
+                         <input type="date" id="stock-date-picker" value="${currentStockDate}" class="mt-1 p-2 border rounded-md">
+                     </div>
+                     <div class="flex gap-2">
+                          <button id="generate-report-btn" class="bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition"><i class="fas fa-file-alt mr-2"></i>Generate Report</button>
+                          <button id="save-daily-count-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Count</button>
+                     </div>
+                 </div>
+                 <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-gray-50"><tr><th class="p-2 text-left">Ingredient</th><th class="p-2 text-center">Opening</th><th class="p-2 text-center">Purchases</th><th class="p-2 text-center">Used (Theory)</th><th class="p-2 text-center">Wastage</th><th class="p-2 text-center">Closing (Theory)</th><th class="p-2 text-center">Closing (Actual)</th><th class="p-2 text-center">Variance</th></tr></thead><tbody id="daily-count-tbody" class="divide-y"></tbody></table></div>
             </div>
 
             <div id="sales-input-section" class="tab-content" style="display: none;">
                  <div class="flex justify-between items-center mb-4"><div><h3 class="text-xl font-bold text-gray-800">Daily Sales Input</h3><input type="date" id="sales-date-picker" value="${currentStockDate}" class="mt-1 p-2 border rounded-md"></div></div>
-                <form id="sales-form" class="max-w-md space-y-4"><label for="platform-sales" class="block font-medium">Platform Sales (MAD)</label><input type="number" id="platform-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"><div><label for="glovo-sales" class="block font-medium">Glovo Sales (MAD)</label><input type="number" id="glovo-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"></div><div><label for="regular-sales" class="block font-medium">Regular/In-House Sales (MAD)</label><input type="number" id="regular-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"></div><div class="border-t pt-4"><p class="text-lg font-bold">Total Sales: <span id="total-sales-display">0.00 MAD</span></p></div><button type="submit" id="save-sales-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Sales</button></form>
+                 <form id="sales-form" class="max-w-md space-y-4"><label for="platform-sales" class="block font-medium">Platform Sales (MAD)</label><input type="number" id="platform-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"><div><label for="glovo-sales" class="block font-medium">Glovo Sales (MAD)</label><input type="number" id="glovo-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"></div><div><label for="regular-sales" class="block font-medium">Regular/In-House Sales (MAD)</label><input type="number" id="regular-sales" class="w-full mt-1 p-2 border rounded-md" value="0" step="0.01"></div><div class="border-t pt-4"><p class="text-lg font-bold">Total Sales: <span id="total-sales-display">0.00 MAD</span></p></div><button type="submit" id="save-sales-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Sales</button></form>
             </div>
 
             <div id="warehouse-section" class="tab-content" style="display: none;">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Log New Warehouse Delivery</h3>
-                <form id="warehouse-form" class="space-y-4 p-4 border rounded-lg bg-gray-50">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="warehouse-date" class="block text-sm font-medium">Delivery Date</label><input type="date" id="warehouse-date" value="${currentStockDate}" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="warehouse-supplier" class="block text-sm font-medium">Supplier</label><input type="text" id="warehouse-supplier" class="w-full mt-1 p-2 border rounded-md" placeholder="e.g., Supplier A"></div></div>
-                    <div class="border-t pt-4"><label class="block text-sm font-medium mb-2">Delivered Items</label><div id="warehouse-items-container" class="space-y-2"></div><button type="button" id="add-warehouse-item-btn" class="mt-2 bg-gray-200 text-sm py-1 px-3 rounded-md hover:bg-gray-300"><i class="fas fa-plus mr-1"></i>Add Item</button></div>
-                    <div class="flex justify-end pt-4"><button type="submit" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700">Save Delivery</button></div>
-                </form>
+                 <h3 class="text-xl font-bold text-gray-800 mb-4">Log New Warehouse Delivery</h3>
+                 <form id="warehouse-form" class="space-y-4 p-4 border rounded-lg bg-gray-50">
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="warehouse-date" class="block text-sm font-medium">Delivery Date</label><input type="date" id="warehouse-date" value="${currentStockDate}" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="warehouse-supplier" class="block text-sm font-medium">Supplier</label><input type="text" id="warehouse-supplier" class="w-full mt-1 p-2 border rounded-md" placeholder="e.g., Supplier A"></div></div>
+                     <div class="border-t pt-4"><label class="block text-sm font-medium mb-2">Delivered Items</label><div id="warehouse-items-container" class="space-y-2"></div><button type="button" id="add-warehouse-item-btn" class="mt-2 bg-gray-200 text-sm py-1 px-3 rounded-md hover:bg-gray-300"><i class="fas fa-plus mr-1"></i>Add Item</button></div>
+                     <div class="flex justify-end pt-4"><button type="submit" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700">Save Delivery</button></div>
+                 </form>
             </div>
 
             <div id="analytics-section" class="tab-content" style="display: none;">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Reports & Analytics</h3>
-                <div id="analytics-container" class="space-y-8">
-                    <div id="weekly-report-container"></div>
-                    <div id="monthly-report-container"></div>
-                    <div id="yearly-report-container"></div>
-                </div>
+                 <h3 class="text-xl font-bold text-gray-800 mb-4">Reports & Analytics</h3>
+                 <div id="analytics-container" class="space-y-8">
+                     <div id="weekly-report-container"></div>
+                     <div id="monthly-report-container"></div>
+                     <div id="yearly-report-container"></div>
+                 </div>
             </div>
 
             <div id="alerts-section" class="tab-content" style="display: none;">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Alerts & Notifications</h3>
-                <div id="alerts-container" class="space-y-4"></div>
+                 <h3 class="text-xl font-bold text-gray-800 mb-4">Alerts & Notifications</h3>
+                 <div id="alerts-container" class="space-y-4"></div>
             </div>
         </div>
 
@@ -864,7 +1014,7 @@ export function loadPanel(root, panelTitle) {
 
     panelRoot.querySelector('#add-ingredient-btn')?.addEventListener('click', () => openIngredientModal());
     panelRoot.querySelector('#cancel-modal-btn')?.addEventListener('click', closeIngredientModal);
-    if(ingredientForm) ingredientForm.addEventListener('submit', handleSaveIngredient);
+    if (ingredientForm) ingredientForm.addEventListener('submit', handleSaveIngredient);
     panelRoot.querySelector('#ingredients-tbody')?.addEventListener('click', handleTableClick);
 
     panelRoot.querySelectorAll('.tab-button').forEach(btn => {
@@ -875,12 +1025,11 @@ export function loadPanel(root, panelTitle) {
     panelRoot.querySelector('#cancel-recipe-modal-btn')?.addEventListener('click', closeRecipeModal);
     recipeForm?.addEventListener('submit', handleSaveRecipe);
     panelRoot.querySelector('#ingredient-search')?.addEventListener('input', (e) => filterIngredients(e.target.value.toLowerCase()));
-    
+
     panelRoot.querySelector('#generate-report-btn')?.addEventListener('click', generateEndOfDayReport);
     document.getElementById('close-report-btn')?.addEventListener('click', () => reportModal.classList.add('hidden'));
     document.getElementById('print-report-btn')?.addEventListener('click', printReport);
-    
-    // CORRECTED: Attach save listeners
+
     panelRoot.querySelector('#sales-form')?.addEventListener('submit', saveSalesData);
     panelRoot.querySelector('#save-daily-count-btn')?.addEventListener('click', saveDailyCount);
 
@@ -892,11 +1041,11 @@ export function loadPanel(root, panelTitle) {
             updateFinancialKPIs();
         });
     }
-    
+
     const salesDatePicker = panelRoot.querySelector('#sales-date-picker');
-    if(salesDatePicker){
+    if (salesDatePicker) {
         salesDatePicker.addEventListener('change', (e) => {
-           loadSalesData();
+            loadSalesData();
         });
     }
 
@@ -923,10 +1072,10 @@ export function loadPanel(root, panelTitle) {
     // Initialize the panel
     (async () => {
         await Promise.all([loadAndRenderIngredients(), db.ref('menu').once('value').then(snap => {
-            if(snap.exists()){
+            if (snap.exists()) {
                 const menu = snap.val();
-                for(const catId in menu){
-                    if(menu[catId].items) Object.assign(menuItemsCache, menu[catId].items);
+                for (const catId in menu) {
+                    if (menu[catId].items) Object.assign(menuItemsCache, menu[catId].items);
                 }
             }
         })]);
