@@ -185,12 +185,15 @@ function renderFilteredOrders(filter = 'All') {
         const orderDate = new Date(order.timestamp);
         const formattedDate = `${orderDate.toLocaleDateString()} ${orderDate.toLocaleTimeString()}`;
         
-        const itemsHtml = order.cart.map(item => `
-            <li class="flex justify-between text-gray-600">
-                <span>${item.quantity} x ${item.name}</span>
-                <span class="font-mono">${(item.price * item.quantity).toFixed(2)} MAD</span>
-            </li>
-        `).join('');
+        // [FIX] Add a safety check to ensure order.cart exists and is an array before mapping.
+        const itemsHtml = (order.cart && Array.isArray(order.cart)) 
+            ? order.cart.map(item => `
+                <li class="flex justify-between text-gray-600">
+                    <span>${item.quantity || 1} x ${item.name || 'Unknown Item'}</span>
+                    <span class="font-mono">${((item.price || 0) * (item.quantity || 1)).toFixed(2)} MAD</span>
+                </li>
+            `).join('')
+            : '<li>No items found in cart.</li>';
 
         const statusButtons = ['Pending', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'].map(status => `
             <button data-order-id="${order.id}" data-status="${status}" class="status-btn px-2 py-1 text-xs rounded transition-colors ${order.status === status ? 'bg-blue-600 text-white font-bold' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}">
@@ -215,7 +218,7 @@ function renderFilteredOrders(filter = 'All') {
                         <span class="px-3 py-1 text-sm font-semibold rounded-full ${statusClasses[order.status] || 'bg-gray-100 text-gray-800'}">
                             ${order.status}
                         </span>
-                        <p class="text-2xl font-bold mt-2 text-gray-800">${order.totalPrice.toFixed(2)} MAD</p>
+                        <p class="text-2xl font-bold mt-2 text-gray-800">${(order.totalPrice || 0).toFixed(2)} MAD</p>
                     </div>
                 </div>
                 <div class="mt-4 border-t pt-4">
@@ -264,7 +267,7 @@ function listenToOrders() {
 }
 
 /**
- * [FIX] Renamed function to match the convention expected by dashboard.js.
+ * Main function to load the panel.
  * @param {HTMLElement} root - The main container element for the panel.
  * @param {HTMLElement} panelTitle - The element for the panel's title.
  */
