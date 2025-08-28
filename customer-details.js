@@ -1,88 +1,104 @@
-// customer-details.js
+// /customer-details.js
 
-const db = firebase.database();
-const auth = firebase.auth();
+import { db, auth } from './firebase.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    const params = new URLSearchParams(window.location.search);
-    const userId = params.get('uid');
+    const orderDetails = JSON.parse(localStorage.getItem('orderDetails')) || {};
+    const cart = JSON.parse(localStorage.getItem('cart')) || [];
 
-    const loadingState = document.getElementById('loading-state');
-    const container = document.getElementById('customer-details-container');
+    const nameInput = document.getElementById('name');
+    const phoneInput = document.getElementById('phone');
+    const addressInput = document.getElementById('address');
+    const placeOrderBtn = document.getElementById('place-order-btn');
+    const addressGroup = document.getElementById('address-group');
 
-    if (!userId) {
-        loadingState.innerHTML = '<p class="text-red-500 text-center">No User ID provided.</p>';
-        return;
+    // Show address field only for delivery
+    if (orderDetails.orderType === 'delivery') {
+        addressGroup.style.display = 'block';
+    } else {
+        addressGroup.style.display = 'none';
     }
 
+    // Pre-fill form if user is logged in
     auth.onAuthStateChanged(user => {
         if (user) {
-            // Future: Add admin role check here for security
-            loadCustomerData(userId);
-        } else {
-            window.location.href = 'auth.html'; // Redirect if not logged in
+            db.ref(`users/${user.uid}`).once('value').then(snapshot => {
+                if (snapshot.exists()) {
+                    const userData = snapshot.val();
+                    nameInput.value = userData.name || '';
+                    phoneInput.value = userData.phone || '';
+                    // You could add logic here to pre-fill address if available
+                }
+            });
+        }
+    });
+
+    placeOrderBtn.addEventListener('click', async () => {
+        // Basic validation
+        if (!nameInput.value || !phoneInput.value || (orderDetails.orderType === 'delivery' && !addressInput.value)) {
+            alert('Please fill in all required fields.');
+            return;
+        }
+
+        // Update orderDetails with form values
+        orderDetails.name = nameInput.value;
+        orderDetails.phone = phoneInput.value;
+        if (orderDetails.orderType === 'delivery') {
+            orderDetails.address = addressInput.value;
+        }
+        
+        // Save the updated details back to localStorage
+        localStorage.setItem('orderDetails', JSON.stringify(orderDetails));
+
+        // --- THIS IS THE CRITICAL FIX ---
+        // The original file was missing the logic to save the cart and price.
+        
+        const user = auth.currentUser;
+        const newOrderId = db.ref('orders').push().key;
+
+        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const taxes = subtotal * 0.20; // 20% tax
+        const total = subtotal + taxes;
+
+        const orderData = {
+            orderId: newOrderId,
+            orderNumber: Math.floor(100000 + Math.random() * 900000),
+            timestamp: new Date().toISOString(),
+            status: 'Pending',
+            orderType: orderDetails.orderType,
+            customerName: orderDetails.name, // Add for easier display in dashboard
+            customerPhone: orderDetails.phone, // Add for easier display in dashboard
+            customerAddress: orderDetails.address || '', // Add for easier display in dashboard
+            customerInfo: {
+                userId: user ? user.uid : 'guest',
+                name: orderDetails.name,
+                phone: orderDetails.phone,
+                address: orderDetails.address || '',
+            },
+            // --- [FIX] Include the cart and price details when saving ---
+            cart: cart,
+            totalPrice: total,
+            priceDetails: {
+                subtotal: subtotal,
+                taxes: taxes,
+                total: total
+            }
+        };
+
+        try {
+            placeOrderBtn.disabled = true;
+            placeOrderBtn.textContent = 'Placing Order...';
+
+            await db.ref('orders/' + newOrderId).set(orderData);
+            
+            // Redirect to confirmation page
+            window.location.href = `confirm.html?orderId=${newOrderId}`;
+
+        } catch (error) {
+            console.error("Failed to place order:", error);
+            alert("There was an error placing your order. Please try again.");
+            placeOrderBtn.disabled = false;
+            placeOrderBtn.textContent = 'Place Order';
         }
     });
 });
-
-async function loadCustomerData(userId) {
-    const loadingState = document.getElementById('loading-state');
-    const container = document.getElementById('customer-details-container');
-
-    try {
-        // Fetch user profile and orders simultaneously
-        const [userSnapshot, ordersSnapshot] = await Promise.all([
-            db.ref(`users/${userId}`).once('value'),
-            db.ref('orders').orderByChild('customerInfo/userId').equalTo(userId).once('value')
-        ]);
-
-        // Populate Profile Info
-        if (userSnapshot.exists()) {
-            const profile = userSnapshot.val();
-            document.getElementById('customer-name').textContent = profile.name || 'N/A';
-            document.getElementById('customer-email').textContent = profile.email || 'N/A';
-            document.getElementById('customer-phone').textContent = profile.phone || 'N/A';
-            
-            let mainAddress = 'No address saved';
-            if (profile.addresses) {
-                const firstAddressKey = Object.keys(profile.addresses)[0];
-                const firstAddress = profile.addresses[firstAddressKey];
-                mainAddress = `${firstAddress.street}, ${firstAddress.city}`;
-            }
-            document.getElementById('customer-address').textContent = mainAddress;
-        }
-
-        // Populate Order History
-        const ordersTbody = document.getElementById('orders-tbody');
-        const noOrdersState = document.getElementById('no-orders-state');
-        ordersTbody.innerHTML = '';
-
-        if (ordersSnapshot.exists()) {
-            const orders = ordersSnapshot.val();
-            const sortedOrders = Object.entries(orders).sort((a, b) => new Date(b[1].timestamp) - new Date(a[1].timestamp));
-
-            sortedOrders.forEach(([orderId, orderData]) => {
-                const row = `
-                    <tr>
-                        <td class="font-medium text-blue-600"><a href="order-details.html?orderId=${orderId}" target="_blank" class="hover:underline">${orderId}</a></td>
-                        <td>${new Date(orderData.timestamp).toLocaleString()}</td>
-                        <td class="capitalize">${orderData.orderType.replace(/([A-Z])/g, ' $1').trim()}</td>
-                        <td><span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-800">${orderData.status}</span></td>
-                        <td>${orderData.priceDetails.finalTotal.toFixed(2)} MAD</td>
-                    </tr>
-                `;
-                ordersTbody.innerHTML += row;
-            });
-            noOrdersState.classList.add('hidden');
-        } else {
-            noOrdersState.classList.remove('hidden');
-        }
-
-        loadingState.style.display = 'none';
-        container.classList.remove('hidden');
-
-    } catch (error) {
-        console.error("Error fetching customer data:", error);
-        loadingState.innerHTML = `<p class="text-red-500 text-center">Could not load customer data: ${error.message}</p>`;
-    }
-}
