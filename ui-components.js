@@ -48,44 +48,6 @@ function toggleFavorite(itemId, heartIconEl) {
 }
 
 /**
- * Updates the quantity of an item in the cart.
- * @param {string} itemId The ID of the item.
- * @param {number} change The change in quantity (+1 or -1).
- */
-function updateItemQuantity(itemId, change) {
-    let cart = JSON.parse(localStorage.getItem("cart")) || [];
-    let itemInCart = cart.find(i => i.id === itemId);
-
-    if (change > 0) {
-        if (itemInCart) {
-            itemInCart.quantity++;
-        } else {
-            // This requires fetching item details from Firebase,
-            // which should be handled in the calling script (menu.js or favorites.js)
-            console.error("Cannot add new item from here. This needs to be handled by the page's main script.");
-        }
-    } else if (itemInCart) {
-        itemInCart.quantity--;
-        if (itemInCart.quantity <= 0) {
-            cart = cart.filter(i => i.id !== itemId);
-        }
-    }
-
-    localStorage.setItem("cart", JSON.stringify(cart));
-    updateCartCount();
-
-    // Update the quantity display on the card
-    const card = document.getElementById(`item-card-${itemId}`);
-    if (card) {
-        const quantitySpan = card.querySelector('.quantity-controls span');
-        if (quantitySpan) {
-            const newQuantity = itemInCart ? itemInCart.quantity : 0;
-            quantitySpan.textContent = newQuantity;
-        }
-    }
-}
-
-/**
  * Creates an item card with quantity controls and a favorite toggle.
  * @param {object} item The item data.
  * @param {string} categoryId The ID of the item's category.
@@ -119,9 +81,9 @@ function createMenuItemCard(item, categoryId, itemId) {
         <div class="item-image-right flex flex-col items-center justify-between">
             <img src="${escapeHTML(item.image_url || 'https://www.pizzahut.ma/images/Default_pizza.png')}" alt="${escapeHTML(item.name || 'Pizza')}">
             <div class="quantity-controls flex items-center gap-3 mt-2">
-                <button class="quantity-btn" onclick="updateItemQuantity('${itemId}', -1)">-</button>
+                <button class="quantity-btn" onclick="updateCartItemQuantity('${itemId}', -1)">-</button>
                 <span class="font-bold text-lg w-8 text-center">${quantityInCart}</span>
-                <button class="quantity-btn" onclick="updateItemQuantity('${itemId}', 1, '${categoryId}', '${escapeHTML(item.name)}', ${item.price}, '${escapeHTML(item.image_url)}')">+</button>
+                <button class="quantity-btn" onclick="updateCartItemQuantity('${itemId}', 1, '${categoryId}', '${escapeHTML(item.name)}', ${item.price}, '${escapeHTML(item.image_url)}')">+</button>
             </div>
         </div>`;
     return card;
@@ -157,9 +119,16 @@ function addItemToCart(itemId, categoryId, itemName, itemPrice, itemImageUrl) {
     }
 }
 
-
-// Modified updateItemQuantity to use addItemToCart
-function updateItemQuantity(itemId, change, categoryId, itemName, itemPrice, itemImageUrl) {
+/**
+ * Updates the quantity of an item in the cart (renamed to avoid conflict with stock.js).
+ * @param {string} itemId The ID of the item.
+ * @param {number} change The change in quantity (+1 or -1).
+ * @param {string} [categoryId]
+ * @param {string} [itemName]
+ * @param {number} [itemPrice]
+ * @param {string} [itemImageUrl]
+ */
+function updateCartItemQuantity(itemId, change, categoryId, itemName, itemPrice, itemImageUrl) {
     let cart = JSON.parse(localStorage.getItem("cart")) || [];
     let itemInCart = cart.find(i => i.id === itemId);
 

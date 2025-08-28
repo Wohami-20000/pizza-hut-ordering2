@@ -39,6 +39,21 @@ function switchTab(tabName) {
     if (tabName === 'alerts') checkAndDisplayAlerts();
 }
 
+// --- FIX: renamed function to avoid conflict ---
+function updateIngredientStockQuantity(ingredientId, change) {
+    if (!ingredientsCache[ingredientId]) return;
+
+    let ingredient = ingredientsCache[ingredientId];
+    ingredient.stock_level = (ingredient.stock_level || 0) + change;
+
+    if (ingredient.stock_level < 0) ingredient.stock_level = 0;
+
+    db.ref(`ingredients/${ingredientId}/stock_level`).set(ingredient.stock_level)
+        .then(() => console.log(`Stock updated for ${ingredient.name}`))
+        .catch(err => console.error("Error updating stock:", err));
+}
+
+
 // --- ALERTS & NOTIFICATIONS ---
 async function checkAndDisplayAlerts() {
     const alertsContainer = panelRoot.querySelector('#alerts-container');
