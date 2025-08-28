@@ -937,7 +937,7 @@ export function loadPanel(root, panelTitle) {
             <div id="analytics-section" class="tab-content" style="display: none;">
                  <div class="flex justify-between items-center mb-4">
                     <h3 class="text-xl font-bold text-gray-800">Reports & Analytics</h3>
-                    <button id="refresh-analytics-btn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition">
+                    <button id="refresh-analytics-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">
                         <i class="fas fa-sync-alt mr-2"></i>Refresh Now
                     </button>
                  </div>
