@@ -5,6 +5,8 @@ import { db, auth } from './firebase.js';
 document.addEventListener('DOMContentLoaded', () => {
     const orderDetails = JSON.parse(localStorage.getItem('orderDetails')) || {};
     const cart = JSON.parse(localStorage.getItem('cart')) || [];
+    const promo = JSON.parse(localStorage.getItem('appliedPromo')) || null;
+
 
     const nameInput = document.getElementById('name');
     const phoneInput = document.getElementById('phone');
@@ -21,13 +23,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Pre-fill form if user is logged in
     auth.onAuthStateChanged(user => {
-        if (user) {
+        if (user && !user.isAnonymous) {
             db.ref(`users/${user.uid}`).once('value').then(snapshot => {
                 if (snapshot.exists()) {
                     const userData = snapshot.val();
                     nameInput.value = userData.name || '';
                     phoneInput.value = userData.phone || '';
-                    // You could add logic here to pre-fill address if available
+                    if (orderDetails.orderType === 'delivery' && userData.addresses?.main) {
+                        addressInput.value = userData.addresses.main.street || '';
+                    }
                 }
             });
         }
@@ -35,30 +39,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     placeOrderBtn.addEventListener('click', async () => {
         // Basic validation
-        if (!nameInput.value || !phoneInput.value || (orderDetails.orderType === 'delivery' && !addressInput.value)) {
+        if (!nameInput.value.trim() || !phoneInput.value.trim() || (orderDetails.orderType === 'delivery' && !addressInput.value.trim())) {
             alert('Please fill in all required fields.');
             return;
         }
 
         // Update orderDetails with form values
-        orderDetails.name = nameInput.value;
-        orderDetails.phone = phoneInput.value;
+        orderDetails.name = nameInput.value.trim();
+        orderDetails.phone = phoneInput.value.trim();
         if (orderDetails.orderType === 'delivery') {
-            orderDetails.address = addressInput.value;
+            orderDetails.address = addressInput.value.trim();
         }
         
-        // Save the updated details back to localStorage
-        localStorage.setItem('orderDetails', JSON.stringify(orderDetails));
-
         // --- THIS IS THE CRITICAL FIX ---
         // The original file was missing the logic to save the cart and price.
         
         const user = auth.currentUser;
         const newOrderId = db.ref('orders').push().key;
 
-        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        const taxes = subtotal * 0.20; // 20% tax
-        const total = subtotal + taxes;
+        // --- [FIX] Calculate price details correctly ---
+        const itemsTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const taxes = itemsTotal * 0.20; // 20% tax
+        const deliveryFee = orderDetails.orderType === 'delivery' ? 15 : 0;
+        let discount = 0;
+        if (promo) {
+             if (promo.type === 'percentage') {
+                discount = itemsTotal * (promo.value / 100);
+            } else if (promo.type === 'fixed') {
+                discount = promo.value;
+            }
+        }
+        const finalTotal = itemsTotal + taxes + deliveryFee - discount;
+
 
         const orderData = {
             orderId: newOrderId,
@@ -66,33 +78,38 @@ document.addEventListener('DOMContentLoaded', () => {
             timestamp: new Date().toISOString(),
             status: 'Pending',
             orderType: orderDetails.orderType,
-            customerName: orderDetails.name, // Add for easier display in dashboard
-            customerPhone: orderDetails.phone, // Add for easier display in dashboard
-            customerAddress: orderDetails.address || '', // Add for easier display in dashboard
+            customerName: orderDetails.name,
+            customerPhone: orderDetails.phone,
+            customerAddress: orderDetails.address || '',
             customerInfo: {
                 userId: user ? user.uid : 'guest',
                 name: orderDetails.name,
                 phone: orderDetails.phone,
                 address: orderDetails.address || '',
             },
-            // --- [FIX] Include the cart and price details when saving ---
-            cart: cart,
-            totalPrice: total,
+            // --- [FIX] Include the full cart and all price details when saving ---
+            items: cart, // Use 'items' to match confirm.js
+            totalPrice: finalTotal, // Keep for quick reference
             priceDetails: {
-                subtotal: subtotal,
+                itemsTotal: itemsTotal,
                 taxes: taxes,
-                total: total
+                deliveryFee: deliveryFee,
+                discount: discount,
+                finalTotal: finalTotal
             }
         };
 
         try {
             placeOrderBtn.disabled = true;
-            placeOrderBtn.textContent = 'Placing Order...';
+            placeOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Placing Order...';
 
             await db.ref('orders/' + newOrderId).set(orderData);
             
+            // Set the last order ID for the confirmation page to find
+            localStorage.setItem('lastOrderId', newOrderId);
+
             // Redirect to confirmation page
-            window.location.href = `confirm.html?orderId=${newOrderId}`;
+            window.location.href = `confirm.html`;
 
         } catch (error) {
             console.error("Failed to place order:", error);
