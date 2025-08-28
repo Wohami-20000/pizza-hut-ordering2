@@ -167,7 +167,7 @@ async function updateFinancialKPIs() {
     }
 }
 
-// --- ANALYTICS & REPORTING ---
+// --- [FINAL UPDATE] ANALYTICS & REPORTING ---
 function destroyCharts() {
     Object.values(charts).forEach(chart => chart.destroy());
     charts = {};
@@ -177,150 +177,82 @@ async function loadAnalyticsReports() {
     destroyCharts();
     const container = panelRoot.querySelector('#analytics-container');
     if (!container) return;
-    container.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Loading analytics data...</p></div>`;
+    container.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Loading analytics reports...</p></div>`;
 
-    setTimeout(async () => {
-        try {
-            const [salesSnapshot, stockCountsSnapshot, ingredientsSnapshot] = await Promise.all([
-                db.ref('sales').once('value'),
-                db.ref('stockCounts').once('value'),
-                db.ref('ingredients').once('value')
-            ]);
-
-            const sales = salesSnapshot.val() || {};
-            const stockCounts = stockCountsSnapshot.val() || {};
-            const ingredients = ingredientsSnapshot.val() || {};
-
-            renderWeeklyReport(sales, stockCounts, ingredients);
-            renderMonthlyReport(sales, stockCounts, ingredients);
-            renderYearlyReport(sales, stockCounts, ingredients);
-
-        } catch (error) {
-            console.error("Error loading analytics:", error);
-            container.innerHTML = `<p class="text-red-500">Could not load analytics: ${error.message}</p>`;
+    try {
+        const reportsSnapshot = await db.ref('reports').once('value');
+        if (!reportsSnapshot.exists()) {
+            container.innerHTML = `<p class="text-center text-gray-500 p-8">No reports found. Please run the aggregator script on the server first.</p>`;
+            return;
         }
-    }, 0);
+        
+        const reports = reportsSnapshot.val();
+        renderWeeklyReport(reports.weekly || {});
+        renderMonthlyReport(reports.monthly || {});
+        renderYearlyReport(reports.yearly || {});
+
+    } catch (error) {
+        console.error("Error loading analytics reports:", error);
+        container.innerHTML = `<p class="text-red-500">Could not load analytics: ${error.message}</p>`;
+    }
 }
 
-function renderWeeklyReport(sales, stockCounts, ingredients) {
+function renderWeeklyReport(weeklyData) {
     const weeklyContainer = panelRoot.querySelector('#weekly-report-container');
     if (!weeklyContainer) return;
-    const last7Days = Array.from({
-        length: 7
-    }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        return d.toISOString().split('T')[0];
-    }).reverse();
 
-    const weeklySalesData = {
-        labels: [],
-        data: []
-    };
-    const usageVsPurchases = {
-        labels: [],
-        usage: [],
-        purchases: []
-    };
-    let lossData = {};
-
-    last7Days.forEach(date => {
-        const dayOfWeek = new Date(date).toLocaleDateString('en-US', {
-            weekday: 'short'
-        });
-        weeklySalesData.labels.push(dayOfWeek);
-        weeklySalesData.data.push(sales[date] ? sales[date].total : 0);
-
-        if (stockCounts[date]) {
-            let totalUsage = 0,
-                totalPurchases = 0;
-            for (const ingId in stockCounts[date]) {
-                const ingredient = ingredients[ingId];
-                if (ingredient) {
-                    totalUsage += stockCounts[date][ingId].used_expected * (ingredient.unit_cost || 0);
-                    totalPurchases += stockCounts[date][ingId].purchases * (ingredient.unit_cost || 0);
-                    if (stockCounts[date][ingId].variance < 0) {
-                        lossData[ingredient.name] = (lossData[ingredient.name] || 0) + Math.abs(stockCounts[date][ingId].variance);
-                    }
-                }
-            }
-            usageVsPurchases.labels.push(dayOfWeek);
-            usageVsPurchases.usage.push(totalUsage);
-            usageVsPurchases.purchases.push(totalPurchases);
-        }
-    });
-
-    const top5Losses = Object.entries(lossData).sort(([, a], [, b]) => b - a).slice(0, 5).map(([name, qty]) => `<li>${name}: ${qty.toFixed(2)} units</li>`).join('') || "<li>No losses recorded this week.</li>";
+    const sortedWeeks = Object.keys(weeklyData).sort();
+    const labels = sortedWeeks;
+    const sales = sortedWeeks.map(week => weeklyData[week].totalSales);
+    const costs = sortedWeeks.map(week => weeklyData[week].ingredientCost);
+    const losses = sortedWeeks.map(week => weeklyData[week].varianceLoss);
 
     weeklyContainer.innerHTML = `
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div><h4 class="font-bold mb-2">Weekly Sales Trend (Last 7 Days)</h4><canvas id="weekly-sales-chart"></canvas></div>
-            <div><h4 class="font-bold mb-2">Usage vs Purchases (Cost in MAD)</h4><canvas id="usage-purchases-chart"></canvas></div>
-            <div class="lg:col-span-2"><h4 class="font-bold mb-2">Top 5 Loss Ingredients (by Quantity)</h4><ul class="list-disc list-inside bg-gray-50 p-4 rounded-md">${top5Losses}</ul></div>
+            <div><h4 class="font-bold mb-2">Weekly Sales Trend</h4><canvas id="weekly-sales-chart"></canvas></div>
+            <div><h4 class="font-bold mb-2">Weekly Costs vs Losses (MAD)</h4><canvas id="weekly-costs-chart"></canvas></div>
         </div>
     `;
 
     charts.weeklySales = new Chart(panelRoot.querySelector('#weekly-sales-chart'), {
         type: 'line',
         data: {
-            labels: weeklySalesData.labels,
+            labels: labels,
             datasets: [{
                 label: 'Sales (MAD)',
-                data: weeklySalesData.data,
+                data: sales,
                 borderColor: '#D71921',
                 tension: 0.1
             }]
         }
     });
-    charts.usagePurchases = new Chart(panelRoot.querySelector('#usage-purchases-chart'), {
+    charts.weeklyCosts = new Chart(panelRoot.querySelector('#weekly-costs-chart'), {
         type: 'bar',
         data: {
-            labels: usageVsPurchases.labels,
+            labels: labels,
             datasets: [{
-                label: 'Usage Cost',
-                data: usageVsPurchases.usage,
-                backgroundColor: '#EF4444'
-            }, {
-                label: 'Purchases Cost',
-                data: usageVsPurchases.purchases,
+                label: 'Ingredient Cost',
+                data: costs,
                 backgroundColor: '#3B82F6'
+            }, {
+                label: 'Variance Loss',
+                data: losses,
+                backgroundColor: '#EF4444'
             }]
         },
-        options: {
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
+        options: { scales: { y: { beginAtZero: true } } }
     });
 }
 
-function renderMonthlyReport(sales, stockCounts, ingredients) {
+function renderMonthlyReport(monthlyData) {
     const monthlyContainer = panelRoot.querySelector('#monthly-report-container');
     if (!monthlyContainer) return;
-    const monthlySales = {};
-    const monthlyCosts = {};
-
-    for (const date in sales) {
-        const month = date.substring(0, 7); // YYYY-MM
-        monthlySales[month] = (monthlySales[month] || 0) + sales[date].total;
-    }
-    for (const date in stockCounts) {
-        const month = date.substring(0, 7); // YYYY-MM
-        let dailyCost = 0;
-        for (const ingId in stockCounts[date]) {
-            if (ingredients[ingId]) {
-                dailyCost += stockCounts[date][ingId].used_expected * (ingredients[ingId].unit_cost || 0);
-            }
-        }
-        monthlyCosts[month] = (monthlyCosts[month] || 0) + dailyCost;
-    }
-
-    const labels = Object.keys(monthlySales).sort();
-    const salesData = labels.map(month => monthlySales[month]);
-    const costData = labels.map(month => monthlyCosts[month] || 0);
-
+    
+    const sortedMonths = Object.keys(monthlyData).sort();
+    const labels = sortedMonths;
+    const sales = sortedMonths.map(month => monthlyData[month].totalSales);
+    const costs = sortedMonths.map(month => monthlyData[month].ingredientCost);
+    
     monthlyContainer.innerHTML = `
         <h3 class="text-xl font-bold text-gray-800 mt-8 mb-4 border-t pt-6">Monthly Report</h3>
         <div><h4 class="font-bold mb-2">Cost vs Sales Trend</h4><canvas id="monthly-sales-chart"></canvas></div>
@@ -332,55 +264,45 @@ function renderMonthlyReport(sales, stockCounts, ingredients) {
             labels: labels,
             datasets: [{
                 label: 'Total Sales (MAD)',
-                data: salesData,
+                data: sales,
                 backgroundColor: '#22C55E'
             }, {
                 label: 'Ingredient Cost (MAD)',
-                data: costData,
+                data: costs,
                 backgroundColor: '#F97316'
             }]
         },
-        options: {
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
+        options: { scales: { y: { beginAtZero: true } } }
     });
 }
 
-function renderYearlyReport(sales, stockCounts, ingredients) {
+function renderYearlyReport(yearlyData) {
     const yearlyContainer = panelRoot.querySelector('#yearly-report-container');
     if (!yearlyContainer) return;
-    let totalRevenue = 0,
-        totalPurchases = 0,
-        totalLosses = 0;
 
-    for (const date in sales) {
-        totalRevenue += sales[date].total;
-    }
-    for (const date in stockCounts) {
-        for (const ingId in stockCounts[date]) {
-            const ingredient = ingredients[ingId];
-            if (ingredient) {
-                totalPurchases += stockCounts[date][ingId].purchases * (ingredient.unit_cost || 0);
-                if (stockCounts[date][ingId].variance < 0) {
-                    totalLosses += Math.abs(stockCounts[date][ingId].variance) * (ingredient.unit_cost || 0);
-                }
-            }
-        }
-    }
+    const sortedYears = Object.keys(yearlyData).sort();
+    let summaryHtml = '';
+
+    sortedYears.forEach(year => {
+        const data = yearlyData[year];
+        summaryHtml += `
+             <div class="bg-gray-50 p-4 rounded-lg">
+                <h4 class="font-bold text-lg">${year} Summary</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                    <div class="bg-green-100 p-4 rounded-lg text-center"><p class="text-sm font-semibold">Total Revenue</p><p class="text-2xl font-bold">${data.totalSales.toFixed(2)} MAD</p></div>
+                    <div class="bg-blue-100 p-4 rounded-lg text-center"><p class="text-sm font-semibold">Total Cost</p><p class="text-2xl font-bold">${data.ingredientCost.toFixed(2)} MAD</p></div>
+                    <div class="bg-red-100 p-4 rounded-lg text-center"><p class="text-sm font-semibold">Total Losses</p><p class="text-2xl font-bold">${data.varianceLoss.toFixed(2)} MAD</p></div>
+                </div>
+            </div>
+        `;
+    });
 
     yearlyContainer.innerHTML = `
-        <h3 class="text-xl font-bold text-gray-800 mt-8 mb-4 border-t pt-6">Year-to-Date Summary</h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-green-100 p-4 rounded-lg text-center"><p class="text-sm font-semibold">Total Revenue</p><p class="text-2xl font-bold">${totalRevenue.toFixed(2)} MAD</p></div>
-            <div class="bg-blue-100 p-4 rounded-lg text-center"><p class="text-sm font-semibold">Total Purchases</p><p class="text-2xl font-bold">${totalPurchases.toFixed(2)} MAD</p></div>
-            <div class="bg-red-100 p-4 rounded-lg text-center"><p class="text-sm font-semibold">Total Losses</p><p class="text-2xl font-bold">${totalLosses.toFixed(2)} MAD</p></div>
-        </div>
+        <h3 class="text-xl font-bold text-gray-800 mt-8 mb-4 border-t pt-6">Yearly Summary</h3>
+        <div class="space-y-4">${summaryHtml}</div>
     `;
 }
+
 
 // --- END-OF-DAY REPORT ---
 async function generateEndOfDayReport() {
@@ -615,10 +537,6 @@ function filterIngredients(query) {
 }
 
 // --- INGREDIENT, DAILY COUNT, SALES, WAREHOUSE FUNCTIONS ---
-
-/**
- * [NEW] Added locking mechanism for past dates.
- */
 async function loadSalesData() {
     const salesDate = panelRoot.querySelector('#sales-date-picker').value;
     const salesRef = db.ref(`sales/${salesDate}`);
@@ -692,10 +610,6 @@ async function saveSalesData(e) {
     }
 }
 
-/**
- * MERGED AND UPDATED FUNCTION
- * Loads daily count data, populates saved values, and locks past dates.
- */
 async function loadDailyCountData() {
     const dailyTbody = panelRoot.querySelector('#daily-count-tbody');
     if (!dailyTbody) return;
@@ -711,14 +625,14 @@ async function loadDailyCountData() {
             db.ref('ingredients').once('value'),
             db.ref('recipes').once('value'),
             db.ref(`stockCounts/${prevDateStr}`).once('value'),
-            db.ref(`stockCounts/${currentStockDate}`).once('value'), // FIX 1: Fetch current day's data
+            db.ref(`stockCounts/${currentStockDate}`).once('value'), 
             db.ref('orders').orderByChild('timestamp').startAt(dayStart).endAt(dayStart + '\uf8ff').once('value')
         ]);
 
         ingredientsCache = ingSnapshot.exists() ? ingSnapshot.val() : {};
         recipesCache = recSnapshot.exists() ? recSnapshot.val() : {};
         const prevStock = prevStockSnapshot.exists() ? prevStockSnapshot.val() : {};
-        const currentStock = currentStockSnapshot.exists() ? currentStockSnapshot.val() : {}; // FIX 1: Get current day's data
+        const currentStock = currentStockSnapshot.exists() ? currentStockSnapshot.val() : {}; 
 
         const theoreticalUsage = {};
         if (ordersSnapshot.exists()) {
@@ -750,11 +664,10 @@ async function loadDailyCountData() {
             const openingStock = prevStock[ingId]?.closing_actual ?? ingredient.stock_level ?? 0;
             const usedExpected = theoreticalUsage[ingId] || 0;
 
-            // FIX 1: Use saved data for inputs, otherwise default.
             const savedData = currentStock[ingId] || {};
             const purchases = savedData.purchases ?? 0;
             const wastage = savedData.wastage ?? 0;
-            const closingActual = savedData.closing_actual ?? ''; // Use empty string for input if not set
+            const closingActual = savedData.closing_actual ?? ''; 
 
             tableHtml += `
                 <tr data-id="${ingId}">
@@ -770,15 +683,13 @@ async function loadDailyCountData() {
         }
         dailyTbody.innerHTML = tableHtml;
 
-        // Add calculation listeners
         dailyTbody.querySelectorAll('tr[data-id]').forEach(row => {
-            calculateRow(row); // Initial calculation
+            calculateRow(row); 
             row.querySelectorAll('.daily-input').forEach(input => {
                 input.addEventListener('input', () => calculateRow(row));
             });
         });
 
-        // FIX 2: Lock modifications for past dates
         const today = new Date().toISOString().split("T")[0];
         const isPastDay = currentStockDate < today;
         const saveBtn = panelRoot.querySelector('#save-daily-count-btn');
