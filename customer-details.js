@@ -84,8 +84,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 phone: orderDetails.phone,
                 address: orderDetails.address || '',
             },
-            // --- [FIX] Use 'cart' as the key to match the dashboard ---
+            // --- [FINAL FIX] Save the item list under BOTH 'cart' and 'items' keys ---
             cart: cart, 
+            items: cart, // This ensures both confirm.js and orders.js work correctly
             totalPrice: finalTotal,
             priceDetails: {
                 itemsTotal: itemsTotal,
