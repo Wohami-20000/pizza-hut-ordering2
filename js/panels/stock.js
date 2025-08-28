@@ -167,7 +167,7 @@ async function updateFinancialKPIs() {
     }
 }
 
-// --- [FINAL UPDATE] ANALYTICS & REPORTING ---
+// --- ANALYTICS & REPORTING ---
 function destroyCharts() {
     Object.values(charts).forEach(chart => chart.destroy());
     charts = {};
@@ -997,14 +997,25 @@ export function loadPanel(root, panelTitle) {
         const btn = e.currentTarget;
         btn.disabled = true;
         btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>Refreshing...`;
+        
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            alert("You must be logged in to perform this action.");
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fas fa-sync-alt mr-2"></i>Refresh Now`;
+            return;
+        }
 
         try {
-            // This assumes your local admin server is running on port 3000
-            const response = await fetch('http://localhost:3000/run-aggregator');
+            const idToken = await user.getIdToken();
+            const response = await fetch('http://localhost:3000/run-aggregator', {
+                headers: {
+                    'Authorization': `Bearer ${idToken}`
+                }
+            });
             const result = await response.json();
             
             if (result.success) {
-                // alert('Reports have been updated! Reloading charts.');
                 console.log('Successfully triggered aggregator.');
             } else {
                 throw new Error(result.message || 'Unknown error from server.');
@@ -1013,7 +1024,6 @@ export function loadPanel(root, panelTitle) {
             console.error('Error triggering aggregator:', error);
             alert('Failed to refresh reports. Make sure your local admin server is running.');
         } finally {
-            // Reload the analytics tab to show the new data
             loadAnalyticsReports();
             btn.disabled = false;
             btn.innerHTML = `<i class="fas fa-sync-alt mr-2"></i>Refresh Now`;
