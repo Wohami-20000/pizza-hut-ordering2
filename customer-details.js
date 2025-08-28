@@ -51,13 +51,10 @@ document.addEventListener('DOMContentLoaded', () => {
             orderDetails.address = addressInput.value.trim();
         }
         
-        // --- THIS IS THE CRITICAL FIX ---
-        // The original file was missing the logic to save the cart and price.
-        
         const user = auth.currentUser;
         const newOrderId = db.ref('orders').push().key;
 
-        // --- [FIX] Calculate price details correctly ---
+        // --- Calculate price details correctly ---
         const itemsTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const taxes = itemsTotal * 0.20; // 20% tax
         const deliveryFee = orderDetails.orderType === 'delivery' ? 15 : 0;
@@ -87,9 +84,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 phone: orderDetails.phone,
                 address: orderDetails.address || '',
             },
-            // --- [FIX] Include the full cart and all price details when saving ---
-            items: cart, // Use 'items' to match confirm.js
-            totalPrice: finalTotal, // Keep for quick reference
+            // --- [FIX] Use 'cart' as the key to match the dashboard ---
+            cart: cart, 
+            totalPrice: finalTotal,
             priceDetails: {
                 itemsTotal: itemsTotal,
                 taxes: taxes,
@@ -105,7 +102,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             await db.ref('orders/' + newOrderId).set(orderData);
             
-            // Set the last order ID for the confirmation page to find
             localStorage.setItem('lastOrderId', newOrderId);
 
             // Redirect to confirmation page

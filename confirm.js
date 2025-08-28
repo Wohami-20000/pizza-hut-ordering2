@@ -1,3 +1,5 @@
+// /confirm.js
+
 const db = firebase.database();
 const auth = firebase.auth();
 
@@ -22,7 +24,6 @@ function updateStatusTracker(status, orderType) {
         icons = ['fa-receipt', 'fa-utensils', 'fa-clipboard-check', 'fa-check-double'];
     }
 
-    // Handle cancelled order state
     if (status.toLowerCase() === 'cancelled') {
         trackerContainer.innerHTML = `<div class="w-full text-center text-red-600 font-bold text-lg p-4 bg-red-50 rounded-lg">This order has been cancelled.</div>`;
         document.getElementById('confirmation-title').textContent = 'Order Cancelled';
@@ -31,7 +32,6 @@ function updateStatusTracker(status, orderType) {
         return;
     }
     
-    // Build the tracker HTML
     trackerContainer.innerHTML = `<div class="progress-bar-container"><div id="status-progress-bar" class="progress-bar"></div></div>`;
     statuses.forEach((stepKey, index) => {
         const stepEl = document.createElement('div');
@@ -46,7 +46,6 @@ function updateStatusTracker(status, orderType) {
     const currentStatusIndex = statuses.indexOf(status.toLowerCase());
     if (currentStatusIndex === -1) return;
 
-    // Update each step's class
     statuses.forEach((stepKey, index) => {
         const stepEl = document.getElementById(`status-step-${stepKey.replace(/\s/g, '-')}`);
         if (!stepEl) return;
@@ -59,7 +58,6 @@ function updateStatusTracker(status, orderType) {
         }
     });
 
-    // Update progress bar width
     const progressBar = document.getElementById('status-progress-bar');
     if (progressBar) {
         const progressPercentage = (currentStatusIndex / (statuses.length - 1)) * 100;
@@ -81,7 +79,8 @@ function displayOrderDetails(orderId, orderData) {
     orderIdDisplay.innerHTML = `Order ID: <strong>#${orderData.orderId}</strong>`;
     itemsList.innerHTML = '';
     
-    const { orderType, deliveryAddress, table, timestamp, items, priceDetails, status } = orderData;
+    // --- [FIX] Read from 'cart' instead of 'items' for consistency ---
+    const { orderType, deliveryAddress, table, timestamp, cart, priceDetails, status } = orderData;
 
     summaryDetails.innerHTML = `
         <p><strong>Order Type:</strong> <span class="capitalize">${escapeHTML(orderType)}</span></p>
@@ -90,18 +89,24 @@ function displayOrderDetails(orderId, orderData) {
         ${table ? `<p><strong>Table Number:</strong> ${escapeHTML(table)}</p>` : ''}
     `;
 
-    items.forEach(item => {
-        const li = document.createElement('li');
-        li.className = 'flex justify-between items-start pb-2 border-b border-gray-100';
-        li.innerHTML = `
-            <div>
-                <span class="font-semibold">${item.quantity}x ${escapeHTML(item.name)}</span>
-                ${item.options && item.options.length > 0 ? `<div class="text-xs text-gray-500 pl-4">${item.options.join(', ')}</div>` : ''}
-            </div>
-            <span class="font-medium whitespace-nowrap">${(item.price * item.quantity).toFixed(2)} MAD</span>
-        `;
-        itemsList.appendChild(li);
-    });
+    // --- [FIX] Read from 'cart' instead of 'items' ---
+    if (cart && cart.length > 0) {
+        cart.forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'flex justify-between items-start pb-2 border-b border-gray-100';
+            li.innerHTML = `
+                <div>
+                    <span class="font-semibold">${item.quantity}x ${escapeHTML(item.name)}</span>
+                    ${item.options && item.options.length > 0 ? `<div class="text-xs text-gray-500 pl-4">${item.options.join(', ')}</div>` : ''}
+                </div>
+                <span class="font-medium whitespace-nowrap">${(item.price * item.quantity).toFixed(2)} MAD</span>
+            `;
+            itemsList.appendChild(li);
+        });
+    } else {
+        itemsList.innerHTML = '<li>No items found in this order.</li>';
+    }
+
 
     totalsSection.innerHTML = `
         <div class="flex justify-between text-gray-600"><span>Subtotal</span><span>${priceDetails.itemsTotal.toFixed(2)} MAD</span></div>
