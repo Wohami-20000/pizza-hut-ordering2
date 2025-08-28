@@ -2,6 +2,7 @@
 const express = require('express');
 const admin = require('firebase-admin');
 const cors = require('cors');
+const { exec } = require('child_process'); // For running the aggregator script
 
 const app = express();
 app.use(express.json()); // Middleware to read JSON from requests
@@ -34,11 +35,12 @@ const checkIfAdmin = async (req, res, next) => {
   }
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
-    if (decodedToken.admin === true) {
-      req.user = decodedToken; 
+    // Check for admin or owner role for access
+    if (decodedToken.role === 'admin' || decodedToken.role === 'owner') {
+      req.user = decodedToken;
       return next();
     }
-    return res.status(403).json({ error: 'Unauthorized: Requester is not an admin.' });
+    return res.status(403).json({ error: 'Unauthorized: Requester does not have admin privileges.' });
   } catch (error) {
     console.error('Error verifying token:', error);
     return res.status(403).json({ error: 'Unauthorized: Invalid token.' });
@@ -51,7 +53,7 @@ app.post('/set-role', checkIfAdmin, async (req, res) => {
   const { uid, role } = req.body;
 
   if (!uid || !role) {
-    return res.status(400).json({ error: 'Missing uid or role in request body.' }); 
+    return res.status(400).json({ error: 'Missing uid or role in request body.' });
   }
 
   try {
@@ -64,12 +66,12 @@ app.post('/set-role', checkIfAdmin, async (req, res) => {
   }
 });
 
-// --- NEW SECURE ENDPOINT for toggling user active status ---
+// --- SECURE ENDPOINT for toggling user active status ---
 app.post('/toggle-user-status', checkIfAdmin, async (req, res) => {
-  const { uid, disabled } = req.body; 
+  const { uid, disabled } = req.body;
 
   if (!uid || typeof disabled !== 'boolean') {
-    return res.status(400).json({ error: 'Missing uid or invalid disabled status in request body.' }); 
+    return res.status(400).json({ error: 'Missing uid or invalid disabled status in request body.' });
   }
 
   try {
@@ -77,14 +79,14 @@ app.post('/toggle-user-status', checkIfAdmin, async (req, res) => {
     await admin.database().ref(`users/${uid}`).update({ isDisabled: disabled });
 
     const statusMessage = disabled ? 'deactivated' : 'activated';
-    res.status(200).json({ message: `User ${uid} successfully ${statusMessage}.` }); 
+    res.status(200).json({ message: `User ${uid} successfully ${statusMessage}.` });
   } catch (error) {
     console.error(`Error toggling user status for ${uid}:`, error);
     res.status(500).json({ error: error.message || 'Internal server error while toggling user status.' });
   }
 });
 
-// --- NEW SECURE ENDPOINT for creating a new user ---
+// --- SECURE ENDPOINT for creating a new user ---
 app.post('/create-user', checkIfAdmin, async (req, res) => {
     const { name, email, password, phone, address, role } = req.body;
 
@@ -112,7 +114,6 @@ app.post('/create-user', checkIfAdmin, async (req, res) => {
             phone: phone || '',
             role: role,
             createdAt: new Date().toISOString(),
-            // Add address if provided
             ...(address && { addresses: { 'main': { label: 'Main', street: address, city: 'Oujda' } } })
         });
         
@@ -128,9 +129,33 @@ app.post('/create-user', checkIfAdmin, async (req, res) => {
     }
 });
 
+// --- [NEW] SECURE ENDPOINT for manually triggering the report aggregator ---
+app.get('/run-aggregator', checkIfAdmin, (req, res) => {
+  console.log(`Aggregator run triggered by admin: ${req.user.email}`);
+
+  exec('node aggregator.js', { cwd: __dirname }, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Error executing aggregator: ${error.message}`);
+      console.error(`stderr: ${stderr}`);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to run aggregator script.', 
+        error: stderr 
+      });
+    }
+
+    console.log(`Aggregator output: ${stdout}`);
+    res.json({ 
+      success: true, 
+      message: 'Aggregator script executed successfully.', 
+      output: stdout 
+    });
+  });
+});
+
 
 // --- START THE SERVER ---
-const PORT = 3000; 
+const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Admin server running securely on http://localhost:${PORT}`);
 });

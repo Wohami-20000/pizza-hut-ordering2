@@ -935,7 +935,12 @@ export function loadPanel(root, panelTitle) {
             </div>
 
             <div id="analytics-section" class="tab-content" style="display: none;">
-                 <h3 class="text-xl font-bold text-gray-800 mb-4">Reports & Analytics</h3>
+                 <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">Reports & Analytics</h3>
+                    <button id="refresh-analytics-btn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh Now
+                    </button>
+                 </div>
                  <div id="analytics-container" class="space-y-8">
                      <div id="weekly-report-container"></div>
                      <div id="monthly-report-container"></div>
@@ -986,6 +991,35 @@ export function loadPanel(root, panelTitle) {
 
     panelRoot.querySelector('#sales-form')?.addEventListener('submit', saveSalesData);
     panelRoot.querySelector('#save-daily-count-btn')?.addEventListener('click', saveDailyCount);
+    
+    // [NEW] Event listener for the refresh button
+    panelRoot.querySelector('#refresh-analytics-btn')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>Refreshing...`;
+
+        try {
+            // This assumes your local admin server is running on port 3000
+            const response = await fetch('http://localhost:3000/run-aggregator');
+            const result = await response.json();
+            
+            if (result.success) {
+                // alert('Reports have been updated! Reloading charts.');
+                console.log('Successfully triggered aggregator.');
+            } else {
+                throw new Error(result.message || 'Unknown error from server.');
+            }
+        } catch (error) {
+            console.error('Error triggering aggregator:', error);
+            alert('Failed to refresh reports. Make sure your local admin server is running.');
+        } finally {
+            // Reload the analytics tab to show the new data
+            loadAnalyticsReports();
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fas fa-sync-alt mr-2"></i>Refresh Now`;
+        }
+    });
+
 
     const stockDatePicker = panelRoot.querySelector('#stock-date-picker');
     if (stockDatePicker) {
