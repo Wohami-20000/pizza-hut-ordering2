@@ -615,9 +615,20 @@ function filterIngredients(query) {
 }
 
 // --- INGREDIENT, DAILY COUNT, SALES, WAREHOUSE FUNCTIONS ---
+
+/**
+ * [NEW] Added locking mechanism for past dates.
+ */
 async function loadSalesData() {
     const salesDate = panelRoot.querySelector('#sales-date-picker').value;
     const salesRef = db.ref(`sales/${salesDate}`);
+    const today = new Date().toISOString().split("T")[0];
+    const isPastDay = salesDate < today;
+
+    const form = panelRoot.querySelector('#sales-form');
+    const inputs = form.querySelectorAll('input');
+    const saveBtn = form.querySelector('#save-sales-btn');
+
     try {
         const snapshot = await salesRef.once('value');
         if (snapshot.exists()) {
@@ -625,16 +636,33 @@ async function loadSalesData() {
             panelRoot.querySelector('#platform-sales').value = data.platform || 0;
             panelRoot.querySelector('#glovo-sales').value = data.glovo || 0;
             panelRoot.querySelector('#regular-sales').value = data.regular || 0;
-            updateTotalSales();
         } else {
-            panelRoot.querySelector('#sales-form').reset();
-            updateTotalSales();
+            form.reset();
         }
+        updateTotalSales();
     } catch (error) {
         console.error("Error loading sales data:", error);
         alert("Could not load sales data.");
     }
+
+    // Apply lock based on date
+    if (isPastDay) {
+        inputs.forEach(input => {
+            if (input.type !== 'date') { // Don't disable the date picker
+                input.readOnly = true;
+                input.classList.add("bg-gray-100", "cursor-not-allowed");
+            }
+        });
+        if (saveBtn) saveBtn.style.display = "none";
+    } else {
+        inputs.forEach(input => {
+            input.readOnly = false;
+            input.classList.remove("bg-gray-100", "cursor-not-allowed");
+        });
+        if (saveBtn) saveBtn.style.display = "block";
+    }
 }
+
 
 function updateTotalSales() {
     const platform = parseFloat(panelRoot.querySelector('#platform-sales').value) || 0;
