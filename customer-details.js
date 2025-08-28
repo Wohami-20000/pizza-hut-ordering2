@@ -84,9 +84,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 phone: orderDetails.phone,
                 address: orderDetails.address || '',
             },
-            // --- [FINAL FIX] Save the item list under BOTH 'cart' and 'items' keys ---
+            // --- [DEFINITIVE FIX] Save the item list ONLY as 'cart' ---
             cart: cart, 
-            items: cart, // This ensures both confirm.js and orders.js work correctly
             totalPrice: finalTotal,
             priceDetails: {
                 itemsTotal: itemsTotal,
