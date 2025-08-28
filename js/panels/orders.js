@@ -75,7 +75,6 @@ async function processOrderForStockRTDB(orderId, orderData) {
             dataFetchPromises.push(db.ref(`/stockCounts/${dateString}/ingredients/${ingredientId}`).once('value'));
         });
         
-        // Ensure the daily stock count document itself exists
         const dailyCountExists = (await db.ref(`stockCounts/${dateString}`).once('value')).exists();
         if(!dailyCountExists){
              throw new Error(`Daily stock count for ${dateString} is not initialized. Please open the "Daily Count" tab first.`);
@@ -97,7 +96,6 @@ async function processOrderForStockRTDB(orderId, orderData) {
             updates[`/stockCounts/${dateString}/ingredients/${ingredientId}/used_expected`] = usedExpected + totalUsage;
         }
 
-        // Mark the order as processed.
         updates[`/orders/${orderId}/stock_updated`] = true;
 
         // 4. Execute the single atomic update.
@@ -118,7 +116,6 @@ async function processOrderForStockRTDB(orderId, orderData) {
 let allOrders = []; // Cache for all orders
 let deliveryMen = {}; // Cache for delivery men
 
-// Fetches all delivery men for the assignment dropdown
 function fetchDeliveryMen() {
     const deliveryRef = db.ref('users').orderByChild('role').equalTo('delivery');
     deliveryRef.on('value', snapshot => {
@@ -129,28 +126,24 @@ function fetchDeliveryMen() {
     });
 }
 
-// Updates the status of an order
 async function updateOrderStatus(orderId, status) {
     const orderRef = db.ref('orders/' + orderId);
     try {
         await orderRef.update({ status: status });
         showToast('Order status updated successfully.');
 
-        // === [NEW] RECIPE INTEGRATION LOGIC ===
         if (status.toLowerCase() === 'delivered') {
             const orderSnapshot = await orderRef.once('value');
             if (orderSnapshot.exists()) {
                 await processOrderForStockRTDB(orderId, orderSnapshot.val());
             }
         }
-        // No need to call loadOrders() here as the 'on' listener will handle it
     } catch (error) {
         console.error('Error updating order status:', error);
         showToast('Failed to update order status.', true);
     }
 }
 
-// Assigns a delivery person to an order
 function assignDelivery(orderId, deliveryManId) {
     if (!deliveryManId) {
         showToast('Please select a delivery person.', true);
@@ -168,7 +161,6 @@ function assignDelivery(orderId, deliveryManId) {
     });
 }
 
-// Renders the list of orders based on the current filter
 function renderFilteredOrders(filter = 'All') {
     const ordersContainer = document.getElementById('orders-container');
     if (!ordersContainer) return;
@@ -250,8 +242,7 @@ function renderFilteredOrders(filter = 'All') {
     }).join('');
 }
 
-// Initial data load and sets up real-time listener
-function loadOrders() {
+function listenToOrders() {
     const ordersRef = db.ref('orders').orderByChild('timestamp');
     const ordersContainer = document.getElementById('orders-container');
 
@@ -260,7 +251,7 @@ function loadOrders() {
         snapshot.forEach(childSnapshot => {
             allOrders.push({ id: childSnapshot.key, ...childSnapshot.val() });
         });
-        allOrders.reverse(); // Show newest orders first
+        allOrders.reverse(); 
         
         const currentFilter = document.querySelector('.filter-btn.bg-blue-500')?.dataset.status || 'All';
         renderFilteredOrders(currentFilter);
@@ -272,11 +263,15 @@ function loadOrders() {
     });
 }
 
-// Main function to render the panel and set up event listeners
-export function renderOrdersPanel(container) {
-    container.innerHTML = `
+/**
+ * [FIX] Renamed function to match the convention expected by dashboard.js.
+ * @param {HTMLElement} root - The main container element for the panel.
+ * @param {HTMLElement} panelTitle - The element for the panel's title.
+ */
+export function loadPanel(root, panelTitle) {
+    panelTitle.textContent = 'Live Orders';
+    root.innerHTML = `
         <div class="p-4 md:p-8 bg-gray-50 min-h-screen">
-            <h1 class="text-3xl font-bold mb-6 text-gray-800">Live Orders</h1>
             <div id="order-filters" class="mb-4 flex flex-wrap gap-2">
                 <button class="filter-btn bg-blue-500 text-white px-4 py-2 rounded-lg shadow" data-status="All">All</button>
                 <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Pending">Pending</button>
@@ -293,13 +288,11 @@ export function renderOrdersPanel(container) {
     `;
 
     fetchDeliveryMen();
-    loadOrders();
+    listenToOrders();
 
-    // Event Delegation for all actions
-    container.addEventListener('click', e => {
+    root.addEventListener('click', e => {
         const target = e.target;
         
-        // Filter button clicks
         if (target.classList.contains('filter-btn')) {
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.classList.remove('bg-blue-500', 'text-white');
@@ -310,14 +303,12 @@ export function renderOrdersPanel(container) {
             renderFilteredOrders(target.dataset.status);
         }
 
-        // Status update button clicks
         if (target.classList.contains('status-btn')) {
             const orderId = target.dataset.orderId;
             const status = target.dataset.status;
             updateOrderStatus(orderId, status);
         }
 
-        // Assign delivery button clicks
         if (target.classList.contains('assign-btn')) {
             const orderId = target.dataset.orderId;
             const select = target.previousElementSibling;
