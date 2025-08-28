@@ -35,12 +35,12 @@ const checkIfAdmin = async (req, res, next) => {
   }
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
-    // Check for admin or owner role for access
-    if (decodedToken.role === 'admin' || decodedToken.role === 'owner') {
+    // Use the actual claim from your user setup
+    if (decodedToken.admin === true || decodedToken.role === 'admin' || decodedToken.role === 'owner') {
       req.user = decodedToken;
       return next();
     }
-    return res.status(403).json({ error: 'Unauthorized: Requester does not have admin privileges.' });
+    return res.status(403).json({ error: 'Unauthorized: Requester is not an admin.' });
   } catch (error) {
     console.error('Error verifying token:', error);
     return res.status(403).json({ error: 'Unauthorized: Invalid token.' });
@@ -66,7 +66,7 @@ app.post('/set-role', checkIfAdmin, async (req, res) => {
   }
 });
 
-// --- SECURE ENDPOINT for toggling user active status ---
+// --- NEW SECURE ENDPOINT for toggling user active status ---
 app.post('/toggle-user-status', checkIfAdmin, async (req, res) => {
   const { uid, disabled } = req.body;
 
@@ -86,7 +86,7 @@ app.post('/toggle-user-status', checkIfAdmin, async (req, res) => {
   }
 });
 
-// --- SECURE ENDPOINT for creating a new user ---
+// --- NEW SECURE ENDPOINT for creating a new user ---
 app.post('/create-user', checkIfAdmin, async (req, res) => {
     const { name, email, password, phone, address, role } = req.body;
 
@@ -114,6 +114,7 @@ app.post('/create-user', checkIfAdmin, async (req, res) => {
             phone: phone || '',
             role: role,
             createdAt: new Date().toISOString(),
+            // Add address if provided
             ...(address && { addresses: { 'main': { label: 'Main', street: address, city: 'Oujda' } } })
         });
         
