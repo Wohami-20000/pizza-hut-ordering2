@@ -132,7 +132,7 @@ async function updateOrderStatus(orderId, status) {
         await orderRef.update({ status: status });
         showToast('Order status updated successfully.');
 
-        if (status.toLowerCase() === 'delivered') {
+        if (status.toLowerCase() === 'delivered' || status.toLowerCase() === 'completed') {
             const orderSnapshot = await orderRef.once('value');
             if (orderSnapshot.exists()) {
                 await processOrderForStockRTDB(orderId, orderSnapshot.val());
@@ -179,13 +179,14 @@ function renderFilteredOrders(filter = 'All') {
         'Out for Delivery': 'bg-purple-100 text-purple-800',
         'Delivered': 'bg-green-100 text-green-800',
         'Cancelled': 'bg-red-100 text-red-800',
+        'Ready': 'bg-cyan-100 text-cyan-800',
+        'Completed': 'bg-green-100 text-green-800'
     };
 
     ordersContainer.innerHTML = filteredOrders.map(order => {
         const orderDate = new Date(order.timestamp);
         const formattedDate = `${orderDate.toLocaleDateString()} ${orderDate.toLocaleTimeString()}`;
         
-        // [FIX] Add a safety check to ensure order.cart exists and is an array before mapping.
         const itemsHtml = (order.cart && Array.isArray(order.cart)) 
             ? order.cart.map(item => `
                 <li class="flex justify-between text-gray-600">
@@ -195,7 +196,7 @@ function renderFilteredOrders(filter = 'All') {
             `).join('')
             : '<li>No items found in cart.</li>';
 
-        const statusButtons = ['Pending', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'].map(status => `
+        const statusButtons = ['Pending', 'Confirmed', 'Preparing', 'Ready', 'Out for Delivery', 'Delivered', 'Completed', 'Cancelled'].map(status => `
             <button data-order-id="${order.id}" data-status="${status}" class="status-btn px-2 py-1 text-xs rounded transition-colors ${order.status === status ? 'bg-blue-600 text-white font-bold' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}">
                 ${status}
             </button>
@@ -205,20 +206,33 @@ function renderFilteredOrders(filter = 'All') {
             `<option value="${id}" ${order.deliveryBoy === id ? 'selected' : ''}>${name}</option>`
         ).join('');
 
+        const assignDeliveryHtml = order.orderType === 'delivery' ? `
+            <div class="mt-4 border-t pt-4">
+                 <h4 class="font-semibold text-md mb-2 text-gray-700">Assign Delivery:</h4>
+                 <div class="flex gap-2">
+                    <select class="delivery-select bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <option value="">Select Delivery Person</option>
+                        ${deliveryOptions}
+                    </select>
+                    <button data-order-id="${order.id}" class="assign-btn bg-green-500 text-white px-4 py-2 rounded-lg shadow hover:bg-green-600">Assign</button>
+                 </div>
+            </div>
+        ` : '';
+
         return `
             <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
                 <div class="flex flex-wrap justify-between items-start gap-4">
                     <div>
                         <h3 class="font-bold text-lg text-gray-800">Order #${order.id.substring(0, 6)}</h3>
                         <p class="text-sm text-gray-500">${formattedDate}</p>
-                        <p class="text-sm text-gray-600 mt-2"><strong>Customer:</strong> ${order.customerName || 'N/A'} (${order.customerPhone || 'N/A'})</p>
-                        <p class="text-sm text-gray-600"><strong>Address:</strong> ${order.customerAddress || 'N/A'}</p>
+                        <p class="text-sm text-gray-600 mt-2"><strong>Customer:</strong> ${order.customerInfo.name || 'N/A'} (${order.customerInfo.phone || 'N/A'})</p>
+                        <p class="text-sm text-gray-600"><strong>Address:</strong> ${order.customerInfo.address || 'N/A'}</p>
                     </div>
                     <div class="text-right">
                         <span class="px-3 py-1 text-sm font-semibold rounded-full ${statusClasses[order.status] || 'bg-gray-100 text-gray-800'}">
                             ${order.status}
                         </span>
-                        <p class="text-2xl font-bold mt-2 text-gray-800">${(order.totalPrice || 0).toFixed(2)} MAD</p>
+                        <p class="text-2xl font-bold mt-2 text-gray-800">${(order.priceDetails.finalTotal || 0).toFixed(2)} MAD</p>
                     </div>
                 </div>
                 <div class="mt-4 border-t pt-4">
@@ -229,16 +243,7 @@ function renderFilteredOrders(filter = 'All') {
                     <h4 class="font-semibold text-md mb-2 text-gray-700">Update Status:</h4>
                     <div class="flex flex-wrap gap-2">${statusButtons}</div>
                 </div>
-                <div class="mt-4 border-t pt-4">
-                     <h4 class="font-semibold text-md mb-2 text-gray-700">Assign Delivery:</h4>
-                     <div class="flex gap-2">
-                        <select class="delivery-select bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-                            <option value="">Select Delivery Person</option>
-                            ${deliveryOptions}
-                        </select>
-                        <button data-order-id="${order.id}" class="assign-btn bg-green-500 text-white px-4 py-2 rounded-lg shadow hover:bg-green-600">Assign</button>
-                     </div>
-                </div>
+                ${assignDeliveryHtml}
                  ${order.stock_updated ? '<p class="text-xs text-green-600 mt-3 font-semibold flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>Stock Deducted</p>' : ''}
             </div>
         `;
