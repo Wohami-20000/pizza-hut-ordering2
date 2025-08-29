@@ -48,8 +48,8 @@ async function processOrderForStockRTDB(orderId, orderData) {
                 const recipe = snap.val();
                 const cartItem = orderData.cart[index];
                 if (recipe.ingredients) {
-                    for (const [ingredientId, quantityNeeded] of Object.entries(recipe.ingredients)) {
-                        const totalUsage = Number(quantityNeeded) * Number(cartItem.quantity);
+                    for (const [ingredientId, ingredientDetails] of Object.entries(recipe.ingredients)) {
+                        const totalUsage = Number(ingredientDetails.qty) * Number(cartItem.quantity);
                         if (totalUsage > 0) {
                             const currentTotal = ingredientUsage.get(ingredientId) || 0;
                             ingredientUsage.set(ingredientId, currentTotal + totalUsage);
@@ -69,31 +69,22 @@ async function processOrderForStockRTDB(orderId, orderData) {
 
         // 2. Fetch current stock and daily count values for all needed ingredients.
         const dateString = getTodayDateString();
-        const dataFetchPromises = [];
-        ingredientUsage.forEach((_, ingredientId) => {
-            dataFetchPromises.push(db.ref(`/ingredients/${ingredientId}`).once('value'));
-            dataFetchPromises.push(db.ref(`/stockCounts/${dateString}/ingredients/${ingredientId}`).once('value'));
-        });
-        
-        const dailyCountExists = (await db.ref(`stockCounts/${dateString}`).once('value')).exists();
-        if(!dailyCountExists){
-             throw new Error(`Daily stock count for ${dateString} is not initialized. Please open the "Daily Count" tab first.`);
-        }
-
-        const snapshots = await Promise.all(dataFetchPromises);
-
-        // 3. Build the atomic update object.
         const updates = {};
-        let i = 0;
+        
         for (const [ingredientId, totalUsage] of ingredientUsage.entries()) {
-            const ingredientSnap = snapshots[i++];
-            const stockCountSnap = snapshots[i++];
+            const ingredientRef = db.ref(`/ingredients/${ingredientId}`);
+            const stockCountRef = db.ref(`/stockCounts/${dateString}/${ingredientId}`);
 
-            const currentStock = ingredientSnap.val()?.current_stock ?? 0;
-            const usedExpected = stockCountSnap.val()?.used_expected ?? 0;
+            const ingredientSnap = await ingredientRef.once('value');
+            
+            if (ingredientSnap.exists()) {
+                const currentStock = ingredientSnap.val().stock_level || 0;
+                updates[`/ingredients/${ingredientId}/stock_level`] = currentStock - totalUsage;
+            }
 
-            updates[`/ingredients/${ingredientId}/current_stock`] = currentStock - totalUsage;
-            updates[`/stockCounts/${dateString}/ingredients/${ingredientId}/used_expected`] = usedExpected + totalUsage;
+            const stockCountSnap = await stockCountRef.once('value');
+            const currentUsedExpected = stockCountSnap.exists() ? stockCountSnap.val().used_expected || 0 : 0;
+            updates[`/stockCounts/${dateString}/${ingredientId}/used_expected`] = currentUsedExpected + totalUsage;
         }
 
         updates[`/orders/${orderId}/stock_updated`] = true;
