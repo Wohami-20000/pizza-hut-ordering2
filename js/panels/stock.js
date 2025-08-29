@@ -639,8 +639,8 @@ async function loadDailyCountData() {
             const orders = ordersSnapshot.val();
             for (const orderId in orders) {
                 const order = orders[orderId];
-                if (order.items) {
-                    for (const item of order.items) {
+                if (order.cart) {
+                    for (const item of order.cart) {
                         const recipe = recipesCache[item.id];
                         if (recipe && recipe.ingredients) {
                             for (const ingredientId in recipe.ingredients) {

@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function calculateTotals() {
         if (!currentOrder) return;
 
-        const subtotal = currentOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const subtotal = currentOrder.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const taxes = subtotal * TAX_RATE;
         const deliveryFee = currentOrder.priceDetails.deliveryFee || 0;
         const discount = currentOrder.priceDetails.discount || 0;
@@ -56,9 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderItems() {
         itemsContainer.innerHTML = '';
-        if (!currentOrder || !currentOrder.items) return;
+        if (!currentOrder || !currentOrder.cart) return;
 
-        currentOrder.items.forEach((item, index) => {
+        currentOrder.cart.forEach((item, index) => {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'item-row border-b pb-3';
             itemDiv.innerHTML = `
@@ -88,14 +88,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (target.classList.contains('remove-item-btn')) {
             if (confirm('Are you sure you want to remove this item?')) {
-                currentOrder.items.splice(index, 1);
+                currentOrder.cart.splice(index, 1);
                 renderItems();
             }
         } else if (target.classList.contains('change-qty-btn')) {
             const delta = target.textContent === '+' ? 1 : -1;
-            currentOrder.items[index].quantity += delta;
-            if (currentOrder.items[index].quantity <= 0) {
-                currentOrder.items.splice(index, 1);
+            currentOrder.cart[index].quantity += delta;
+            if (currentOrder.cart[index].quantity <= 0) {
+                currentOrder.cart.splice(index, 1);
             }
             renderItems();
         }

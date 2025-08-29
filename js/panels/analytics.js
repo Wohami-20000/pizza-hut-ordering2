@@ -181,9 +181,11 @@ async function calculateAnalytics() {
         // 5. Calculate Most Popular Items (Existing)
         const itemCounts = {};
         orders.forEach(order => {
-            order.items.forEach(item => {
-                itemCounts[item.name] = (itemCounts[item.name] || 0) + item.quantity;
-            });
+            if (order.cart) {
+                order.cart.forEach(item => {
+                    itemCounts[item.name] = (itemCounts[item.name] || 0) + item.quantity;
+                });
+            }
         });
 
         const sortedItems = Object.entries(itemCounts)

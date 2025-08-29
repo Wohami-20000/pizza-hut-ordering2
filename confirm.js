@@ -79,7 +79,6 @@ function displayOrderDetails(orderId, orderData) {
     orderIdDisplay.innerHTML = `Order ID: <strong>#${orderData.orderId}</strong>`;
     itemsList.innerHTML = '';
     
-    // --- [FIX] Read from 'cart' instead of 'items' for consistency ---
     const { orderType, deliveryAddress, table, timestamp, cart, priceDetails, status } = orderData;
 
     summaryDetails.innerHTML = `
@@ -89,7 +88,6 @@ function displayOrderDetails(orderId, orderData) {
         ${table ? `<p><strong>Table Number:</strong> ${escapeHTML(table)}</p>` : ''}
     `;
 
-    // --- [FIX] Read from 'cart' instead of 'items' ---
     if (cart && cart.length > 0) {
         cart.forEach(item => {
             const li = document.createElement('li');

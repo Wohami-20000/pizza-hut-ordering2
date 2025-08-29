@@ -947,7 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     orderNumber,
                     orderId,
                     orderType: currentOrderType,
-                    items: cart,
+                    cart: cart,
                     priceDetails: {
                         itemsTotal: parseFloat(itemsTotal.toFixed(2)),
                         deliveryFee: parseFloat(deliveryFee.toFixed(2)),
