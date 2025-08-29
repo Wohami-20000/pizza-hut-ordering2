@@ -29,7 +29,7 @@ function createOrderCard(orderId, orderData) {
             </div>
             <div class="flex justify-between items-center">
                 <div>
-                    <p class="text-sm text-gray-600">${orderData.items.length} item(s)</p>
+                    <p class="text-sm text-gray-600">${orderData.cart.length} item(s)</p>
                     <p class="font-extrabold text-2xl text-brand-dark">${orderData.priceDetails.finalTotal.toFixed(2)} MAD</p>
                 </div>
                 <div class="text-right">

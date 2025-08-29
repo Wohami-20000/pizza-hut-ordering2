@@ -12,7 +12,7 @@ function createOrderRow(orderId, orderData) {
     ).join('');
 
     const customerName = orderData.customerInfo ? orderData.customerInfo.name : 'N/A';
-    const orderItems = orderData.items ? orderData.items.map(item => `${item.quantity}x ${item.name}`).join(', ') : 'No items';
+    const orderItems = orderData.cart ? orderData.cart.map(item => `${item.quantity}x ${item.name}`).join(', ') : 'No items';
 
     return `
         <tr class="hover:bg-gray-50" data-order-id="${orderId}">

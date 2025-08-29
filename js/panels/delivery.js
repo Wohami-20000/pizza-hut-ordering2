@@ -7,7 +7,7 @@ const db = firebase.database();
  */
 function createDeliveryCard(orderId, orderData) {
     const address = orderData.deliveryAddress || 'N/A';
-    const items = orderData.items.map(item => `${item.quantity}x ${item.name}`).join(', ');
+    const items = orderData.cart.map(item => `${item.quantity}x ${item.name}`).join(', ');
 
     return `
         <div class="bg-white p-4 rounded-lg shadow flex justify-between items-center">

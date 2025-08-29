@@ -6,7 +6,7 @@ const db = firebase.database();
  * Creates the HTML for a single order card for the staff view.
  */
 function createStaffOrderCard(orderId, orderData) {
-    const items = orderData.items.map(item => `<li>${item.quantity}x ${item.name}</li>`).join('');
+    const items = orderData.cart.map(item => `<li>${item.quantity}x ${item.name}</li>`).join('');
     const orderLocation = orderData.orderType === 'dineIn' ? `Table ${orderData.table}` : 'Pickup';
 
     return `
