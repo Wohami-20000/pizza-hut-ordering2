@@ -14,7 +14,8 @@ let charts = {}; // To hold chart instances
 // --- UI ELEMENT REFERENCES ---
 let ingredientModal, ingredientForm, modalTitle, panelRoot, recipeModal, recipeForm, reportModal;
 
-// --- UNIT CONVERSION HELPERS ---
+// --- UTILITY & HELPER FUNCTIONS ---
+
 const toBase = {
     g: { unit: 'kg', factor: 1 / 1000 },
     kg: { unit: 'kg', factor: 1 },
@@ -36,6 +37,66 @@ function convertToBaseUnit(qty, unit) {
 function round(qty, unit) {
     return unit === 'pcs' ? Math.round(qty) : Number(qty.toFixed(3));
 }
+
+function round2(n) {
+    return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+async function checkAndDisplayAlerts() {
+    const alertsContainer = panelRoot.querySelector('#alerts-container');
+    if (!alertsContainer) return;
+    alertsContainer.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Checking for alerts...</p></div>`;
+
+    let alertsHtml = '';
+    const selectedDate = panelRoot.querySelector('#stock-date-picker').value;
+
+    try {
+        const [ingredientsSnapshot, stockCountSnapshot] = await Promise.all([
+            db.ref('ingredients').once('value'),
+            db.ref(`stockCounts/${selectedDate}`).once('value')
+        ]);
+
+        const ingredients = ingredientsSnapshot.val() || {};
+        const stockCounts = stockCountSnapshot.val() || {};
+
+        // 1. Low Stock Alerts (based on the closing stock of the selected day)
+        let lowStockAlerts = '';
+        for (const id in ingredients) {
+            const ing = ingredients[id];
+            const closingStock = stockCounts[id]?.closing_actual;
+            if (closingStock !== undefined && closingStock < ing.low_stock_threshold) {
+                lowStockAlerts += `<li class="p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg"><strong>Low Stock:</strong> ${ing.name} is at ${closingStock} ${ing.unit} (Threshold: ${ing.low_stock_threshold} ${ing.unit}).</li>`;
+            }
+        }
+        if (lowStockAlerts) {
+            alertsHtml += `<div><h4 class="font-bold text-lg mb-2 text-yellow-700">Low Stock Warnings</h4><ul class="space-y-2">${lowStockAlerts}</ul></div>`;
+        }
+
+        // 2. High Variance Alerts
+        let highVarianceAlerts = '';
+        for (const id in stockCounts) {
+            const count = stockCounts[id];
+            const ingredient = ingredients[id];
+            if (ingredient && count.variance < 0) {
+                const variancePercentage = (count.opening > 0) ? (Math.abs(count.variance) / count.opening) * 100 : 0;
+                if (variancePercentage > 5) { // Threshold: 5% variance
+                    highVarianceAlerts += `<li class="p-3 bg-red-50 border-l-4 border-red-400 rounded-r-lg"><strong>High Variance:</strong> ${ingredient.name} has a variance of ${count.variance.toFixed(2)} ${ingredient.unit} (${variancePercentage.toFixed(1)}% loss).</li>`;
+                }
+            }
+        }
+        if (highVarianceAlerts) {
+            alertsHtml += `<div class="mt-6"><h4 class="font-bold text-lg mb-2 text-red-700">High Variance Alerts (for ${selectedDate})</h4><ul class="space-y-2">${highVarianceAlerts}</ul></div>`;
+        }
+
+
+        alertsContainer.innerHTML = alertsHtml || '<p class="text-center text-gray-500 p-8">No alerts to show right now. Everything looks good!</p>';
+
+    } catch (error) {
+        console.error("Error checking alerts:", error);
+        alertsContainer.innerHTML = `<p class="text-red-500">Could not check for alerts: ${error.message}</p>`;
+    }
+}
+
 
 // --- TABS & NAVIGATION ---
 function switchTab(tabName) {
@@ -67,35 +128,79 @@ function accumulateUsage(usageMap, bom, multiplier) {
     for (const ingId in bom) {
         if (ingId.startsWith('_')) continue;
         const row = bom[ingId];
-        const base = convertToBaseUnit(row.qty * multiplier, row.unit);
-        if (!usageMap[ingId]) usageMap[ingId] = { qty: 0, unit: base.unit };
-        usageMap[ingId].qty += base.qty;
+        // Ensure unit exists before converting
+        if (row.unit) {
+            const base = convertToBaseUnit(row.qty * multiplier, row.unit);
+            if (!usageMap[ingId]) usageMap[ingId] = { qty: 0, unit: base.unit };
+            usageMap[ingId].qty += base.qty;
+        } else {
+             console.warn(`Ingredient ${ingId} in BOM is missing a unit.`);
+             db.ref(`errors/${currentStockDate}/missing_units`).push({ ingredientId: ingId, timestamp: new Date().toISOString() });
+        }
     }
 }
 
+// This function now reads raw orders and simulates the ordersSummary structure in memory.
 async function calculateExpectedUsageForDate(date) {
     console.log(`Calculating expected usage for ${date}...`);
-    const [recipesSnap, ordersSummarySnap, modifiersSnap] = await Promise.all([
+    const dayStart = date + "T00:00:00.000Z";
+    const dayEnd = date + "T23:59:59.999Z";
+
+    const [recipesSnap, ordersSnap, modifiersSnap] = await Promise.all([
         db.ref('recipes').once('value'),
-        db.ref(`ordersSummary/${date}`).once('value'),
+        db.ref('orders').orderByChild('timestamp').startAt(dayStart).endAt(dayEnd).once('value'),
         db.ref('modifiers').once('value')
     ]);
 
     const recipes = recipesSnap.val() || {};
-    const orders = ordersSummarySnap.val() || {};
     const modifiers = modifiersSnap.val() || {};
-
-    if (!orders || Object.keys(orders).length === 0) {
-        console.log(`No order summary found for ${date}. Skipping usage calculation.`);
+    
+    if (!ordersSnap.exists()) {
+        console.log(`No orders found for ${date}. Skipping usage calculation.`);
+         // Clear previous expected usage for this day if no orders
+        const stockCountRef = db.ref(`stockCounts/${date}`);
+        const stockCountSnap = await stockCountRef.once('value');
+        if (stockCountSnap.exists()) {
+            const updates = {};
+            stockCountSnap.forEach(ingSnap => {
+                updates[`${ingSnap.key}/used_expected`] = 0;
+            });
+            await stockCountRef.update(updates);
+        }
         return;
     }
+    
+    // Create an in-memory ordersSummary from the raw orders
+    const ordersSummary = {};
+    ordersSnap.forEach(orderChild => {
+        const order = orderChild.val();
+        if(!order.cart || !Array.isArray(order.cart)) return;
+
+        order.cart.forEach(item => {
+            const itemId = item.id;
+            // Use the first size as the variant key, or '_default'
+            const variantKey = item.sizes && item.sizes.length > 0 ? item.sizes[0].size : '_default';
+            
+            if (!ordersSummary[itemId]) ordersSummary[itemId] = {};
+            if (!ordersSummary[itemId][variantKey]) ordersSummary[itemId][variantKey] = { qty: 0 };
+            
+            ordersSummary[itemId][variantKey].qty += item.quantity;
+            
+            // Process modifiers from the 'options' array in the cart item
+            if (item.options && Array.isArray(item.options)) {
+                item.options.forEach(optionName => {
+                    // This assumes modifier keys are simple names like "extra_cheese"
+                    const modKey = `mod_${optionName.toLowerCase().replace(/\s+/g, '_')}`;
+                    ordersSummary[itemId][variantKey][modKey] = (ordersSummary[itemId][variantKey][modKey] || 0) + item.quantity;
+                });
+            }
+        });
+    });
 
     const usage = {}; // { ingredientId: { qty: number, unit: "kg"|"L"|"pcs" } }
 
-    for (const itemId in orders) {
-        if (itemId === "_meta") continue;
-
-        const itemOrders = orders[itemId];
+    for (const itemId in ordersSummary) {
+        const itemOrders = ordersSummary[itemId];
         const itemRecipe = recipes[itemId];
 
         if (!itemRecipe) {
@@ -104,7 +209,6 @@ async function calculateExpectedUsageForDate(date) {
             continue;
         }
         
-        // Process all variants (e.g., "L", "_default")
         for(const variantKey in itemOrders) {
              const variantData = itemOrders[variantKey];
              const count = variantData.qty || 0;
@@ -144,9 +248,6 @@ async function calculateExpectedUsageForDate(date) {
 
 
 // --- FINANCIAL KPI CALCULATIONS ---
-function round2(n) {
-    return Math.round((n + Number.EPSILON) * 100) / 100;
-}
 
 async function computeDailyKpis(date) {
     const [salesSnap, stockSnap, ingSnap] = await Promise.all([
@@ -165,7 +266,7 @@ async function computeDailyKpis(date) {
         const row = stock[ingId];
         const meta = ingredients[ingId];
 
-        if (!meta || !meta.unit_cost) {
+        if (!meta || meta.unit_cost === undefined) {
             console.warn(`Missing cost for ingredient ID: ${ingId} on date ${date}`);
             db.ref(`errors/${date}/missingCosts`).child(ingId).set({ name: meta?.name || 'Unknown', timestamp: new Date().toISOString() });
             continue;
@@ -185,7 +286,7 @@ async function computeDailyKpis(date) {
         AIC += (opening + purchases - closeAct) * cost;
         wastageCost += waste * cost;
 
-        if (varValue > 0) { // Positive variance means actual is less than theoretical -> a loss
+        if (varValue > 0) { // Positive variance (actual < theoretical) is a loss.
             varianceLoss += varValue;
         }
     }
@@ -200,7 +301,7 @@ async function computeDailyKpis(date) {
         foodCostTheoreticalPct: round2(fcTheo),
         varianceLoss: round2(varianceLoss),
         profitEstimateActual: round2(salesTotal - AIC),
-        profitEstimateTheoretical: round2(salesTotal - TIC),
+        profitEstimateTheoretical: round2(salesTotal - TIC - varianceLoss), // Refined profit
         theoreticalCogs: round2(TIC),
         actualCogs: round2(AIC),
         wastageCost: round2(wastageCost)
@@ -248,10 +349,6 @@ async function updateFinancialKPIs() {
         console.error("Error updating financial KPIs:", error);
     }
 }
-
-
-// --- OTHER FUNCTIONS (Analytics, Modals, etc.) ---
-// ... (rest of the file remains the same, no changes needed below this line for this request)
 
 
 // --- ANALYTICS & REPORTING ---
@@ -1352,4 +1449,5 @@ export function loadPanel(root, panelTitle) {
         updateFinancialKPIs();
     })();
 }
+
 
