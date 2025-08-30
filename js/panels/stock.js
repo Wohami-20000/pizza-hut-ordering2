@@ -1,6 +1,6 @@
 // /js/panels/stock.js
 
-const db = firebase.database();
+let db; // Use a module-scoped variable, assigned in loadPanel
 
 // --- STATE MANAGEMENT ---
 let ingredientsCache = {};
@@ -116,6 +116,7 @@ function switchTab(tabName) {
         buttonToActivate.classList.remove('text-gray-500', 'border-transparent');
     }
 
+    if (tabName === 'ingredients') loadAndRenderIngredients();
     if (tabName === 'recipes') loadAndRenderRecipes();
     if (tabName === 'daily-count') loadDailyCountData();
     if (tabName === 'sales-input') loadSalesData();
@@ -1159,7 +1160,8 @@ function handleTableClick(e) {
 
 
 // --- MAIN PANEL LOADER ---
-export function loadPanel(root, panelTitle) {
+export function loadPanel(root, panelTitle, database) {
+    db = database; // Assign the passed-in db instance to the module-scoped variable
     panelRoot = root;
     panelTitle.textContent = 'Stock & Sales Control';
 
@@ -1242,11 +1244,11 @@ export function loadPanel(root, panelTitle) {
             </div>
         </div>
 
-        <div id="ingredient-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
+        <div id="ingredient-modal" class="fixed inset-0 bg-black bg-opacity-60 items-center justify-center hidden z-50 p-4">
              <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg"><h3 id="modal-title" class="text-2xl font-bold text-gray-800 mb-4">Add New Ingredient</h3><form id="ingredient-form" class="space-y-4"><div><label for="ingredient-name" class="block text-sm font-medium">Ingredient Name</label><input type="text" id="ingredient-name" required class="w-full mt-1 p-2 border rounded-md"></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="ingredient-category" class="block text-sm font-medium">Category</label><input type="text" id="ingredient-category" class="w-full mt-1 p-2 border rounded-md" placeholder="e.g., Dairy, Meat, Vegetable"></div><div><label for="ingredient-unit" class="block text-sm font-medium">Unit</label><input type="text" id="ingredient-unit" required class="w-full mt-1 p-2 border rounded-md" placeholder="e.g., kg, L, pcs"></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="ingredient-unit-cost" class="block text-sm font-medium">Cost per Unit (MAD)</label><input type="number" id="ingredient-unit-cost" step="0.01" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="ingredient-supplier" class="block text-sm font-medium">Supplier</label><input type="text" id="ingredient-supplier" class="w-full mt-1 p-2 border rounded-md"></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="ingredient-stock-level" class="block text-sm font-medium">Initial Stock Level</label><input type="number" id="ingredient-stock-level" step="0.1" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="low-stock-threshold" class="block text-sm font-medium">Low Stock Threshold</label><input type="number" id="low-stock-threshold" step="0.1" required class="w-full mt-1 p-2 border rounded-md"></div></div><div class="flex justify-end gap-4 pt-4"><button type="button" id="cancel-modal-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Save Ingredient</button></div></form></div>
         </div>
         
-        <div id="recipe-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
+        <div id="recipe-modal" class="fixed inset-0 bg-black bg-opacity-60 items-center justify-center hidden z-50 p-4">
              <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-3xl flex flex-col" style="max-height: 90vh;">
                 <h3 id="recipe-modal-title" class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3">Add New Recipe</h3>
                 <form id="recipe-form" class="flex-grow overflow-hidden flex flex-col">
