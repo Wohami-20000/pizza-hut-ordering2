@@ -6,6 +6,7 @@ const db = firebase.database();
 let ingredientsCache = {};
 let recipesCache = {};
 let menuItemsCache = {};
+let modifiersCache = {};
 let editingIngredientId = null;
 let currentRecipeMenuItemId = null;
 let currentStockDate = new Date().toISOString().split('T')[0];
@@ -141,23 +142,15 @@ function accumulateUsage(usageMap, bom, multiplier) {
 }
 
 // This function now reads raw orders and simulates the ordersSummary structure in memory.
-async function calculateExpectedUsageForDate(date) {
+async function calculateExpectedUsageForDate(date, recipes, modifiers) {
     console.log(`Calculating expected usage for ${date}...`);
     const dayStart = date + "T00:00:00.000Z";
     const dayEnd = date + "T23:59:59.999Z";
 
-    const [recipesSnap, ordersSnap, modifiersSnap] = await Promise.all([
-        db.ref('recipes').once('value'),
-        db.ref('orders').orderByChild('timestamp').startAt(dayStart).endAt(dayEnd).once('value'),
-        db.ref('modifiers').once('value')
-    ]);
-
-    const recipes = recipesSnap.val() || {};
-    const modifiers = modifiersSnap.val() || {};
+    const ordersSnap = await db.ref('orders').orderByChild('timestamp').startAt(dayStart).endAt(dayEnd).once('value');
     
     if (!ordersSnap.exists()) {
         console.log(`No orders found for ${date}. Skipping usage calculation.`);
-         // Clear previous expected usage for this day if no orders
         const stockCountRef = db.ref(`stockCounts/${date}`);
         const stockCountSnap = await stockCountRef.once('value');
         if (stockCountSnap.exists()) {
@@ -170,7 +163,6 @@ async function calculateExpectedUsageForDate(date) {
         return;
     }
     
-    // Create an in-memory ordersSummary from the raw orders
     const ordersSummary = {};
     ordersSnap.forEach(orderChild => {
         const order = orderChild.val();
@@ -178,7 +170,6 @@ async function calculateExpectedUsageForDate(date) {
 
         order.cart.forEach(item => {
             const itemId = item.id;
-            // Use the first size as the variant key, or '_default'
             const variantKey = item.sizes && item.sizes.length > 0 ? item.sizes[0].size : '_default';
             
             if (!ordersSummary[itemId]) ordersSummary[itemId] = {};
@@ -186,10 +177,8 @@ async function calculateExpectedUsageForDate(date) {
             
             ordersSummary[itemId][variantKey].qty += item.quantity;
             
-            // Process modifiers from the 'options' array in the cart item
             if (item.options && Array.isArray(item.options)) {
                 item.options.forEach(optionName => {
-                    // This assumes modifier keys are simple names like "extra_cheese"
                     const modKey = `mod_${optionName.toLowerCase().replace(/\s+/g, '_')}`;
                     ordersSummary[itemId][variantKey][modKey] = (ordersSummary[itemId][variantKey][modKey] || 0) + item.quantity;
                 });
@@ -197,7 +186,7 @@ async function calculateExpectedUsageForDate(date) {
         });
     });
 
-    const usage = {}; // { ingredientId: { qty: number, unit: "kg"|"L"|"pcs" } }
+    const usage = {};
 
     for (const itemId in ordersSummary) {
         const itemOrders = ordersSummary[itemId];
@@ -218,7 +207,6 @@ async function calculateExpectedUsageForDate(date) {
                 accumulateUsage(usage, bom, count);
              }
 
-             // Handle modifiers within the variant
              for(const key in variantData){
                  if(key.startsWith('mod_')){
                      const modKey = key.replace('mod_', '');
@@ -238,7 +226,6 @@ async function calculateExpectedUsageForDate(date) {
         updates[`stockCounts/${date}/${ingId}/used_expected`] = round(qty, unit);
     }
     
-    // Snapshot recipe version
     const currentGlobalRecipeVersion = Object.values(recipes).reduce((max, r) => Math.max(max, r._meta?.version || 0), 0);
     updates[`stockCounts/${date}/_recipeVersionUsed`] = currentGlobalRecipeVersion;
 
@@ -927,10 +914,9 @@ async function loadDailyCountData() {
             db.ref(`stockCounts/${currentStockDate}`).once('value')
         ]);
         
-        // This function now runs first, so we need to ensure caches are populated
         if (ingSnapshot.exists()) ingredientsCache = ingSnapshot.val();
 
-        await calculateExpectedUsageForDate(currentStockDate);
+        await calculateExpectedUsageForDate(currentStockDate, recipesCache, modifiersCache);
         const expectedUsageSnap = await db.ref(`stockCounts/${currentStockDate}`).once('value');
 
         const prevStock = prevStockSnapshot.exists() ? prevStockSnapshot.val() : {};
@@ -993,7 +979,7 @@ async function loadDailyCountData() {
             if (saveBtn) saveBtn.style.display = "block";
         }
         
-        updateFinancialKPIs(); // Update KPIs after loading count data
+        updateFinancialKPIs(); 
 
     } catch (error) {
         console.error("Error loading daily count data:", error);
@@ -1024,25 +1010,20 @@ function calculateRow(row) {
 
 async function saveDailyCount() {
     const date = panelRoot.querySelector('#stock-date-picker').value;
-    // Step 1: Calculate expected usage based on sales
-    await calculateExpectedUsageForDate(date);
+    await calculateExpectedUsageForDate(date, recipesCache, modifiersCache);
 
-    // Step 2: Read the newly calculated usage and save the full daily count
     const saveData = {};
     const rows = panelRoot.querySelectorAll('#daily-count-tbody tr[data-id]');
     
-    // Re-fetch the expected usage as it might have just been updated
     const expectedUsageSnap = await db.ref(`stockCounts/${date}`).once('value');
     const expectedUsageData = expectedUsageSnap.val() || {};
 
     rows.forEach(row => {
         const id = row.dataset.id;
         
-        // Use the newly calculated expected usage
         const usedExpected = expectedUsageData[id]?.used_expected || 0;
         row.querySelector('[data-used]').textContent = usedExpected.toFixed(2);
         
-        // Recalculate the row with the new data before saving
         calculateRow(row); 
 
         const varianceText = row.querySelector('[data-variance]').textContent;
@@ -1061,11 +1042,8 @@ async function saveDailyCount() {
 
     if (Object.keys(saveData).length > 0) {
         try {
-            // Merge data to preserve the _recipeVersionUsed key
             await db.ref(`stockCounts/${date}`).update(saveData);
             alert(`Stock count for ${date} saved and finalized successfully!`);
-            
-            // Step 3: Compute KPIs and update UI
             await updateFinancialKPIs();
         } catch (error) {
             console.error("Error saving stock count:", error);
@@ -1430,11 +1408,15 @@ export function loadPanel(root, panelTitle) {
     // Initialize the panel
     (async () => {
         await Promise.all([
-            // Fetch ingredients first as they are needed for recipes
             db.ref('ingredients').once('value').then(snap => {
                  if (snap.exists()) ingredientsCache = snap.val();
             }),
-            // Fetch all menu items (not just by category)
+            db.ref('recipes').once('value').then(snap => {
+                 if (snap.exists()) recipesCache = snap.val();
+            }),
+            db.ref('modifiers').once('value').then(snap => {
+                 if (snap.exists()) modifiersCache = snap.val();
+            }),
             db.ref('menu').once('value').then(snap => {
                 if (snap.exists()) {
                     const menu = snap.val();
@@ -1449,5 +1431,4 @@ export function loadPanel(root, panelTitle) {
         updateFinancialKPIs();
     })();
 }
-
 
