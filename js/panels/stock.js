@@ -14,6 +14,29 @@ let charts = {}; // To hold chart instances
 // --- UI ELEMENT REFERENCES ---
 let ingredientModal, ingredientForm, modalTitle, panelRoot, recipeModal, recipeForm, reportModal;
 
+// --- UNIT CONVERSION HELPERS ---
+const toBase = {
+    g: { unit: 'kg', factor: 1 / 1000 },
+    kg: { unit: 'kg', factor: 1 },
+    ml: { unit: 'L', factor: 1 / 1000 },
+    L: { unit: 'L', factor: 1 },
+    pcs: { unit: 'pcs', factor: 1 }
+};
+
+function convertToBaseUnit(qty, unit) {
+    const m = toBase[unit];
+    if (!m) {
+        console.error(`Unsupported unit: ${unit}`);
+        db.ref(`errors/${currentStockDate}/unsupported_units`).push({ unit: unit, timestamp: new Date().toISOString() });
+        return { qty: qty, unit: unit }; // Return original value on error
+    }
+    return { qty: qty * m.factor, unit: m.unit };
+}
+
+function round(qty, unit) {
+    return unit === 'pcs' ? Math.round(qty) : Number(qty.toFixed(3));
+}
+
 // --- TABS & NAVIGATION ---
 function switchTab(tabName) {
     if (!panelRoot) return;
@@ -31,7 +54,6 @@ function switchTab(tabName) {
         buttonToActivate.classList.remove('text-gray-500', 'border-transparent');
     }
 
-    // Load data for the activated tab
     if (tabName === 'recipes') loadAndRenderRecipes();
     if (tabName === 'daily-count') loadDailyCountData();
     if (tabName === 'sales-input') loadSalesData();
@@ -39,133 +61,198 @@ function switchTab(tabName) {
     if (tabName === 'alerts') checkAndDisplayAlerts();
 }
 
-// --- FIX: renamed function to avoid conflict ---
-function updateIngredientStockQuantity(ingredientId, change) {
-    if (!ingredientsCache[ingredientId]) return;
+// --- RECIPE & USAGE CALCULATION LOGIC ---
 
-    let ingredient = ingredientsCache[ingredientId];
-    ingredient.stock_level = (ingredient.stock_level || 0) + change;
-
-    if (ingredient.stock_level < 0) ingredient.stock_level = 0;
-
-    db.ref(`ingredients/${ingredientId}/stock_level`).set(ingredient.stock_level)
-        .then(() => console.log(`Stock updated for ${ingredient.name}`))
-        .catch(err => console.error("Error updating stock:", err));
+function accumulateUsage(usageMap, bom, multiplier) {
+    for (const ingId in bom) {
+        if (ingId.startsWith('_')) continue;
+        const row = bom[ingId];
+        const base = convertToBaseUnit(row.qty * multiplier, row.unit);
+        if (!usageMap[ingId]) usageMap[ingId] = { qty: 0, unit: base.unit };
+        usageMap[ingId].qty += base.qty;
+    }
 }
 
+async function calculateExpectedUsageForDate(date) {
+    console.log(`Calculating expected usage for ${date}...`);
+    const [recipesSnap, ordersSummarySnap, modifiersSnap] = await Promise.all([
+        db.ref('recipes').once('value'),
+        db.ref(`ordersSummary/${date}`).once('value'),
+        db.ref('modifiers').once('value')
+    ]);
 
-// --- ALERTS & NOTIFICATIONS ---
-async function checkAndDisplayAlerts() {
-    const alertsContainer = panelRoot.querySelector('#alerts-container');
-    if (!alertsContainer) return;
-    alertsContainer.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Checking for alerts...</p></div>`;
+    const recipes = recipesSnap.val() || {};
+    const orders = ordersSummarySnap.val() || {};
+    const modifiers = modifiersSnap.val() || {};
 
-    let alertsHtml = '';
-    const selectedDate = panelRoot.querySelector('#stock-date-picker').value;
-
-    try {
-        const [ingredientsSnapshot, stockCountSnapshot] = await Promise.all([
-            db.ref('ingredients').once('value'),
-            db.ref(`stockCounts/${selectedDate}`).once('value')
-        ]);
-
-        const ingredients = ingredientsSnapshot.val() || {};
-        const stockCounts = stockCountSnapshot.val() || {};
-
-        // 1. Low Stock Alerts (based on the closing stock of the selected day)
-        let lowStockAlerts = '';
-        for (const id in ingredients) {
-            const ing = ingredients[id];
-            const closingStock = stockCounts[id]?.closing_actual;
-            if (closingStock !== undefined && closingStock < ing.low_stock_threshold) {
-                lowStockAlerts += `<li class="p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg"><strong>Low Stock:</strong> ${ing.name} is at ${closingStock} ${ing.unit} (Threshold: ${ing.low_stock_threshold} ${ing.unit}).</li>`;
-            }
-        }
-        if (lowStockAlerts) {
-            alertsHtml += `<div><h4 class="font-bold text-lg mb-2 text-yellow-700">Low Stock Warnings</h4><ul class="space-y-2">${lowStockAlerts}</ul></div>`;
-        }
-
-        // 2. High Variance Alerts
-        let highVarianceAlerts = '';
-        for (const id in stockCounts) {
-            const count = stockCounts[id];
-            const ingredient = ingredients[id];
-            if (ingredient && count.variance < 0) {
-                const variancePercentage = (count.opening > 0) ? (Math.abs(count.variance) / count.opening) * 100 : 0;
-                if (variancePercentage > 5) { // Threshold: 5% variance
-                    highVarianceAlerts += `<li class="p-3 bg-red-50 border-l-4 border-red-400 rounded-r-lg"><strong>High Variance:</strong> ${ingredient.name} has a variance of ${count.variance.toFixed(2)} ${ingredient.unit} (${variancePercentage.toFixed(1)}% loss).</li>`;
-                }
-            }
-        }
-        if (highVarianceAlerts) {
-            alertsHtml += `<div class="mt-6"><h4 class="font-bold text-lg mb-2 text-red-700">High Variance Alerts (for ${selectedDate})</h4><ul class="space-y-2">${highVarianceAlerts}</ul></div>`;
-        }
-
-
-        alertsContainer.innerHTML = alertsHtml || '<p class="text-center text-gray-500 p-8">No alerts to show right now. Everything looks good!</p>';
-
-    } catch (error) {
-        console.error("Error checking alerts:", error);
-        alertsContainer.innerHTML = `<p class="text-red-500">Could not check for alerts: ${error.message}</p>`;
+    if (!orders || Object.keys(orders).length === 0) {
+        console.log(`No order summary found for ${date}. Skipping usage calculation.`);
+        return;
     }
+
+    const usage = {}; // { ingredientId: { qty: number, unit: "kg"|"L"|"pcs" } }
+
+    for (const itemId in orders) {
+        if (itemId === "_meta") continue;
+
+        const itemOrders = orders[itemId];
+        const itemRecipe = recipes[itemId];
+
+        if (!itemRecipe) {
+            console.warn(`Missing recipe for sold item: ${itemId}`);
+            db.ref(`errors/${date}/missing_recipes`).push({ itemId: itemId, timestamp: new Date().toISOString() });
+            continue;
+        }
+        
+        // Process all variants (e.g., "L", "_default")
+        for(const variantKey in itemOrders) {
+             const variantData = itemOrders[variantKey];
+             const count = variantData.qty || 0;
+             const bom = itemRecipe[variantKey] || itemRecipe["_default"];
+
+             if(count > 0 && bom){
+                accumulateUsage(usage, bom, count);
+             }
+
+             // Handle modifiers within the variant
+             for(const key in variantData){
+                 if(key.startsWith('mod_')){
+                     const modKey = key.replace('mod_', '');
+                     const modBom = modifiers[modKey];
+                     const modQty = variantData[key];
+                     if(modBom && modQty > 0){
+                         accumulateUsage(usage, modBom, modQty);
+                     }
+                 }
+             }
+        }
+    }
+
+    const updates = {};
+    for (const ingId of Object.keys(usage)) {
+        const { qty, unit } = usage[ingId];
+        updates[`stockCounts/${date}/${ingId}/used_expected`] = round(qty, unit);
+    }
+    
+    // Snapshot recipe version
+    const currentGlobalRecipeVersion = Object.values(recipes).reduce((max, r) => Math.max(max, r._meta?.version || 0), 0);
+    updates[`stockCounts/${date}/_recipeVersionUsed`] = currentGlobalRecipeVersion;
+
+    await db.ref().update(updates);
+    console.log(`Expected usage for ${date} has been calculated and saved.`);
 }
 
 
 // --- FINANCIAL KPI CALCULATIONS ---
+function round2(n) {
+    return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+async function computeDailyKpis(date) {
+    const [salesSnap, stockSnap, ingSnap] = await Promise.all([
+        db.ref(`sales/${date}`).once('value'),
+        db.ref(`stockCounts/${date}`).once('value'),
+        db.ref(`ingredients`).once('value')
+    ]);
+    const sales = salesSnap.val() || { total: 0 };
+    const stock = stockSnap.val() || {};
+    const ingredients = ingSnap.val() || {};
+
+    let TIC = 0, AIC = 0, varianceLoss = 0, wastageCost = 0;
+
+    for (const ingId of Object.keys(stock)) {
+        if (ingId.startsWith('_')) continue;
+        const row = stock[ingId];
+        const meta = ingredients[ingId];
+
+        if (!meta || !meta.unit_cost) {
+            console.warn(`Missing cost for ingredient ID: ${ingId} on date ${date}`);
+            db.ref(`errors/${date}/missingCosts`).child(ingId).set({ name: meta?.name || 'Unknown', timestamp: new Date().toISOString() });
+            continue;
+        }
+
+        const cost = Number(meta.unit_cost) || 0;
+        const opening = Number(row.opening) || 0;
+        const purchases = Number(row.purchases) || 0;
+        const usedExp = Number(row.used_expected) || 0;
+        const waste = Number(row.wastage) || 0;
+        const closeTh = Number(row.closing_theoretical) || (opening + purchases - usedExp - waste);
+        const closeAct = Number(row.closing_actual) || 0;
+        const variance = closeTh - closeAct;
+        const varValue = variance * cost;
+
+        TIC += usedExp * cost;
+        AIC += (opening + purchases - closeAct) * cost;
+        wastageCost += waste * cost;
+
+        if (varValue > 0) { // Positive variance means actual is less than theoretical -> a loss
+            varianceLoss += varValue;
+        }
+    }
+
+    const salesTotal = Number(sales.total) || 0;
+    const fcTheo = salesTotal ? (TIC / salesTotal) * 100 : 0;
+    const fcActual = salesTotal ? (AIC / salesTotal) * 100 : 0;
+
+    const kpis = {
+        salesTotal: round2(salesTotal),
+        foodCostActualPct: round2(fcActual),
+        foodCostTheoreticalPct: round2(fcTheo),
+        varianceLoss: round2(varianceLoss),
+        profitEstimateActual: round2(salesTotal - AIC),
+        profitEstimateTheoretical: round2(salesTotal - TIC),
+        theoreticalCogs: round2(TIC),
+        actualCogs: round2(AIC),
+        wastageCost: round2(wastageCost)
+    };
+    
+    await db.ref(`reports/daily/${date}/kpis`).set({
+        ...kpis,
+        _meta: { computedAt: new Date().toISOString() }
+    });
+
+    return kpis;
+}
+
+
 async function updateFinancialKPIs() {
     const selectedDate = panelRoot.querySelector('#stock-date-picker').value;
-    const salesRef = db.ref(`sales/${selectedDate}`);
-    const stockCountRef = db.ref(`stockCounts/${selectedDate}`);
-    const ingredientsRef = db.ref('ingredients');
-
     try {
-        const [salesSnapshot, stockCountSnapshot, ingredientsSnapshot] = await Promise.all([
-            salesRef.once('value'),
-            stockCountRef.once('value'),
-            ingredientsRef.once('value')
-        ]);
-
-        const salesData = salesSnapshot.exists() ? salesSnapshot.val() : {
-            total: 0
-        };
-        const stockCountData = stockCountSnapshot.exists() ? stockCountSnapshot.val() : {};
-        const ingredientsData = ingredientsSnapshot.exists() ? ingredientsSnapshot.val() : {};
-
-        let totalSales = salesData.total || 0;
-        let ingredientCost = 0;
-        let totalLossValue = 0;
-        let lowStockItems = 0;
-
-        for (const id in ingredientsData) {
-            const ingredient = ingredientsData[id];
-            const closingStock = stockCountData[id]?.closing_actual;
-            if (closingStock !== undefined && closingStock < ingredient.low_stock_threshold) {
-                lowStockItems++;
-            }
+        const kpis = await computeDailyKpis(selectedDate);
+        
+        const salesEl = panelRoot.querySelector('#todays-sales');
+        const lossEl = panelRoot.querySelector('#todays-loss');
+        const foodCostEl = panelRoot.querySelector('#food-cost');
+        
+        if (salesEl) salesEl.textContent = `${kpis.salesTotal.toFixed(2)} MAD`;
+        if (lossEl) lossEl.textContent = `${kpis.varianceLoss.toFixed(2)} MAD`;
+        if (foodCostEl) {
+             foodCostEl.textContent = `${kpis.foodCostActualPct.toFixed(2)}%`;
+             foodCostEl.parentElement.title = `Theoretical Food Cost: ${kpis.foodCostTheoreticalPct.toFixed(2)}%`;
         }
 
-        for (const ingId in stockCountData) {
-            const count = stockCountData[ingId];
-            const ingredient = ingredientsData[ingId];
-            if (ingredient) {
-                ingredientCost += count.used_expected * (ingredient.unit_cost || 0);
-                if (count.variance < 0) {
-                    totalLossValue += Math.abs(count.variance) * (ingredient.unit_cost || 0);
-                }
-            }
+        const footer = panelRoot.querySelector('#daily-count-footer');
+        if (footer) {
+            footer.innerHTML = `
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
+                    <div class="bg-gray-100 p-2 rounded-lg" title="Theoretical Cost of Goods Sold"><p class="text-xs font-semibold text-gray-500">TIC</p><p class="font-bold text-lg">${kpis.theoreticalCogs.toFixed(2)}</p></div>
+                    <div class="bg-gray-100 p-2 rounded-lg" title="Actual Cost of Goods Sold"><p class="text-xs font-semibold text-gray-500">AIC</p><p class="font-bold text-lg">${kpis.actualCogs.toFixed(2)}</p></div>
+                    <div class="bg-orange-50 p-2 rounded-lg" title="Total cost of wastage"><p class="text-xs font-semibold text-orange-600">Wastage Cost</p><p class="font-bold text-lg">${kpis.wastageCost.toFixed(2)}</p></div>
+                    <div class="bg-red-50 p-2 rounded-lg" title="Monetary value of stock variance/loss"><p class="text-xs font-semibold text-red-600">Variance Loss</p><p class="font-bold text-lg text-red-600">${kpis.varianceLoss.toFixed(2)}</p></div>
+                    <div class="bg-green-50 p-2 rounded-lg col-span-2 md:col-span-1" title="Profit based on Actual Costs"><p class="text-xs font-semibold text-green-600">Profit (Actual)</p><p class="font-bold text-lg text-green-600">${kpis.profitEstimateActual.toFixed(2)}</p></div>
+                     <div class="bg-green-50 p-2 rounded-lg" title="Profit based on Theoretical Costs"><p class="text-xs font-semibold text-green-600">Profit (Theoretical)</p><p class="font-bold text-lg text-green-600">${kpis.profitEstimateTheoretical.toFixed(2)}</p></div>
+                </div>`;
+            footer.classList.remove('hidden');
         }
-
-        const foodCostPercentage = totalSales > 0 ? (ingredientCost / totalSales) * 100 : 0;
-
-        panelRoot.querySelector('#todays-sales').textContent = `${totalSales.toFixed(2)} MAD`;
-        panelRoot.querySelector('#todays-loss').textContent = `${totalLossValue.toFixed(2)} MAD`;
-        panelRoot.querySelector('#food-cost').textContent = `${foodCostPercentage.toFixed(2)}%`;
-        panelRoot.querySelector('#low-stock-items').textContent = lowStockItems;
-
     } catch (error) {
         console.error("Error updating financial KPIs:", error);
     }
 }
+
+
+// --- OTHER FUNCTIONS (Analytics, Modals, etc.) ---
+// ... (rest of the file remains the same, no changes needed below this line for this request)
+
 
 // --- ANALYTICS & REPORTING ---
 function destroyCharts() {
@@ -377,24 +464,19 @@ function printReport() {
 }
 
 
-// --- RECIPE MANAGEMENT FUNCTIONS ---
+// --- RECIPE MANAGEMENT FUNCTIONS (NEW) ---
+
+// Helper function to create a single recipe row in the main table
 function createRecipeRow(menuItemId, recipeData) {
-    const menuItem = menuItemsCache[menuItemId] || {
-        name: 'Unknown Item'
-    };
-    let ingredientsSummary = 'No ingredients set.';
-
-    if (recipeData.ingredients && Object.keys(recipeData.ingredients).length > 0) {
-        ingredientsSummary = Object.entries(recipeData.ingredients).map(([ingId, data]) => {
-            const ingredient = ingredientsCache[ingId];
-            return ingredient ? `${data.qty} ${ingredient.unit} ${ingredient.name}` : 'Unknown Ingredient';
-        }).join(', ');
-    }
-
+    const menuItem = menuItemsCache[menuItemId] || { name: 'Unknown Item' };
+    const sizes = Object.keys(recipeData).filter(k => !k.startsWith('_')).join(', ') || 'Default only';
+    const lastUpdated = recipeData._meta ? new Date(recipeData._meta.updatedAt).toLocaleString() : 'N/A';
+    
     return `
         <tr class="hover:bg-gray-50" data-item-id="${menuItemId}" data-item-name="${menuItem.name}">
             <td class="p-3 font-medium">${menuItem.name}</td>
-            <td class="p-3 text-sm text-gray-600">${ingredientsSummary}</td>
+            <td class="p-3 text-sm text-gray-600">${sizes}</td>
+            <td class="p-3 text-sm text-gray-500">${lastUpdated} (v${recipeData._meta?.version || 1})</td>
             <td class="p-3 text-center">
                 <button class="edit-recipe-btn bg-blue-500 text-white px-3 py-1 text-xs rounded-md hover:bg-blue-600">Edit</button>
                 <button class="delete-recipe-btn bg-red-500 text-white px-3 py-1 text-xs rounded-md hover:bg-red-600 ml-2">Delete</button>
@@ -406,7 +488,7 @@ function createRecipeRow(menuItemId, recipeData) {
 async function loadAndRenderRecipes() {
     const recipesTbody = panelRoot.querySelector('#recipes-tbody');
     if (!recipesTbody) return;
-    recipesTbody.innerHTML = '<tr><td colspan="3" class="text-center p-6"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+    recipesTbody.innerHTML = '<tr><td colspan="4" class="text-center p-6"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
 
     try {
         const recipesSnapshot = await db.ref('recipes').once('value');
@@ -417,54 +499,69 @@ async function loadAndRenderRecipes() {
                 .map(([menuItemId, recipeData]) => createRecipeRow(menuItemId, recipeData))
                 .join('');
         } else {
-            recipesTbody.innerHTML = '<tr><td colspan="3" class="text-center p-6 text-gray-500">No recipes found. Click "Add Recipe" to start.</td></tr>';
+            recipesTbody.innerHTML = '<tr><td colspan="4" class="text-center p-6 text-gray-500">No recipes found. Click "Add Recipe" to start.</td></tr>';
         }
     } catch (error) {
         console.error("Error loading recipe data:", error);
-        recipesTbody.innerHTML = '<tr><td colspan="3" class="text-center p-6 text-red-500">Could not load recipes.</td></tr>';
+        recipesTbody.innerHTML = '<tr><td colspan="4" class="text-center p-6 text-red-500">Could not load recipes.</td></tr>';
     }
 }
 
+// Function to open and populate the recipe editing/creation modal
 function openRecipeModal(menuItemId = null) {
     currentRecipeMenuItemId = menuItemId;
-    recipeForm.reset();
-    panelRoot.querySelector('#recipe-ingredients-list').innerHTML = '<p class="text-gray-500 p-4 text-center">Add ingredients from the left.</p>';
+    const form = recipeModal.querySelector('#recipe-form');
+    form.reset();
+    form.dataset.currentItemId = menuItemId || '';
 
-    const menuItemSelect = panelRoot.querySelector('#menu-item-select');
+    const menuItemSelect = form.querySelector('#menu-item-select');
     menuItemSelect.innerHTML = '<option value="">-- Select a Menu Item --</option>';
-
+    
+    // Populate menu items dropdown
     Object.entries(menuItemsCache).forEach(([id, item]) => {
+        // Allow selecting the item if we are editing it, or if it doesn't have a recipe yet
         if (!recipesCache[id] || id === menuItemId) {
             const option = new Option(item.name, id);
             menuItemSelect.add(option);
         }
     });
 
-    const availableList = panelRoot.querySelector('#available-ingredients');
-    availableList.innerHTML = Object.entries(ingredientsCache).map(([id, data]) => `
-        <div class="flex justify-between items-center p-2 hover:bg-gray-100 rounded-md">
-            <span>${data.name} (${data.unit})</span>
-            <button type="button" class="add-ingredient-to-recipe-btn text-green-500 hover:text-green-700 text-lg" data-id="${id}"><i class="fas fa-plus-circle"></i></button>
-        </div>
-    `).join('');
-
-    if (menuItemId) {
+    if (menuItemId && menuItemsCache[menuItemId]) {
         panelRoot.querySelector('#recipe-modal-title').textContent = `Edit Recipe for ${menuItemsCache[menuItemId].name}`;
         menuItemSelect.value = menuItemId;
         menuItemSelect.disabled = true;
-
+        
         const recipeData = recipesCache[menuItemId];
-        if (recipeData && recipeData.ingredients) {
-            const recipeList = panelRoot.querySelector('#recipe-ingredients-list');
-            recipeList.innerHTML = '';
-            Object.entries(recipeData.ingredients).forEach(([ingId, data]) => {
-                addIngredientToRecipeList(ingId, data.qty);
-            });
+        const sizes = Object.keys(recipeData).filter(k => !k.startsWith('_'));
+        form.querySelector('#recipe-sizes-input').value = sizes.join(',');
+        
+        // This will trigger the tab generation
+        generateRecipeTabs(); 
+        
+        // Populate the form fields with existing data
+        for (const variant in recipeData) {
+            if (variant.startsWith('_')) continue;
+            const ingredients = recipeData[variant];
+            for(const ingId in ingredients) {
+                addIngredientToRecipeList(ingId, ingredients[ingId].qty, variant);
+            }
         }
+        // handle _default separately
+        if(recipeData._default) {
+             for(const ingId in recipeData._default) {
+                addIngredientToRecipeList(ingId, recipeData._default[ingId].qty, '_default');
+            }
+        }
+        
     } else {
         panelRoot.querySelector('#recipe-modal-title').textContent = 'Add New Recipe';
         menuItemSelect.disabled = false;
+        generateRecipeTabs(); // Generate with default
     }
+
+    // Switch to the default tab and calculate initial cost
+    switchRecipeTab('_default');
+    calculateRecipeCost();
     recipeModal.classList.remove('hidden');
 }
 
@@ -473,53 +570,166 @@ function closeRecipeModal() {
     currentRecipeMenuItemId = null;
 }
 
-function addIngredientToRecipeList(ingredientId, quantity = 0.1) {
-    const recipeList = panelRoot.querySelector('#recipe-ingredients-list');
-    if (!ingredientsCache[ingredientId]) return;
+// Generates the tabs inside the recipe modal based on the sizes input
+function generateRecipeTabs() {
+    const sizesInput = recipeModal.querySelector('#recipe-sizes-input').value;
+    const sizes = sizesInput.split(',').map(s => s.trim()).filter(Boolean);
+    const nav = recipeModal.querySelector('#recipe-tabs-nav');
+    const content = recipeModal.querySelector('#recipe-tabs-content');
 
-    if (recipeList.querySelector(`[data-id="${ingredientId}"]`)) return;
-    if (recipeList.querySelector('p')) recipeList.innerHTML = '';
+    nav.innerHTML = `<button type="button" data-tab="_default" class="recipe-tab-btn px-4 py-2 text-sm font-medium rounded-md">Base Recipe</button>`;
+    content.innerHTML = `<div data-pane="_default" class="recipe-tab-pane space-y-2"></div>`;
 
-    const ingredientData = ingredientsCache[ingredientId];
-    const div = document.createElement('div');
-    div.className = 'flex justify-between items-center p-2 bg-blue-50 rounded-md';
-    div.dataset.id = ingredientId;
-    div.innerHTML = `
-        <span class="font-semibold">${ingredientData.name}</span>
-        <div class="flex items-center gap-2">
-            <input type="number" step="0.01" value="${quantity}" class="recipe-qty-input w-20 p-1 border rounded-md text-right">
-            <span class="text-sm text-gray-600">${ingredientData.unit}</span>
-            <button type="button" class="remove-ingredient-from-recipe-btn text-red-500 hover:text-red-700 text-lg"><i class="fas fa-minus-circle"></i></button>
-        </div>
-    `;
-    recipeList.appendChild(div);
+    sizes.forEach(size => {
+        nav.innerHTML += `<button type="button" data-tab="${size}" class="recipe-tab-btn px-4 py-2 text-sm font-medium rounded-md">${size}</button>`;
+        content.innerHTML += `<div data-pane="${size}" class="recipe-tab-pane space-y-2 hidden"></div>`;
+    });
+
+    // Add ingredient button will be appended to each pane when it becomes active
 }
 
+// Switches the visible tab in the recipe modal
+function switchRecipeTab(tabId) {
+    recipeModal.querySelectorAll('.recipe-tab-btn').forEach(btn => btn.classList.remove('bg-blue-600', 'text-white'));
+    recipeModal.querySelector(`[data-tab="${tabId}"]`).classList.add('bg-blue-600', 'text-white');
+
+    recipeModal.querySelectorAll('.recipe-tab-pane').forEach(pane => pane.classList.add('hidden'));
+    const activePane = recipeModal.querySelector(`[data-pane="${tabId}"]`);
+    activePane.classList.remove('hidden');
+
+    // Ensure the "Add Ingredient" button is in the active pane
+    if (!activePane.querySelector('.add-ingredient-row-btn')) {
+         const addBtn = document.createElement('button');
+         addBtn.type = 'button';
+         addBtn.textContent = 'Add Ingredient';
+         addBtn.className = 'add-ingredient-row-btn text-sm bg-gray-200 px-3 py-1 rounded-md hover:bg-gray-300 mt-2';
+         addBtn.dataset.variant = tabId;
+         activePane.appendChild(addBtn);
+    }
+    
+    calculateRecipeCost(); // Recalculate cost when tab switches
+}
+
+
+// Adds a new, empty ingredient row to the currently active recipe tab
+function addIngredientToRecipeList(ingredientId = '', quantity = '', variant) {
+    const container = recipeModal.querySelector(`[data-pane="${variant}"]`);
+    if (!container) return;
+
+    const row = document.createElement('div');
+    row.className = 'ingredient-row flex items-center gap-2';
+
+    let options = '<option value="">Select Ingredient...</option>';
+    for (const id in ingredientsCache) {
+        options += `<option value="${id}" ${id === ingredientId ? 'selected' : ''}>${ingredientsCache[id].name}</option>`;
+    }
+
+    row.innerHTML = `
+        <select class="ingredient-select flex-grow p-2 border rounded-md bg-white">${options}</select>
+        <input type="number" step="0.001" value="${quantity}" class="ingredient-qty w-24 p-2 border rounded-md" placeholder="Qty">
+        <span class="ingredient-unit text-sm text-gray-500 w-12">${ingredientId ? ingredientsCache[ingredientId]?.unit || '' : ''}</span>
+        <button type="button" class="remove-ingredient-row-btn text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button>
+    `;
+    
+    // Insert before the "Add Ingredient" button if it exists
+    const addBtn = container.querySelector('.add-ingredient-row-btn');
+    if (addBtn) {
+        container.insertBefore(row, addBtn);
+    } else {
+        container.appendChild(row);
+    }
+}
+
+// Calculates and displays the live cost of the recipe being edited
+function calculateRecipeCost() {
+    const previewEl = recipeModal.querySelector('#recipe-cost-preview');
+    let totalCost = 0;
+    
+    const baseIngredients = {};
+    recipeModal.querySelectorAll('[data-pane="_default"] .ingredient-row').forEach(row => {
+        const id = row.querySelector('.ingredient-select').value;
+        const qty = parseFloat(row.querySelector('.ingredient-qty').value) || 0;
+        if (id && ingredientsCache[id]) {
+            baseIngredients[id] = qty;
+            totalCost += qty * (ingredientsCache[id].unit_cost || 0);
+        }
+    });
+
+    const activeTabId = recipeModal.querySelector('.recipe-tab-btn.bg-blue-600').dataset.tab;
+    if (activeTabId !== '_default') {
+        // For size variants, we only consider overrides. The brief implies overrides, not additive ingredients.
+        // A more complex UI would show inherited values. For now, we calculate based on what's entered.
+        // Let's adjust: the cost should reflect the full cost of the VARIANT, inheriting from default.
+        const variantCost = { ...baseIngredients };
+        recipeModal.querySelectorAll(`[data-pane="${activeTabId}"] .ingredient-row`).forEach(row => {
+             const id = row.querySelector('.ingredient-select').value;
+             const qty = parseFloat(row.querySelector('.ingredient-qty').value) || 0;
+             if (id) {
+                variantCost[id] = qty; // Override or add new
+             }
+        });
+        
+        totalCost = 0;
+        for(const id in variantCost) {
+            totalCost += variantCost[id] * (ingredientsCache[id]?.unit_cost || 0);
+        }
+    }
+    
+    previewEl.textContent = `${totalCost.toFixed(2)} MAD`;
+}
+
+
+// Saves the recipe from the modal to Firebase
 async function handleSaveRecipe(e) {
     e.preventDefault();
-    const menuItemId = currentRecipeMenuItemId || panelRoot.querySelector('#menu-item-select').value;
+    const menuItemId = e.target.dataset.currentItemId || recipeModal.querySelector('#menu-item-select').value;
     if (!menuItemId) {
         alert('Please select a menu item.');
         return;
     }
 
-    const ingredientRows = panelRoot.querySelectorAll('#recipe-ingredients-list [data-id]');
-    const recipeData = {
-        name: menuItemsCache[menuItemId].name,
-        ingredients: {}
+    const recipeToSave = {};
+    const baseRecipe = {};
+    
+    // Process base recipe
+    recipeModal.querySelectorAll('[data-pane="_default"] .ingredient-row').forEach(row => {
+        const id = row.querySelector('.ingredient-select').value;
+        const qty = parseFloat(row.querySelector('.ingredient-qty').value);
+        if (id && !isNaN(qty)) {
+            baseRecipe[id] = { qty, unit: ingredientsCache[id].unit };
+        }
+    });
+    if (Object.keys(baseRecipe).length > 0) {
+        recipeToSave._default = baseRecipe;
+    }
+
+    // Process size variants
+    const sizes = recipeModal.querySelector('#recipe-sizes-input').value.split(',').map(s => s.trim()).filter(Boolean);
+    sizes.forEach(size => {
+        const sizeRecipe = {};
+        recipeModal.querySelectorAll(`[data-pane="${size}"] .ingredient-row`).forEach(row => {
+             const id = row.querySelector('.ingredient-select').value;
+             const qty = parseFloat(row.querySelector('.ingredient-qty').value);
+             // Only save if it's different from the base recipe
+             if (id && !isNaN(qty) && (!baseRecipe[id] || baseRecipe[id].qty !== qty)) {
+                 sizeRecipe[id] = { qty, unit: ingredientsCache[id].unit };
+             }
+        });
+        if (Object.keys(sizeRecipe).length > 0) {
+            recipeToSave[size] = sizeRecipe;
+        }
+    });
+    
+    // Versioning and metadata
+    const currentVersion = recipesCache[menuItemId]?._meta?.version || 0;
+    recipeToSave._meta = {
+        version: currentVersion + 1,
+        updatedAt: new Date().toISOString(),
+        updatedBy: 'admin' // Placeholder
     };
 
-    ingredientRows.forEach(row => {
-        const id = row.dataset.id;
-        const qty = parseFloat(row.querySelector('.recipe-qty-input').value);
-        if (!isNaN(qty)) recipeData.ingredients[id] = {
-            qty,
-            unit: ingredientsCache[id].unit
-        };
-    });
-
     try {
-        await db.ref(`recipes/${menuItemId}`).set(recipeData);
+        await db.ref(`recipes/${menuItemId}`).set(recipeToSave);
         alert('Recipe saved successfully!');
         closeRecipeModal();
         loadAndRenderRecipes();
@@ -528,13 +738,6 @@ async function handleSaveRecipe(e) {
     }
 }
 
-function filterIngredients(query) {
-    const items = panelRoot.querySelectorAll('#available-ingredients > div');
-    items.forEach(item => {
-        const itemText = item.textContent.toLowerCase();
-        item.style.display = itemText.includes(query) ? '' : 'none';
-    });
-}
 
 // --- INGREDIENT, DAILY COUNT, SALES, WAREHOUSE FUNCTIONS ---
 async function loadSalesData() {
@@ -615,43 +818,28 @@ async function loadDailyCountData() {
     if (!dailyTbody) return;
     dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6"><i class="fas fa-spinner fa-spin mr-2"></i>Loading data...</td></tr>';
 
+    currentStockDate = panelRoot.querySelector('#stock-date-picker').value;
     const selectedDateObj = new Date(currentStockDate);
-    const dayStart = selectedDateObj.toISOString().split('T')[0];
     selectedDateObj.setDate(selectedDateObj.getDate() - 1);
     const prevDateStr = selectedDateObj.toISOString().split('T')[0];
 
     try {
-        const [ingSnapshot, recSnapshot, prevStockSnapshot, currentStockSnapshot, ordersSnapshot] = await Promise.all([
+        const [ingSnapshot, prevStockSnapshot, currentStockSnapshot] = await Promise.all([
             db.ref('ingredients').once('value'),
-            db.ref('recipes').once('value'),
             db.ref(`stockCounts/${prevDateStr}`).once('value'),
-            db.ref(`stockCounts/${currentStockDate}`).once('value'), 
-            db.ref('orders').orderByChild('timestamp').startAt(dayStart).endAt(dayStart + '\uf8ff').once('value')
+            db.ref(`stockCounts/${currentStockDate}`).once('value')
         ]);
+        
+        // This function now runs first, so we need to ensure caches are populated
+        if (ingSnapshot.exists()) ingredientsCache = ingSnapshot.val();
 
-        ingredientsCache = ingSnapshot.exists() ? ingSnapshot.val() : {};
-        recipesCache = recSnapshot.exists() ? recSnapshot.val() : {};
+        await calculateExpectedUsageForDate(currentStockDate);
+        const expectedUsageSnap = await db.ref(`stockCounts/${currentStockDate}`).once('value');
+
         const prevStock = prevStockSnapshot.exists() ? prevStockSnapshot.val() : {};
         const currentStock = currentStockSnapshot.exists() ? currentStockSnapshot.val() : {}; 
+        const expectedUsageData = expectedUsageSnap.val() || {};
 
-        const theoreticalUsage = {};
-        if (ordersSnapshot.exists()) {
-            const orders = ordersSnapshot.val();
-            for (const orderId in orders) {
-                const order = orders[orderId];
-                if (order.cart) {
-                    for (const item of order.cart) {
-                        const recipe = recipesCache[item.id];
-                        if (recipe && recipe.ingredients) {
-                            for (const ingredientId in recipe.ingredients) {
-                                const recipeIngredient = recipe.ingredients[ingredientId];
-                                theoreticalUsage[ingredientId] = (theoreticalUsage[ingredientId] || 0) + (recipeIngredient.qty * item.quantity);
-                            }
-                        }
-                    }
-                }
-            }
-        }
 
         if (Object.keys(ingredientsCache).length === 0) {
             dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6 text-gray-500">No ingredients defined. Please add ingredients first.</td></tr>';
@@ -662,7 +850,7 @@ async function loadDailyCountData() {
         for (const ingId in ingredientsCache) {
             const ingredient = ingredientsCache[ingId];
             const openingStock = prevStock[ingId]?.closing_actual ?? ingredient.stock_level ?? 0;
-            const usedExpected = theoreticalUsage[ingId] || 0;
+            const usedExpected = expectedUsageData[ingId]?.used_expected || 0;
 
             const savedData = currentStock[ingId] || {};
             const purchases = savedData.purchases ?? 0;
@@ -707,6 +895,8 @@ async function loadDailyCountData() {
             });
             if (saveBtn) saveBtn.style.display = "block";
         }
+        
+        updateFinancialKPIs(); // Update KPIs after loading count data
 
     } catch (error) {
         console.error("Error loading daily count data:", error);
@@ -736,28 +926,50 @@ function calculateRow(row) {
 }
 
 async function saveDailyCount() {
+    const date = panelRoot.querySelector('#stock-date-picker').value;
+    // Step 1: Calculate expected usage based on sales
+    await calculateExpectedUsageForDate(date);
+
+    // Step 2: Read the newly calculated usage and save the full daily count
     const saveData = {};
     const rows = panelRoot.querySelectorAll('#daily-count-tbody tr[data-id]');
+    
+    // Re-fetch the expected usage as it might have just been updated
+    const expectedUsageSnap = await db.ref(`stockCounts/${date}`).once('value');
+    const expectedUsageData = expectedUsageSnap.val() || {};
+
     rows.forEach(row => {
         const id = row.dataset.id;
+        
+        // Use the newly calculated expected usage
+        const usedExpected = expectedUsageData[id]?.used_expected || 0;
+        row.querySelector('[data-used]').textContent = usedExpected.toFixed(2);
+        
+        // Recalculate the row with the new data before saving
+        calculateRow(row); 
+
         const varianceText = row.querySelector('[data-variance]').textContent;
         const closingActualValue = row.querySelector('.closing-actual-input').value;
 
         saveData[id] = {
             opening: parseFloat(row.querySelector('[data-opening]').textContent) || 0,
             purchases: parseFloat(row.querySelector('.purchases-input').value) || 0,
-            used_expected: parseFloat(row.querySelector('[data-used]').textContent) || 0,
+            used_expected: usedExpected,
             wastage: parseFloat(row.querySelector('.wastage-input').value) || 0,
             closing_theoretical: parseFloat(row.querySelector('[data-closing-theory]').textContent) || 0,
             closing_actual: closingActualValue === '' ? 0 : parseFloat(closingActualValue),
             variance: !isNaN(parseFloat(varianceText)) ? parseFloat(varianceText) : 0
         };
     });
+
     if (Object.keys(saveData).length > 0) {
         try {
-            await db.ref(`stockCounts/${currentStockDate}`).set(saveData);
-            alert(`Stock count for ${currentStockDate} saved successfully!`);
-            updateFinancialKPIs();
+            // Merge data to preserve the _recipeVersionUsed key
+            await db.ref(`stockCounts/${date}`).update(saveData);
+            alert(`Stock count for ${date} saved and finalized successfully!`);
+            
+            // Step 3: Compute KPIs and update UI
+            await updateFinancialKPIs();
         } catch (error) {
             console.error("Error saving stock count:", error);
             alert("Failed to save stock count.");
@@ -880,7 +1092,7 @@ export function loadPanel(root, panelTitle) {
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Sales for Date</h4><p id="todays-sales" class="text-2xl font-bold">0 MAD</p></div>
             <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Loss Value for Date</h4><p id="todays-loss" class="text-2xl font-bold text-red-500">0 MAD</p></div>
-            <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Food Cost % for Date</h4><p id="food-cost" class="text-2xl font-bold">0%</p></div>
+            <div class="bg-white p-5 rounded-xl shadow-lg" title="Theoretical Food Cost: 0%"><h4 class="text-sm text-gray-500">Food Cost % (Actual)</h4><p id="food-cost" class="text-2xl font-bold">0%</p></div>
             <div class="bg-white p-5 rounded-xl shadow-lg"><h4 class="text-sm text-gray-500">Low Stock Items</h4><p id="low-stock-items" class="text-2xl font-bold">0</p></div>
         </div>
         <div class="bg-white rounded-xl shadow-lg p-6">
@@ -902,8 +1114,8 @@ export function loadPanel(root, panelTitle) {
             </div>
 
             <div id="recipes-section" class="tab-content" style="display: none;">
-                 <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-gray-800">Menu Recipes</h3><button id="add-recipe-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition"><i class="fas fa-plus mr-2"></i>Add Recipe</button></div>
-                 <div class="overflow-x-auto"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-xs font-semibold uppercase">Menu Item</th><th class="p-3 text-left text-xs font-semibold uppercase">Linked Ingredients</th><th class="p-3 text-center text-xs font-semibold uppercase">Actions</th></tr></thead><tbody id="recipes-tbody" class="divide-y"></tbody></table></div>
+                 <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-gray-800">Menu Recipes (Bill of Materials)</h3><button id="add-recipe-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition"><i class="fas fa-plus mr-2"></i>Add Recipe</button></div>
+                 <div class="overflow-x-auto"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-xs font-semibold uppercase">Menu Item</th><th class="p-3 text-left text-xs font-semibold uppercase">Variants/Sizes</th><th class="p-3 text-left text-xs font-semibold uppercase">Last Updated (Version)</th><th class="p-3 text-center text-xs font-semibold uppercase">Actions</th></tr></thead><tbody id="recipes-tbody" class="divide-y"></tbody></table></div>
             </div>
             
             <div id="daily-count-section" class="tab-content" style="display: none;">
@@ -914,10 +1126,11 @@ export function loadPanel(root, panelTitle) {
                      </div>
                      <div class="flex gap-2">
                           <button id="generate-report-btn" class="bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition"><i class="fas fa-file-alt mr-2"></i>Generate Report</button>
-                          <button id="save-daily-count-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Count</button>
+                          <button id="save-daily-count-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Finalize & Save Count</button>
                      </div>
                  </div>
                  <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-gray-50"><tr><th class="p-2 text-left">Ingredient</th><th class="p-2 text-center">Opening</th><th class="p-2 text-center">Purchases</th><th class="p-2 text-center">Used (Theory)</th><th class="p-2 text-center">Wastage</th><th class="p-2 text-center">Closing (Theory)</th><th class="p-2 text-center">Closing (Actual)</th><th class="p-2 text-center">Variance</th></tr></thead><tbody id="daily-count-tbody" class="divide-y"></tbody></table></div>
+                 <div id="daily-count-footer" class="mt-4 pt-4 border-t hidden"></div>
             </div>
 
             <div id="sales-input-section" class="tab-content" style="display: none;">
@@ -959,7 +1172,28 @@ export function loadPanel(root, panelTitle) {
         </div>
         
         <div id="recipe-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
-             <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-3xl flex flex-col" style="max-height: 90vh;"><h3 id="recipe-modal-title" class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3">Add New Recipe</h3><form id="recipe-form" class="flex-grow overflow-hidden flex flex-col"><div class="flex-grow overflow-y-auto pr-4 space-y-4"><div><label for="menu-item-select" class="block text-sm font-medium text-gray-700">Select Menu Item</label><select id="menu-item-select" required class="w-full mt-1 p-2 border rounded-md bg-white"></select></div><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div><h4 class="font-semibold mb-2 text-gray-700">Available Ingredients</h4><input type="text" id="ingredient-search" placeholder="Search ingredients..." class="w-full p-2 border rounded-md mb-2"><div id="available-ingredients" class="h-64 overflow-y-auto border p-2 rounded-md bg-gray-50"></div></div><div><h4 class="font-semibold mb-2 text-gray-700">Recipe Ingredients</h4><div id="recipe-ingredients-list" class="h-64 overflow-y-auto border p-2 rounded-md space-y-2"><p class="text-gray-500 p-4 text-center">Add ingredients from the left.</p></div></div></div></div><div class="flex-shrink-0 flex justify-end gap-4 pt-4 border-t mt-4"><button type="button" id="cancel-recipe-modal-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Save Recipe</button></div></form></div>
+             <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-3xl flex flex-col" style="max-height: 90vh;">
+                <h3 id="recipe-modal-title" class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3">Add New Recipe</h3>
+                <form id="recipe-form" class="flex-grow overflow-hidden flex flex-col">
+                    <div class="flex-grow overflow-y-auto pr-4 space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label for="menu-item-select" class="block text-sm font-medium">Menu Item</label><select id="menu-item-select" required class="w-full mt-1 p-2 border rounded-md bg-white"></select></div>
+                            <div><label for="recipe-sizes-input" class="block text-sm font-medium">Sizes (optional, comma-separated)</label><input type="text" id="recipe-sizes-input" placeholder="e.g. S,M,L" class="w-full mt-1 p-2 border rounded-md"></div>
+                        </div>
+                        <div class="border-t pt-4">
+                            <div id="recipe-tabs-nav" class="flex items-center gap-2 border-b mb-4"></div>
+                            <div id="recipe-tabs-content"></div>
+                        </div>
+                    </div>
+                    <div class="flex-shrink-0 flex justify-between items-center gap-4 pt-4 border-t mt-4">
+                        <div class="text-lg font-bold">Live Cost Preview: <span id="recipe-cost-preview" class="text-green-600">0.00 MAD</span></div>
+                        <div class="flex gap-2">
+                           <button type="button" id="cancel-recipe-modal-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                           <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Save Recipe</button>
+                        </div>
+                    </div>
+                </form>
+             </div>
         </div>
     `;
 
@@ -980,10 +1214,43 @@ export function loadPanel(root, panelTitle) {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
 
+    // --- NEW RECIPE EVENT LISTENERS ---
     panelRoot.querySelector('#add-recipe-btn')?.addEventListener('click', () => openRecipeModal());
     panelRoot.querySelector('#cancel-recipe-modal-btn')?.addEventListener('click', closeRecipeModal);
     recipeForm?.addEventListener('submit', handleSaveRecipe);
-    panelRoot.querySelector('#ingredient-search')?.addEventListener('input', (e) => filterIngredients(e.target.value.toLowerCase()));
+    
+    // Delegate events for dynamic recipe modal content
+    recipeModal.addEventListener('click', (e) => {
+        if (e.target.classList.contains('recipe-tab-btn')) {
+            switchRecipeTab(e.target.dataset.tab);
+        }
+        if (e.target.closest('.add-ingredient-row-btn')) {
+            addIngredientToRecipeList('', '', e.target.closest('.add-ingredient-row-btn').dataset.variant);
+        }
+        if (e.target.closest('.remove-ingredient-row-btn')) {
+            e.target.closest('.ingredient-row').remove();
+            calculateRecipeCost();
+        }
+    });
+
+    recipeModal.addEventListener('change', (e) => {
+        if(e.target.id === 'recipe-sizes-input') {
+            generateRecipeTabs();
+            switchRecipeTab('_default');
+        }
+        if(e.target.classList.contains('ingredient-select')) {
+            const unitEl = e.target.closest('.ingredient-row').querySelector('.ingredient-unit');
+            const ingredient = ingredientsCache[e.target.value];
+            unitEl.textContent = ingredient ? ingredient.unit : '';
+            calculateRecipeCost();
+        }
+    });
+     recipeModal.addEventListener('input', (e) => {
+        if(e.target.classList.contains('ingredient-qty')) {
+            calculateRecipeCost();
+        }
+    });
+
 
     panelRoot.querySelector('#generate-report-btn')?.addEventListener('click', generateEndOfDayReport);
     document.getElementById('close-report-btn')?.addEventListener('click', () => reportModal.classList.add('hidden'));
@@ -1048,13 +1315,9 @@ export function loadPanel(root, panelTitle) {
     }
 
     panelRoot.addEventListener('click', (e) => {
-        const addBtn = e.target.closest('.add-ingredient-to-recipe-btn');
-        const removeBtn = e.target.closest('.remove-ingredient-from-recipe-btn');
         const editRecipeBtn = e.target.closest('.edit-recipe-btn');
         const deleteRecipeBtn = e.target.closest('.delete-recipe-btn');
 
-        if (addBtn) addIngredientToRecipeList(addBtn.dataset.id);
-        if (removeBtn) removeBtn.closest('[data-id]').remove();
         if (editRecipeBtn) openRecipeModal(editRecipeBtn.closest('tr').dataset.itemId);
         if (deleteRecipeBtn) {
             const row = deleteRecipeBtn.closest('tr');
@@ -1069,15 +1332,24 @@ export function loadPanel(root, panelTitle) {
 
     // Initialize the panel
     (async () => {
-        await Promise.all([loadAndRenderIngredients(), db.ref('menu').once('value').then(snap => {
-            if (snap.exists()) {
-                const menu = snap.val();
-                for (const catId in menu) {
-                    if (menu[catId].items) Object.assign(menuItemsCache, menu[catId].items);
+        await Promise.all([
+            // Fetch ingredients first as they are needed for recipes
+            db.ref('ingredients').once('value').then(snap => {
+                 if (snap.exists()) ingredientsCache = snap.val();
+            }),
+            // Fetch all menu items (not just by category)
+            db.ref('menu').once('value').then(snap => {
+                if (snap.exists()) {
+                    const menu = snap.val();
+                    for (const catId in menu) {
+                        if (menu[catId].items) Object.assign(menuItemsCache, menu[catId].items);
+                    }
                 }
-            }
-        })]);
+            })
+        ]);
+        // Now that caches are populated, initialize the UI
         switchTab('ingredients');
         updateFinancialKPIs();
     })();
 }
+
