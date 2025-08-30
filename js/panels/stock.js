@@ -1125,7 +1125,7 @@ async function handleSaveIngredient(e) {
 
 function loadAndRenderIngredients() {
     const ingredientsTbody = panelRoot.querySelector('#ingredients-tbody');
-    const ingredientsRef = db.ref('ingredients');
+    const ingredientsRef = db.ref("ingredients");
     ingredientsRef.on('value', (snapshot) => {
         if (!ingredientsTbody) return;
         ingredientsTbody.innerHTML = '';
