@@ -1,4 +1,8 @@
 // /js/panels/stock.js
+// --- LIBRARIES & ICONS ---
+// Ensure jsPDF and XLSX are loaded in dashboard.html
+const { jsPDF } = window.jspdf;
+const XLSX = window.XLSX;
 
 let db; // Use a module-scoped variable, assigned in loadPanel
 
@@ -13,9 +17,15 @@ let currentStockDate = new Date().toISOString().split('T')[0];
 let charts = {}; // To hold chart instances
 
 // --- UI ELEMENT REFERENCES ---
-let ingredientModal, ingredientForm, modalTitle, panelRoot, recipeModal, recipeForm, reportModal;
+let ingredientModal, ingredientForm, modalTitle, panelRoot, recipeModal, recipeForm, reportModal, eodModal, confirmationModal;
 
 // --- UTILITY & HELPER FUNCTIONS ---
+
+function getYesterdayDateString() {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday.toISOString().split('T')[0];
+}
 
 const toBase = {
     g: { unit: 'kg', factor: 1 / 1000 },
@@ -43,6 +53,276 @@ function round2(n) {
     return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+// --- END OF DAY WORKFLOW (ELEMENT 3) ---
+
+/**
+ * Fetches all necessary data for the End-of-Day modal and displays it.
+ * @param {string} date - The date for the report in YYYY-MM-DD format.
+ */
+async function showEndOfDayModal(date) {
+    const modal = document.getElementById('report-modal');
+    const title = document.getElementById('report-modal-title');
+    const content = document.getElementById('report-modal-content');
+    const footer = document.getElementById('report-modal-footer');
+
+    if (!modal || !title || !content || !footer) {
+        console.error("EOD Modal elements not found in dashboard.html");
+        return;
+    }
+
+    title.textContent = `End of Day Summary for ${date}`;
+    content.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Fetching daily data...</p></div>`;
+    footer.innerHTML = `<button id="close-report-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Close</button>`;
+    modal.classList.remove('hidden');
+
+    try {
+        const [kpisSnap, stockSnap, salesSnap, ingredientsSnap, lockSnap] = await Promise.all([
+            db.ref(`reports/daily/${date}/kpis`).once('value'),
+            db.ref(`stockCounts/${date}`).once('value'),
+            db.ref(`sales/${date}`).once('value'),
+            db.ref('ingredients').once('value'),
+            db.ref(`reports/daily/${date}/locked`).once('value')
+        ]);
+
+        const kpis = kpisSnap.val() || {};
+        const stockCounts = stockSnap.val() || {};
+        const sales = salesSnap.val() || {};
+        const ingredients = ingredientsSnap.val() || {};
+        const isLocked = lockSnap.val() === true;
+        const user = firebase.auth().currentUser;
+        const idTokenResult = await user.getIdTokenResult();
+        const isAdmin = idTokenResult.claims.admin || idTokenResult.claims.role === 'admin' || idTokenResult.claims.role === 'owner';
+
+        // Calculate top 5 ingredient variances by loss value
+        const variances = Object.entries(stockCounts)
+            .map(([ingId, data]) => {
+                const ingredient = ingredients[ingId];
+                if (!ingredient || data.variance >= 0) return null;
+                return {
+                    name: ingredient.name,
+                    lossValue: Math.abs(data.variance * (ingredient.unit_cost || 0))
+                };
+            })
+            .filter(v => v && v.lossValue > 0)
+            .sort((a, b) => b.lossValue - a.lossValue)
+            .slice(0, 5);
+
+        // Build Modal HTML
+        const kpisHtml = `
+            <div class="p-4 bg-gray-50 rounded-lg">
+                <h4 class="font-bold text-lg mb-2">Financial Summary</h4>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <span class="font-semibold">Total Sales:</span><span class="text-right font-bold text-green-600">${(kpis.salesTotal || 0).toFixed(2)} MAD</span>
+                    <span class="font-semibold">Actual Food Cost %:</span><span class="text-right">${(kpis.foodCostActualPct || 0).toFixed(2)}%</span>
+                    <span class="font-semibold">Theoretical Food Cost %:</span><span class="text-right">${(kpis.foodCostTheoreticalPct || 0).toFixed(2)}%</span>
+                    <span class="font-semibold">Wastage Cost:</span><span class="text-right text-orange-600">${(kpis.wastageCost || 0).toFixed(2)} MAD</span>
+                    <span class="font-semibold">Variance Loss:</span><span class="text-right text-red-600">${(kpis.varianceLoss || 0).toFixed(2)} MAD</span>
+                    <span class="font-bold border-t pt-2 mt-1">Actual Profit:</span><span class="text-right font-bold border-t pt-2 mt-1">${(kpis.profitEstimateActual || 0).toFixed(2)} MAD</span>
+                </div>
+            </div>
+        `;
+        const salesHtml = `
+            <div>
+                <h4 class="font-bold text-lg mb-2">Sales Breakdown</h4>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                    <span>Platform Sales:</span><span class="text-right">${(sales.platform || 0).toFixed(2)} MAD</span>
+                    <span>Glovo Sales:</span><span class="text-right">${(sales.glovo || 0).toFixed(2)} MAD</span>
+                    <span>In-House Sales:</span><span class="text-right">${(sales.regular || 0).toFixed(2)} MAD</span>
+                </div>
+            </div>
+        `;
+        const varianceHtml = `
+            <div>
+                <h4 class="font-bold text-lg mb-2">Top 5 Ingredient Losses</h4>
+                ${variances.length > 0 ? `
+                    <ul class="space-y-1 text-sm">
+                        ${variances.map(v => `<li class="flex justify-between"><span>${v.name}</span><span class="text-red-500 font-semibold">${v.lossValue.toFixed(2)} MAD</span></li>`).join('')}
+                    </ul>` : '<p class="text-sm text-gray-500">No significant losses recorded.</p>'
+                }
+            </div>
+        `;
+
+        content.innerHTML = `<div class="space-y-6">${kpisHtml}${salesHtml}${varianceHtml}</div>`;
+        
+        // Update Footer with appropriate actions
+        footer.innerHTML = `
+            <button onclick="window.stockFunctions.exportReport('pdf', '${date}')" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm"><i class="fas fa-file-pdf mr-1"></i> PDF</button>
+            <button onclick="window.stockFunctions.exportReport('excel', '${date}')" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm"><i class="fas fa-file-excel mr-1"></i> Excel</button>
+            <div class="flex-grow"></div>
+        `;
+        
+        if (isAdmin) {
+             if (isLocked) {
+                footer.innerHTML += `<button onclick="window.stockFunctions.unlockDay('${date}')" class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 font-bold"><i class="fas fa-unlock mr-2"></i>Unlock Day</button>`;
+             } else {
+                footer.innerHTML += `<button onclick="window.stockFunctions.confirmAndLockDay('${date}')" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 font-bold"><i class="fas fa-lock mr-2"></i>Confirm & Lock Day</button>`;
+             }
+        }
+        
+        footer.innerHTML += `<button id="close-report-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Close</button>`;
+        document.getElementById('close-report-btn').addEventListener('click', () => modal.classList.add('hidden'));
+
+    } catch (error) {
+        console.error("Error showing EOD modal:", error);
+        content.innerHTML = `<p class="text-red-500">Could not load daily summary. Error: ${error.message}</p>`;
+    }
+}
+
+/**
+ * Locks the day's records to prevent further edits.
+ * @param {string} date - The date to lock.
+ */
+async function confirmAndLockDay(date) {
+    if (!confirm(`Are you sure you want to lock all records for ${date}? This cannot be undone by regular staff.`)) {
+        return;
+    }
+    const user = firebase.auth().currentUser;
+    const updates = {
+        [`/reports/daily/${date}/locked`]: true,
+        [`/reports/daily/${date}/audit/closedBy`]: user.uid,
+        [`/reports/daily/${date}/audit/closedByEmail`]: user.email,
+        [`/reports/daily/${date}/audit/closedAt`]: new Date().toISOString()
+    };
+    try {
+        await db.ref().update(updates);
+        alert(`Day ${date} has been locked successfully.`);
+        document.getElementById('report-modal').classList.add('hidden');
+        loadDailyCountData(); // Refresh UI to show locked status
+    } catch (error) {
+        alert(`Failed to lock day: ${error.message}`);
+    }
+}
+
+/**
+ * Unlocks a previously locked day (Admin/Owner only).
+ * @param {string} date - The date to unlock.
+ */
+async function unlockDay(date) {
+    if (!confirm(`ADMIN ACTION: Are you sure you want to UNLOCK records for ${date}?`)) {
+        return;
+    }
+    const user = firebase.auth().currentUser;
+    const updates = {
+        [`/reports/daily/${date}/locked`]: false, // Use false to indicate unlocked
+        [`/reports/daily/${date}/audit/unlockedBy`]: user.uid,
+        [`/reports/daily/${date}/audit/unlockedByEmail`]: user.email,
+        [`/reports/daily/${date}/audit/unlockedAt`]: new Date().toISOString()
+    };
+    try {
+        await db.ref().update(updates);
+        alert(`Day ${date} has been unlocked.`);
+        document.getElementById('report-modal').classList.add('hidden');
+        loadDailyCountData(); // Refresh UI
+    } catch (error) {
+        alert(`Failed to unlock day: ${error.message}`);
+    }
+}
+
+/**
+ * Exports the daily report to either PDF or Excel.
+ * @param {'pdf'|'excel'} format - The desired export format.
+ * @param {string} date - The date of the report.
+ */
+async function exportReport(format, date) {
+    // Fetch all data needed for the report
+    const [kpisSnap, stockSnap, salesSnap, ingredientsSnap] = await Promise.all([
+        db.ref(`reports/daily/${date}/kpis`).once('value'),
+        db.ref(`stockCounts/${date}`).once('value'),
+        db.ref('ingredients').once('value')
+    ]);
+
+    const kpis = kpisSnap.val() || {};
+    const stockCounts = stockSnap.val() || {};
+    const ingredients = ingredientsSnap.val() || {};
+
+    if (format === 'pdf') {
+        const doc = new jsPDF();
+        doc.setFontSize(18);
+        doc.text(`Daily Report – ${date}`, 10, 15);
+        
+        doc.setFontSize(12);
+        doc.text("Financial Summary", 10, 30);
+        doc.autoTable({
+            startY: 35,
+            body: [
+                ['Total Sales', `${(kpis.salesTotal || 0).toFixed(2)} MAD`],
+                ['Actual Food Cost %', `${(kpis.foodCostActualPct || 0).toFixed(2)}%`],
+                ['Variance Loss', `${(kpis.varianceLoss || 0).toFixed(2)} MAD`],
+                ['Estimated Profit', `${(kpis.profitEstimateActual || 0).toFixed(2)} MAD`],
+            ],
+            theme: 'striped',
+        });
+
+        const allVariances = Object.entries(stockCounts)
+            .map(([ingId, data]) => ({
+                name: ingredients[ingId]?.name || 'Unknown',
+                variance: data.variance,
+                unit: ingredients[ingId]?.unit,
+                value: data.variance * (ingredients[ingId]?.unit_cost || 0)
+            }));
+            
+        doc.text("Full Ingredient Variance", 10, doc.autoTable.previous.finalY + 15);
+        doc.autoTable({
+             head: [['Ingredient', 'Variance Qty', 'Variance Value (MAD)']],
+             body: allVariances.map(v => [v.name, `${v.variance.toFixed(2)} ${v.unit}`, v.value.toFixed(2)]),
+             startY: doc.autoTable.previous.finalY + 20,
+        });
+
+        doc.save(`report-${date}.pdf`);
+
+    } else if (format === 'excel') {
+        const summaryData = [{
+            Metric: "Total Sales (MAD)", Value: (kpis.salesTotal || 0)
+        }, {
+            Metric: "Actual Food Cost %", Value: (kpis.foodCostActualPct || 0)
+        }, {
+            Metric: "Theoretical Food Cost %", Value: (kpis.foodCostTheoreticalPct || 0)
+        }, {
+            Metric: "Variance Loss (MAD)", Value: (kpis.varianceLoss || 0)
+        }, {
+            Metric: "Wastage Cost (MAD)", Value: (kpis.wastageCost || 0)
+        }, {
+             Metric: "Estimated Profit (MAD)", Value: (kpis.profitEstimateActual || 0)
+        }];
+
+        const varianceData = Object.entries(stockCounts).map(([ingId, data]) => {
+             const ingredient = ingredients[ingId] || {};
+             return {
+                'Ingredient': ingredient.name,
+                'Unit': ingredient.unit,
+                'Opening Stock': data.opening,
+                'Purchases': data.purchases,
+                'Used (Theoretical)': data.used_expected,
+                'Wastage': data.wastage,
+                'Closing (Theoretical)': data.closing_theoretical,
+                'Closing (Actual)': data.closing_actual,
+                'Variance': data.variance,
+                'Cost/Unit (MAD)': ingredient.unit_cost,
+                'Variance Value (MAD)': data.variance * (ingredient.unit_cost || 0)
+             };
+        });
+        
+        const wb = XLSX.utils.book_new();
+        const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+        const wsVariance = XLSX.utils.json_to_sheet(varianceData);
+        
+        XLSX.utils.book_append_sheet(wb, wsSummary, "Financial Summary");
+        XLSX.utils.book_append_sheet(wb, wsVariance, "Ingredient Variances");
+        
+        XLSX.writeFile(wb, `report-${date}.xlsx`);
+    }
+}
+
+// Make functions accessible from inline event handlers
+window.stockFunctions = {
+    showEndOfDayModal,
+    confirmAndLockDay,
+    unlockDay,
+    exportReport
+};
+// --- END OF ELEMENT 3 ---
+
+
 async function checkAndDisplayAlerts() {
     const alertsContainer = panelRoot.querySelector('#alerts-container');
     if (!alertsContainer) return;
@@ -52,25 +332,28 @@ async function checkAndDisplayAlerts() {
     const selectedDate = panelRoot.querySelector('#stock-date-picker').value;
 
     try {
-        const [ingredientsSnapshot, stockCountSnapshot] = await Promise.all([
+        const [ingredientsSnapshot, stockCountSnapshot, lockSnap] = await Promise.all([
             db.ref('ingredients').once('value'),
-            db.ref(`stockCounts/${selectedDate}`).once('value')
+            db.ref(`stockCounts/${selectedDate}`).once('value'),
+            db.ref(`reports/daily/${getYesterdayDateString()}/locked`).once('value')
         ]);
+        
+        // Unclosed day alert is now in dashboard.js
 
         const ingredients = ingredientsSnapshot.val() || {};
         const stockCounts = stockCountSnapshot.val() || {};
 
-        // 1. Low Stock Alerts (based on the closing stock of the selected day)
+        // 1. Low Stock Alerts
         let lowStockAlerts = '';
         for (const id in ingredients) {
             const ing = ingredients[id];
-            const closingStock = stockCounts[id]?.closing_actual;
-            if (closingStock !== undefined && closingStock < ing.low_stock_threshold) {
-                lowStockAlerts += `<li class="p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg"><strong>Low Stock:</strong> ${ing.name} is at ${closingStock} ${ing.unit} (Threshold: ${ing.low_stock_threshold} ${ing.unit}).</li>`;
+            // Use current live stock level for this alert
+            if (ing.stock_level < ing.low_stock_threshold) {
+                lowStockAlerts += `<li class="p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg"><strong>Low Stock:</strong> ${ing.name} is at ${ing.stock_level} ${ing.unit} (Threshold: ${ing.low_stock_threshold} ${ing.unit}).</li>`;
             }
         }
         if (lowStockAlerts) {
-            alertsHtml += `<div><h4 class="font-bold text-lg mb-2 text-yellow-700">Low Stock Warnings</h4><ul class="space-y-2">${lowStockAlerts}</ul></div>`;
+            alertsHtml += `<div><h4 class="font-bold text-lg mb-2 text-yellow-700">Live Low Stock Warnings</h4><ul class="space-y-2">${lowStockAlerts}</ul></div>`;
         }
 
         // 2. High Variance Alerts
@@ -267,29 +550,29 @@ async function computeDailyKpis(date) {
         const waste = Number(row.wastage) || 0;
         const closeTh = Number(row.closing_theoretical) || (opening + purchases - usedExp - waste);
         const closeAct = Number(row.closing_actual) || 0;
-        const variance = closeTh - closeAct;
+        const variance = closeAct - closeTh;
         const varValue = variance * cost;
 
         TIC += usedExp * cost;
-        AIC += (opening + purchases - closeAct) * cost;
+        AIC += (opening + purchases - closeAct - waste) * cost; // Correct AIC
         wastageCost += waste * cost;
 
-        if (varValue > 0) { // Positive variance (actual < theoretical) is a loss.
-            varianceLoss += varValue;
+        if (varValue < 0) { // Negative variance value is a loss
+            varianceLoss += Math.abs(varValue);
         }
     }
 
     const salesTotal = Number(sales.total) || 0;
     const fcTheo = salesTotal ? (TIC / salesTotal) * 100 : 0;
-    const fcActual = salesTotal ? (AIC / salesTotal) * 100 : 0;
+    const fcActual = salesTotal ? ((AIC + wastageCost) / salesTotal) * 100 : 0;
 
     const kpis = {
         salesTotal: round2(salesTotal),
         foodCostActualPct: round2(fcActual),
         foodCostTheoreticalPct: round2(fcTheo),
         varianceLoss: round2(varianceLoss),
-        profitEstimateActual: round2(salesTotal - AIC),
-        profitEstimateTheoretical: round2(salesTotal - TIC - varianceLoss), // Refined profit
+        profitEstimateActual: round2(salesTotal - AIC - wastageCost),
+        profitEstimateTheoretical: round2(salesTotal - TIC), 
         theoreticalCogs: round2(TIC),
         actualCogs: round2(AIC),
         wastageCost: round2(wastageCost)
@@ -476,76 +759,360 @@ function renderYearlyReport(yearlyData) {
 }
 
 
-// --- END-OF-DAY REPORT ---
-async function generateEndOfDayReport() {
-    const reportDate = panelRoot.querySelector('#stock-date-picker').value;
-    const reportModal = document.getElementById('report-modal');
-    const reportTitle = document.getElementById('report-modal-title');
-    const reportContent = document.getElementById('report-modal-content');
+// --- INGREDIENT, DAILY COUNT, SALES, WAREHOUSE FUNCTIONS ---
+async function loadSalesData() {
+    const salesDate = panelRoot.querySelector('#sales-date-picker').value;
+    const salesRef = db.ref(`sales/${salesDate}`);
+    const lockRef = db.ref(`reports/daily/${salesDate}/locked`);
 
-    reportTitle.textContent = `End of Day Report for ${reportDate}`;
-    reportContent.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Generating report...</p></div>`;
-    reportModal.classList.remove('hidden');
+    const form = panelRoot.querySelector('#sales-form');
+    const inputs = form.querySelectorAll('input');
+    const saveBtn = form.querySelector('#save-sales-btn');
 
     try {
-        const [salesSnapshot, stockCountSnapshot, ingredientsSnapshot] = await Promise.all([
-            db.ref(`sales/${reportDate}`).once('value'),
-            db.ref(`stockCounts/${reportDate}`).once('value'),
-            db.ref('ingredients').once('value')
-        ]);
+        const [snapshot, lockSnap] = await Promise.all([salesRef.once('value'), lockRef.once('value')]);
+        const isLocked = lockSnap.val() === true;
 
-        const sales = salesSnapshot.val() || {
-            total: 0,
-            platform: 0,
-            glovo: 0,
-            regular: 0
-        };
-        const stockCounts = stockCountSnapshot.val() || {};
-        const ingredients = ingredientsSnapshot.val() || {};
+        if (snapshot.exists()) {
+            const data = snapshot.val();
+            panelRoot.querySelector('#platform-sales').value = data.platform || 0;
+            panelRoot.querySelector('#glovo-sales').value = data.glovo || 0;
+            panelRoot.querySelector('#regular-sales').value = data.regular || 0;
+        } else {
+            form.reset();
+        }
+        updateTotalSales();
 
-        let totalLossValue = 0,
-            ingredientCost = 0,
-            varianceRows = '',
-            wastageRows = '';
-
-        for (const ingId in stockCounts) {
-            const count = stockCounts[ingId];
-            const ingredient = ingredients[ingId];
-            if (!ingredient) continue;
-
-            ingredientCost += count.used_expected * (ingredient.unit_cost || 0);
-
-            if (count.variance !== 0) {
-                const varianceValue = count.variance * (ingredient.unit_cost || 0);
-                if (varianceValue < 0) totalLossValue += Math.abs(varianceValue);
-                const varianceColor = count.variance < 0 ? 'text-red-600' : 'text-green-600';
-                varianceRows += `<tr><td class="py-1 px-2">${ingredient.name}</td><td class="py-1 px-2 text-center ${varianceColor}">${count.variance.toFixed(2)} ${ingredient.unit}</td><td class="py-1 px-2 text-right ${varianceColor}">${varianceValue.toFixed(2)} MAD</td></tr>`;
-            }
-
-            if (count.wastage > 0) {
-                const wastageValue = count.wastage * (ingredient.unit_cost || 0);
-                wastageRows += `<tr><td class="py-1 px-2">${ingredient.name}</td><td class="py-1 px-2 text-center">${count.wastage.toFixed(2)} ${ingredient.unit}</td><td class="py-1 px-2 text-right">${wastageValue.toFixed(2)} MAD</td></tr>`;
-            }
+        // Apply lock based on date
+        if (isLocked) {
+            inputs.forEach(input => {
+                if (input.type !== 'date') {
+                    input.readOnly = true;
+                    input.classList.add("bg-gray-100", "cursor-not-allowed");
+                }
+            });
+            if (saveBtn) saveBtn.style.display = "none";
+        } else {
+            inputs.forEach(input => {
+                input.readOnly = false;
+                input.classList.remove("bg-gray-100", "cursor-not-allowed");
+            });
+            if (saveBtn) saveBtn.style.display = "block";
         }
 
-        const profitEstimate = sales.total - ingredientCost - totalLossValue;
-
-        reportContent.innerHTML = `
-            <div class="space-y-6 text-sm">
-                <div class="p-4 bg-gray-50 rounded-lg"><h4 class="font-bold text-lg mb-2">Financial Summary</h4><div class="grid grid-cols-2 gap-x-4 gap-y-2"><span class="font-semibold">Total Sales:</span><span class="text-right font-bold text-green-600">${sales.total.toFixed(2)} MAD</span><span class="font-semibold">Ingredient Cost:</span><span class="text-right">-${ingredientCost.toFixed(2)} MAD</span><span class="font-semibold">Variance Loss:</span><span class="text-right text-red-600">-${totalLossValue.toFixed(2)} MAD</span><span class="font-bold border-t pt-2 mt-1">Estimated Profit:</span><span class="text-right font-bold border-t pt-2 mt-1">${profitEstimate.toFixed(2)} MAD</span></div></div>
-                <div><h4 class="font-bold text-lg mb-2">Sales Breakdown</h4><div class="grid grid-cols-2 gap-x-4 gap-y-1"><span>Platform Sales:</span><span class="text-right">${(sales.platform || 0).toFixed(2)} MAD</span><span>Glovo Sales:</span><span class="text-right">${(sales.glovo || 0).toFixed(2)} MAD</span><span>In-House Sales:</span><span class="text-right">${(sales.regular || 0).toFixed(2)} MAD</span></div></div>
-                <div><h4 class="font-bold text-lg mb-2">Stock Variance Report</h4>${varianceRows ? `<table class="w-full"><thead><tr class="bg-gray-100"><th class="text-left px-2 py-1">Item</th><th class="text-center px-2 py-1">Qty Var.</th><th class="text-right px-2 py-1">Value Var.</th></tr></thead><tbody>${varianceRows}</tbody></table>` : '<p>No variances recorded.</p>'}</div>
-                <div><h4 class="font-bold text-lg mb-2">Wastage Report</h4>${wastageRows ? `<table class="w-full"><thead><tr class="bg-gray-100"><th class="text-left px-2 py-1">Item</th><th class="text-center px-2 py-1">Qty</th><th class="text-right px-2 py-1">Value</th></tr></thead><tbody>${wastageRows}</tbody></table>` : '<p>No wastage recorded.</p>'}</div>
-            </div>
-        `;
     } catch (error) {
-        console.error("Error generating report:", error);
-        reportContent.innerHTML = `<p class="text-red-500">Could not generate report. Error: ${error.message}</p>`;
+        console.error("Error loading sales data:", error);
+        alert("Could not load sales data.");
     }
 }
 
-function printReport() {
-    window.print();
+
+function updateTotalSales() {
+    const platform = parseFloat(panelRoot.querySelector('#platform-sales').value) || 0;
+    const glovo = parseFloat(panelRoot.querySelector('#glovo-sales').value) || 0;
+    const regular = parseFloat(panelRoot.querySelector('#regular-sales').value) || 0;
+    const total = platform + glovo + regular;
+    panelRoot.querySelector('#total-sales-display').textContent = `${total.toFixed(2)} MAD`;
+}
+
+async function saveSalesData(e) {
+    e.preventDefault();
+    const salesDate = panelRoot.querySelector('#sales-date-picker').value;
+    
+    const lockSnap = await db.ref(`reports/daily/${salesDate}/locked`).once('value');
+    if (lockSnap.val() === true) {
+        alert("This day is locked and cannot be edited.");
+        return;
+    }
+
+    const salesData = {
+        platform: parseFloat(panelRoot.querySelector('#platform-sales').value) || 0,
+        glovo: parseFloat(panelRoot.querySelector('#glovo-sales').value) || 0,
+        regular: parseFloat(panelRoot.querySelector('#regular-sales').value) || 0,
+        total: 0
+    };
+    salesData.total = salesData.platform + salesData.glovo + salesData.regular;
+    try {
+        await db.ref(`sales/${salesDate}`).set(salesData);
+        alert(`Sales for ${salesDate} saved successfully!`);
+        updateFinancialKPIs();
+    } catch (error) {
+        console.error("Error saving sales data:", error);
+        alert("Failed to save sales data.");
+    }
+}
+
+async function loadDailyCountData() {
+    const dailyTbody = panelRoot.querySelector('#daily-count-tbody');
+    if (!dailyTbody) return;
+    dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6"><i class="fas fa-spinner fa-spin mr-2"></i>Loading data...</td></tr>';
+
+    currentStockDate = panelRoot.querySelector('#stock-date-picker').value;
+    const selectedDateObj = new Date(currentStockDate);
+    selectedDateObj.setDate(selectedDateObj.getDate() - 1);
+    const prevDateStr = selectedDateObj.toISOString().split('T')[0];
+
+    try {
+        const [ingSnapshot, prevStockSnapshot, currentStockSnapshot, lockSnap] = await Promise.all([
+            db.ref('ingredients').once('value'),
+            db.ref(`stockCounts/${prevDateStr}`).once('value'),
+            db.ref(`stockCounts/${currentStockDate}`).once('value'),
+            db.ref(`reports/daily/${currentStockDate}/locked`).once('value')
+        ]);
+        
+        if (ingSnapshot.exists()) ingredientsCache = ingSnapshot.val();
+
+        await calculateExpectedUsageForDate(currentStockDate, recipesCache, modifiersCache);
+        const expectedUsageSnap = await db.ref(`stockCounts/${currentStockDate}`).once('value');
+
+        const prevStock = prevStockSnapshot.exists() ? prevStockSnapshot.val() : {};
+        const currentStock = currentStockSnapshot.exists() ? currentStockSnapshot.val() : {}; 
+        const expectedUsageData = expectedUsageSnap.val() || {};
+        const isLocked = lockSnap.val() === true;
+
+
+        if (Object.keys(ingredientsCache).length === 0) {
+            dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6 text-gray-500">No ingredients defined. Please add ingredients first.</td></tr>';
+            return;
+        }
+
+        let tableHtml = '';
+        for (const ingId in ingredientsCache) {
+            const ingredient = ingredientsCache[ingId];
+            const openingStock = prevStock[ingId]?.closing_actual ?? ingredient.stock_level ?? 0;
+            const usedExpected = expectedUsageData[ingId]?.used_expected || 0;
+
+            const savedData = currentStock[ingId] || {};
+            const purchases = savedData.purchases ?? 0;
+            const wastage = savedData.wastage ?? 0;
+            const closingActual = savedData.closing_actual ?? ''; 
+
+            tableHtml += `
+                <tr data-id="${ingId}">
+                    <td class="p-2 font-medium">${ingredient.name} <span class="text-xs text-gray-400">(${ingredient.unit})</span></td>
+                    <td class="p-2 text-center" data-opening>${openingStock.toFixed(2)}</td>
+                    <td class="p-2"><input type="number" step="0.1" value="${purchases}" class="daily-input purchases-input w-20 p-1 border rounded text-right"></td>
+                    <td class="p-2 text-center" data-used>${usedExpected.toFixed(2)}</td>
+                    <td class="p-2"><input type="number" step="0.1" value="${wastage}" class="daily-input wastage-input w-20 p-1 border rounded text-right"></td>
+                    <td class="p-2 text-center font-bold" data-closing-theory>0.00</td>
+                    <td class="p-2"><input type="number" step="0.1" value="${closingActual}" class="daily-input closing-actual-input w-20 p-1 border rounded text-right bg-yellow-50"></td>
+                    <td class="p-2 text-center font-semibold" data-variance>0.00</td>
+                </tr>`;
+        }
+        dailyTbody.innerHTML = tableHtml;
+
+        dailyTbody.querySelectorAll('tr[data-id]').forEach(row => {
+            calculateRow(row); 
+            row.querySelectorAll('.daily-input').forEach(input => {
+                input.addEventListener('input', () => calculateRow(row));
+            });
+        });
+
+        const saveBtn = panelRoot.querySelector('#save-daily-count-btn');
+        const closeDayBtn = panelRoot.querySelector('#close-day-btn');
+        const lockedIndicator = panelRoot.querySelector('#locked-day-indicator');
+
+        if (isLocked) {
+            dailyTbody.querySelectorAll(".daily-input").forEach(input => {
+                input.readOnly = true;
+                input.classList.add("bg-gray-100", "cursor-not-allowed");
+            });
+            if (saveBtn) saveBtn.style.display = "none";
+            if (closeDayBtn) closeDayBtn.textContent = 'View Summary & Unlock';
+            if (lockedIndicator) lockedIndicator.classList.remove('hidden');
+        } else {
+            dailyTbody.querySelectorAll(".daily-input").forEach(input => {
+                input.readOnly = false;
+                input.classList.remove("bg-gray-100", "cursor-not-allowed");
+            });
+            if (saveBtn) saveBtn.style.display = "block";
+            if (closeDayBtn) closeDayBtn.textContent = 'Close Day...';
+            if (lockedIndicator) lockedIndicator.classList.add('hidden');
+        }
+        
+        updateFinancialKPIs(); 
+
+    } catch (error) {
+        console.error("Error loading daily count data:", error);
+        dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6 text-red-500">Failed to load data.</td></tr>';
+    }
+}
+
+
+function calculateRow(row) {
+    const opening = parseFloat(row.querySelector('[data-opening]').textContent) || 0;
+    const purchases = parseFloat(row.querySelector('.purchases-input').value) || 0;
+    const used = parseFloat(row.querySelector('[data-used]').textContent) || 0;
+    const wastage = parseFloat(row.querySelector('.wastage-input').value) || 0;
+    const closingActualInput = row.querySelector('.closing-actual-input');
+    const closingActual = closingActualInput.value === '' ? null : parseFloat(closingActualInput.value);
+    const closingTheoretical = opening + purchases - used - wastage;
+    const variance = (closingActual !== null) ? closingActual - closingTheoretical : 0;
+    const closingTheoryEl = row.querySelector('[data-closing-theory]');
+    const varianceEl = row.querySelector('[data-variance]');
+    if (closingTheoryEl) closingTheoryEl.textContent = closingTheoretical.toFixed(2);
+    if (varianceEl) varianceEl.textContent = (closingActual !== null) ? variance.toFixed(2) : '...';
+    if (varianceEl) {
+        varianceEl.classList.remove('text-green-600', 'text-red-600');
+        if (variance > 0) varianceEl.classList.add('text-green-600');
+        else if (variance < 0) varianceEl.classList.add('text-red-600');
+    }
+}
+
+async function saveDailyCount() {
+    const date = panelRoot.querySelector('#stock-date-picker').value;
+
+    const lockSnap = await db.ref(`reports/daily/${date}/locked`).once('value');
+    if (lockSnap.val() === true) {
+        alert("This day is locked and cannot be edited.");
+        return;
+    }
+
+    await calculateExpectedUsageForDate(date, recipesCache, modifiersCache);
+
+    const saveData = {};
+    const rows = panelRoot.querySelectorAll('#daily-count-tbody tr[data-id]');
+    
+    const expectedUsageSnap = await db.ref(`stockCounts/${date}`).once('value');
+    const expectedUsageData = expectedUsageSnap.val() || {};
+
+    rows.forEach(row => {
+        const id = row.dataset.id;
+        
+        const usedExpected = expectedUsageData[id]?.used_expected || 0;
+        row.querySelector('[data-used]').textContent = usedExpected.toFixed(2);
+        
+        calculateRow(row); 
+
+        const varianceText = row.querySelector('[data-variance]').textContent;
+        const closingActualValue = row.querySelector('.closing-actual-input').value;
+
+        saveData[id] = {
+            opening: parseFloat(row.querySelector('[data-opening]').textContent) || 0,
+            purchases: parseFloat(row.querySelector('.purchases-input').value) || 0,
+            used_expected: usedExpected,
+            wastage: parseFloat(row.querySelector('.wastage-input').value) || 0,
+            closing_theoretical: parseFloat(row.querySelector('[data-closing-theory]').textContent) || 0,
+            closing_actual: closingActualValue === '' ? 0 : parseFloat(closingActualValue),
+            variance: !isNaN(parseFloat(varianceText)) ? parseFloat(varianceText) : 0
+        };
+    });
+
+    if (Object.keys(saveData).length > 0) {
+        try {
+            await db.ref(`stockCounts/${date}`).update(saveData);
+            alert(`Stock count for ${date} saved and finalized successfully!`);
+            await updateFinancialKPIs();
+        } catch (error) {
+            console.error("Error saving stock count:", error);
+            alert("Failed to save stock count.");
+        }
+    }
+}
+
+function createIngredientRow(ingredientId, ingredientData) {
+    const {
+        name,
+        category,
+        unit,
+        unit_cost,
+        supplier,
+        low_stock_threshold
+    } = ingredientData;
+    const isLowStock = ingredientData.stock_level && low_stock_threshold && ingredientData.stock_level < low_stock_threshold;
+    return `<tr class="hover:bg-gray-50 transition ${isLowStock ? 'bg-yellow-50' : ''}" data-id="${ingredientId}"><td class="p-3 font-medium text-gray-800">${name || 'N/A'}</td><td class="p-3 text-sm text-gray-600">${category || 'N/A'}</td><td class="p-3 text-sm text-center">${ingredientData.stock_level || 0} ${unit || ''}</td><td class="p-3 text-sm">${(unit_cost || 0).toFixed(2)} MAD</td><td class="p-3 text-sm text-gray-500">${supplier || 'N/A'}</td><td class="p-3 text-center"><button class="edit-ingredient-btn bg-blue-500 text-white px-3 py-1 text-xs rounded-md hover:bg-blue-600">Edit</button><button class="delete-ingredient-btn bg-red-500 text-white px-3 py-1 text-xs rounded-md hover:bg-red-600 ml-2">Delete</button></td></tr>`;
+}
+
+function openIngredientModal(ingredientId = null) {
+    editingIngredientId = ingredientId;
+    ingredientForm.reset();
+    if (ingredientId && ingredientsCache[ingredientId]) {
+        modalTitle.textContent = 'Edit Ingredient';
+        const data = ingredientsCache[ingredientId];
+        panelRoot.querySelector('#ingredient-name').value = data.name || '';
+        panelRoot.querySelector('#ingredient-category').value = data.category || '';
+        panelRoot.querySelector('#ingredient-unit').value = data.unit || '';
+        panelRoot.querySelector('#ingredient-unit-cost').value = data.unit_cost || 0;
+        panelRoot.querySelector('#ingredient-supplier').value = data.supplier || '';
+        panelRoot.querySelector('#ingredient-stock-level').value = data.stock_level || 0;
+        panelRoot.querySelector('#low-stock-threshold').value = data.low_stock_threshold || 0;
+    } else {
+        modalTitle.textContent = 'Add New Ingredient';
+    }
+    ingredientModal.classList.remove('hidden');
+}
+
+function closeIngredientModal() {
+    ingredientModal.classList.add('hidden');
+    editingIngredientId = null;
+}
+
+async function handleSaveIngredient(e) {
+    e.preventDefault();
+    const saveBtn = ingredientForm.querySelector('button[type="submit"]');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+    const ingredientData = {
+        name: panelRoot.querySelector('#ingredient-name').value.trim(),
+        category: panelRoot.querySelector('#ingredient-category').value.trim(),
+        unit: panelRoot.querySelector('#ingredient-unit').value.trim(),
+        unit_cost: parseFloat(panelRoot.querySelector('#ingredient-unit-cost').value) || 0,
+        supplier: panelRoot.querySelector('#ingredient-supplier').value.trim(),
+        stock_level: parseFloat(panelRoot.querySelector('#ingredient-stock-level').value) || 0,
+        low_stock_threshold: parseFloat(panelRoot.querySelector('#low-stock-threshold').value) || 0
+    };
+    try {
+        let dbRef;
+        if (editingIngredientId) {
+            dbRef = db.ref(`ingredients/${editingIngredientId}`);
+            await dbRef.update(ingredientData);
+        } else {
+            ingredientData.last_restocked = new Date().toISOString();
+            dbRef = db.ref('ingredients').push();
+            await dbRef.set(ingredientData);
+        }
+        closeIngredientModal();
+    } catch (error) {
+        console.error("Error saving ingredient:", error);
+        alert("Could not save ingredient. See console for details.");
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Ingredient';
+    }
+}
+
+function loadAndRenderIngredients() {
+    const ingredientsTbody = panelRoot.querySelector('#ingredients-tbody');
+    const ingredientsRef = db.ref("ingredients");
+    ingredientsRef.on('value', (snapshot) => {
+        if (!ingredientsTbody) return;
+        ingredientsTbody.innerHTML = '';
+        if (snapshot.exists()) {
+            ingredientsCache = snapshot.val();
+            let rowsHtml = '';
+            for (const id in ingredientsCache) {
+                rowsHtml += createIngredientRow(id, ingredientsCache[id]);
+            }
+            ingredientsTbody.innerHTML = rowsHtml;
+        } else {
+            ingredientsCache = {};
+            ingredientsTbody.innerHTML = '<tr><td colspan="6" class="text-center p-6 text-gray-500">No ingredients found. Add one to get started!</td></tr>';
+        }
+    });
+}
+
+function handleTableClick(e) {
+    const target = e.target;
+    const row = target.closest('tr');
+    if (!row) return;
+    const ingredientId = row.dataset.id;
+    if (target.classList.contains('edit-ingredient-btn')) {
+        openIngredientModal(ingredientId);
+    } else if (target.classList.contains('delete-ingredient-btn')) {
+        if (confirm('Are you sure you want to delete this ingredient? This cannot be undone.')) {
+            db.ref(`ingredients/${ingredientId}`).remove().catch(err => alert('Error deleting ingredient: ' + err.message));
+        }
+    }
 }
 
 
@@ -824,340 +1391,6 @@ async function handleSaveRecipe(e) {
 }
 
 
-// --- INGREDIENT, DAILY COUNT, SALES, WAREHOUSE FUNCTIONS ---
-async function loadSalesData() {
-    const salesDate = panelRoot.querySelector('#sales-date-picker').value;
-    const salesRef = db.ref(`sales/${salesDate}`);
-    const today = new Date().toISOString().split("T")[0];
-    const isPastDay = salesDate < today;
-
-    const form = panelRoot.querySelector('#sales-form');
-    const inputs = form.querySelectorAll('input');
-    const saveBtn = form.querySelector('#save-sales-btn');
-
-    try {
-        const snapshot = await salesRef.once('value');
-        if (snapshot.exists()) {
-            const data = snapshot.val();
-            panelRoot.querySelector('#platform-sales').value = data.platform || 0;
-            panelRoot.querySelector('#glovo-sales').value = data.glovo || 0;
-            panelRoot.querySelector('#regular-sales').value = data.regular || 0;
-        } else {
-            form.reset();
-        }
-        updateTotalSales();
-    } catch (error) {
-        console.error("Error loading sales data:", error);
-        alert("Could not load sales data.");
-    }
-
-    // Apply lock based on date
-    if (isPastDay) {
-        inputs.forEach(input => {
-            if (input.type !== 'date') { // Don't disable the date picker
-                input.readOnly = true;
-                input.classList.add("bg-gray-100", "cursor-not-allowed");
-            }
-        });
-        if (saveBtn) saveBtn.style.display = "none";
-    } else {
-        inputs.forEach(input => {
-            input.readOnly = false;
-            input.classList.remove("bg-gray-100", "cursor-not-allowed");
-        });
-        if (saveBtn) saveBtn.style.display = "block";
-    }
-}
-
-
-function updateTotalSales() {
-    const platform = parseFloat(panelRoot.querySelector('#platform-sales').value) || 0;
-    const glovo = parseFloat(panelRoot.querySelector('#glovo-sales').value) || 0;
-    const regular = parseFloat(panelRoot.querySelector('#regular-sales').value) || 0;
-    const total = platform + glovo + regular;
-    panelRoot.querySelector('#total-sales-display').textContent = `${total.toFixed(2)} MAD`;
-}
-
-async function saveSalesData(e) {
-    e.preventDefault();
-    const salesDate = panelRoot.querySelector('#sales-date-picker').value;
-    const salesData = {
-        platform: parseFloat(panelRoot.querySelector('#platform-sales').value) || 0,
-        glovo: parseFloat(panelRoot.querySelector('#glovo-sales').value) || 0,
-        regular: parseFloat(panelRoot.querySelector('#regular-sales').value) || 0,
-        total: 0
-    };
-    salesData.total = salesData.platform + salesData.glovo + salesData.regular;
-    try {
-        await db.ref(`sales/${salesDate}`).set(salesData);
-        alert(`Sales for ${salesDate} saved successfully!`);
-        updateFinancialKPIs();
-    } catch (error) {
-        console.error("Error saving sales data:", error);
-        alert("Failed to save sales data.");
-    }
-}
-
-async function loadDailyCountData() {
-    const dailyTbody = panelRoot.querySelector('#daily-count-tbody');
-    if (!dailyTbody) return;
-    dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6"><i class="fas fa-spinner fa-spin mr-2"></i>Loading data...</td></tr>';
-
-    currentStockDate = panelRoot.querySelector('#stock-date-picker').value;
-    const selectedDateObj = new Date(currentStockDate);
-    selectedDateObj.setDate(selectedDateObj.getDate() - 1);
-    const prevDateStr = selectedDateObj.toISOString().split('T')[0];
-
-    try {
-        const [ingSnapshot, prevStockSnapshot, currentStockSnapshot] = await Promise.all([
-            db.ref('ingredients').once('value'),
-            db.ref(`stockCounts/${prevDateStr}`).once('value'),
-            db.ref(`stockCounts/${currentStockDate}`).once('value')
-        ]);
-        
-        if (ingSnapshot.exists()) ingredientsCache = ingSnapshot.val();
-
-        await calculateExpectedUsageForDate(currentStockDate, recipesCache, modifiersCache);
-        const expectedUsageSnap = await db.ref(`stockCounts/${currentStockDate}`).once('value');
-
-        const prevStock = prevStockSnapshot.exists() ? prevStockSnapshot.val() : {};
-        const currentStock = currentStockSnapshot.exists() ? currentStockSnapshot.val() : {}; 
-        const expectedUsageData = expectedUsageSnap.val() || {};
-
-
-        if (Object.keys(ingredientsCache).length === 0) {
-            dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6 text-gray-500">No ingredients defined. Please add ingredients first.</td></tr>';
-            return;
-        }
-
-        let tableHtml = '';
-        for (const ingId in ingredientsCache) {
-            const ingredient = ingredientsCache[ingId];
-            const openingStock = prevStock[ingId]?.closing_actual ?? ingredient.stock_level ?? 0;
-            const usedExpected = expectedUsageData[ingId]?.used_expected || 0;
-
-            const savedData = currentStock[ingId] || {};
-            const purchases = savedData.purchases ?? 0;
-            const wastage = savedData.wastage ?? 0;
-            const closingActual = savedData.closing_actual ?? ''; 
-
-            tableHtml += `
-                <tr data-id="${ingId}">
-                    <td class="p-2 font-medium">${ingredient.name} <span class="text-xs text-gray-400">(${ingredient.unit})</span></td>
-                    <td class="p-2 text-center" data-opening>${openingStock.toFixed(2)}</td>
-                    <td class="p-2"><input type="number" step="0.1" value="${purchases}" class="daily-input purchases-input w-20 p-1 border rounded text-right"></td>
-                    <td class="p-2 text-center" data-used>${usedExpected.toFixed(2)}</td>
-                    <td class="p-2"><input type="number" step="0.1" value="${wastage}" class="daily-input wastage-input w-20 p-1 border rounded text-right"></td>
-                    <td class="p-2 text-center font-bold" data-closing-theory>0.00</td>
-                    <td class="p-2"><input type="number" step="0.1" value="${closingActual}" class="daily-input closing-actual-input w-20 p-1 border rounded text-right bg-yellow-50"></td>
-                    <td class="p-2 text-center font-semibold" data-variance>0.00</td>
-                </tr>`;
-        }
-        dailyTbody.innerHTML = tableHtml;
-
-        dailyTbody.querySelectorAll('tr[data-id]').forEach(row => {
-            calculateRow(row); 
-            row.querySelectorAll('.daily-input').forEach(input => {
-                input.addEventListener('input', () => calculateRow(row));
-            });
-        });
-
-        const today = new Date().toISOString().split("T")[0];
-        const isPastDay = currentStockDate < today;
-        const saveBtn = panelRoot.querySelector('#save-daily-count-btn');
-
-        if (isPastDay) {
-            dailyTbody.querySelectorAll(".daily-input").forEach(input => {
-                input.readOnly = true;
-                input.classList.add("bg-gray-100", "cursor-not-allowed");
-            });
-            if (saveBtn) saveBtn.style.display = "none";
-        } else {
-            dailyTbody.querySelectorAll(".daily-input").forEach(input => {
-                input.readOnly = false;
-                input.classList.remove("bg-gray-100", "cursor-not-allowed");
-            });
-            if (saveBtn) saveBtn.style.display = "block";
-        }
-        
-        updateFinancialKPIs(); 
-
-    } catch (error) {
-        console.error("Error loading daily count data:", error);
-        dailyTbody.innerHTML = '<tr><td colspan="8" class="text-center p-6 text-red-500">Failed to load data.</td></tr>';
-    }
-}
-
-
-function calculateRow(row) {
-    const opening = parseFloat(row.querySelector('[data-opening]').textContent) || 0;
-    const purchases = parseFloat(row.querySelector('.purchases-input').value) || 0;
-    const used = parseFloat(row.querySelector('[data-used]').textContent) || 0;
-    const wastage = parseFloat(row.querySelector('.wastage-input').value) || 0;
-    const closingActualInput = row.querySelector('.closing-actual-input');
-    const closingActual = closingActualInput.value === '' ? null : parseFloat(closingActualInput.value);
-    const closingTheoretical = opening + purchases - used - wastage;
-    const variance = (closingActual !== null) ? closingActual - closingTheoretical : 0;
-    const closingTheoryEl = row.querySelector('[data-closing-theory]');
-    const varianceEl = row.querySelector('[data-variance]');
-    if (closingTheoryEl) closingTheoryEl.textContent = closingTheoretical.toFixed(2);
-    if (varianceEl) varianceEl.textContent = (closingActual !== null) ? variance.toFixed(2) : '...';
-    if (varianceEl) {
-        varianceEl.classList.remove('text-green-600', 'text-red-600');
-        if (variance > 0) varianceEl.classList.add('text-green-600');
-        else if (variance < 0) varianceEl.classList.add('text-red-600');
-    }
-}
-
-async function saveDailyCount() {
-    const date = panelRoot.querySelector('#stock-date-picker').value;
-    await calculateExpectedUsageForDate(date, recipesCache, modifiersCache);
-
-    const saveData = {};
-    const rows = panelRoot.querySelectorAll('#daily-count-tbody tr[data-id]');
-    
-    const expectedUsageSnap = await db.ref(`stockCounts/${date}`).once('value');
-    const expectedUsageData = expectedUsageSnap.val() || {};
-
-    rows.forEach(row => {
-        const id = row.dataset.id;
-        
-        const usedExpected = expectedUsageData[id]?.used_expected || 0;
-        row.querySelector('[data-used]').textContent = usedExpected.toFixed(2);
-        
-        calculateRow(row); 
-
-        const varianceText = row.querySelector('[data-variance]').textContent;
-        const closingActualValue = row.querySelector('.closing-actual-input').value;
-
-        saveData[id] = {
-            opening: parseFloat(row.querySelector('[data-opening]').textContent) || 0,
-            purchases: parseFloat(row.querySelector('.purchases-input').value) || 0,
-            used_expected: usedExpected,
-            wastage: parseFloat(row.querySelector('.wastage-input').value) || 0,
-            closing_theoretical: parseFloat(row.querySelector('[data-closing-theory]').textContent) || 0,
-            closing_actual: closingActualValue === '' ? 0 : parseFloat(closingActualValue),
-            variance: !isNaN(parseFloat(varianceText)) ? parseFloat(varianceText) : 0
-        };
-    });
-
-    if (Object.keys(saveData).length > 0) {
-        try {
-            await db.ref(`stockCounts/${date}`).update(saveData);
-            alert(`Stock count for ${date} saved and finalized successfully!`);
-            await updateFinancialKPIs();
-        } catch (error) {
-            console.error("Error saving stock count:", error);
-            alert("Failed to save stock count.");
-        }
-    }
-}
-
-function createIngredientRow(ingredientId, ingredientData) {
-    const {
-        name,
-        category,
-        unit,
-        unit_cost,
-        supplier,
-        low_stock_threshold
-    } = ingredientData;
-    const isLowStock = ingredientData.stock_level && low_stock_threshold && ingredientData.stock_level < low_stock_threshold;
-    return `<tr class="hover:bg-gray-50 transition ${isLowStock ? 'bg-yellow-50' : ''}" data-id="${ingredientId}"><td class="p-3 font-medium text-gray-800">${name || 'N/A'}</td><td class="p-3 text-sm text-gray-600">${category || 'N/A'}</td><td class="p-3 text-sm text-center">${ingredientData.stock_level || 0} ${unit || ''}</td><td class="p-3 text-sm">${(unit_cost || 0).toFixed(2)} MAD</td><td class="p-3 text-sm text-gray-500">${supplier || 'N/A'}</td><td class="p-3 text-center"><button class="edit-ingredient-btn bg-blue-500 text-white px-3 py-1 text-xs rounded-md hover:bg-blue-600">Edit</button><button class="delete-ingredient-btn bg-red-500 text-white px-3 py-1 text-xs rounded-md hover:bg-red-600 ml-2">Delete</button></td></tr>`;
-}
-
-function openIngredientModal(ingredientId = null) {
-    editingIngredientId = ingredientId;
-    ingredientForm.reset();
-    if (ingredientId && ingredientsCache[ingredientId]) {
-        modalTitle.textContent = 'Edit Ingredient';
-        const data = ingredientsCache[ingredientId];
-        panelRoot.querySelector('#ingredient-name').value = data.name || '';
-        panelRoot.querySelector('#ingredient-category').value = data.category || '';
-        panelRoot.querySelector('#ingredient-unit').value = data.unit || '';
-        panelRoot.querySelector('#ingredient-unit-cost').value = data.unit_cost || 0;
-        panelRoot.querySelector('#ingredient-supplier').value = data.supplier || '';
-        panelRoot.querySelector('#ingredient-stock-level').value = data.stock_level || 0;
-        panelRoot.querySelector('#low-stock-threshold').value = data.low_stock_threshold || 0;
-    } else {
-        modalTitle.textContent = 'Add New Ingredient';
-    }
-    ingredientModal.classList.remove('hidden');
-}
-
-function closeIngredientModal() {
-    ingredientModal.classList.add('hidden');
-    editingIngredientId = null;
-}
-
-async function handleSaveIngredient(e) {
-    e.preventDefault();
-    const saveBtn = ingredientForm.querySelector('button[type="submit"]');
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving...';
-    const ingredientData = {
-        name: panelRoot.querySelector('#ingredient-name').value.trim(),
-        category: panelRoot.querySelector('#ingredient-category').value.trim(),
-        unit: panelRoot.querySelector('#ingredient-unit').value.trim(),
-        unit_cost: parseFloat(panelRoot.querySelector('#ingredient-unit-cost').value) || 0,
-        supplier: panelRoot.querySelector('#ingredient-supplier').value.trim(),
-        stock_level: parseFloat(panelRoot.querySelector('#ingredient-stock-level').value) || 0,
-        low_stock_threshold: parseFloat(panelRoot.querySelector('#low-stock-threshold').value) || 0
-    };
-    try {
-        let dbRef;
-        if (editingIngredientId) {
-            dbRef = db.ref(`ingredients/${editingIngredientId}`);
-            await dbRef.update(ingredientData);
-        } else {
-            ingredientData.last_restocked = new Date().toISOString();
-            dbRef = db.ref('ingredients').push();
-            await dbRef.set(ingredientData);
-        }
-        closeIngredientModal();
-    } catch (error) {
-        console.error("Error saving ingredient:", error);
-        alert("Could not save ingredient. See console for details.");
-    } finally {
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Save Ingredient';
-    }
-}
-
-function loadAndRenderIngredients() {
-    const ingredientsTbody = panelRoot.querySelector('#ingredients-tbody');
-    const ingredientsRef = db.ref("ingredients");
-    ingredientsRef.on('value', (snapshot) => {
-        if (!ingredientsTbody) return;
-        ingredientsTbody.innerHTML = '';
-        if (snapshot.exists()) {
-            ingredientsCache = snapshot.val();
-            let rowsHtml = '';
-            for (const id in ingredientsCache) {
-                rowsHtml += createIngredientRow(id, ingredientsCache[id]);
-            }
-            ingredientsTbody.innerHTML = rowsHtml;
-        } else {
-            ingredientsCache = {};
-            ingredientsTbody.innerHTML = '<tr><td colspan="6" class="text-center p-6 text-gray-500">No ingredients found. Add one to get started!</td></tr>';
-        }
-    });
-}
-
-function handleTableClick(e) {
-    const target = e.target;
-    const row = target.closest('tr');
-    if (!row) return;
-    const ingredientId = row.dataset.id;
-    if (target.classList.contains('edit-ingredient-btn')) {
-        openIngredientModal(ingredientId);
-    } else if (target.classList.contains('delete-ingredient-btn')) {
-        if (confirm('Are you sure you want to delete this ingredient? This cannot be undone.')) {
-            db.ref(`ingredients/${ingredientId}`).remove().catch(err => alert('Error deleting ingredient: ' + err.message));
-        }
-    }
-}
-
 
 // --- MAIN PANEL LOADER ---
 export function loadPanel(root, panelTitle, database) {
@@ -1201,8 +1434,9 @@ export function loadPanel(root, panelTitle, database) {
                          <h3 class="text-xl font-bold text-gray-800">Daily Stock Count</h3>
                          <input type="date" id="stock-date-picker" value="${currentStockDate}" class="mt-1 p-2 border rounded-md">
                      </div>
-                     <div class="flex gap-2">
-                          <button id="generate-report-btn" class="bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition"><i class="fas fa-file-alt mr-2"></i>Generate Report</button>
+                     <div class="flex items-center gap-2">
+                          <span id="locked-day-indicator" class="hidden font-bold text-red-600 flex items-center gap-2"><i class="fas fa-lock"></i>LOCKED</span>
+                          <button id="close-day-btn" class="bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition">Close Day...</button>
                           <button id="save-daily-count-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Finalize & Save Count</button>
                      </div>
                  </div>
@@ -1328,15 +1562,10 @@ export function loadPanel(root, panelTitle, database) {
         }
     });
 
-
-    panelRoot.querySelector('#generate-report-btn')?.addEventListener('click', generateEndOfDayReport);
-    document.getElementById('close-report-btn')?.addEventListener('click', () => reportModal.classList.add('hidden'));
-    document.getElementById('print-report-btn')?.addEventListener('click', printReport);
-
     panelRoot.querySelector('#sales-form')?.addEventListener('submit', saveSalesData);
     panelRoot.querySelector('#save-daily-count-btn')?.addEventListener('click', saveDailyCount);
     
-    // [NEW] Event listener for the refresh button
+    // [NEW] Event listener for the refresh button in analytics
     panelRoot.querySelector('#refresh-analytics-btn')?.addEventListener('click', async (e) => {
         const btn = e.currentTarget;
         btn.disabled = true;
@@ -1352,6 +1581,7 @@ export function loadPanel(root, panelTitle, database) {
 
         try {
             const idToken = await user.getIdToken();
+            // NOTE: This assumes your local admin server is running on localhost:3000
             const response = await fetch('http://localhost:3000/run-aggregator', {
                 headers: {
                     'Authorization': `Bearer ${idToken}`
@@ -1406,7 +1636,7 @@ export function loadPanel(root, panelTitle, database) {
             }
         }
     });
-
+    
     // Initialize the panel
     (async () => {
         await Promise.all([

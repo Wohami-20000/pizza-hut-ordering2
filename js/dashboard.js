@@ -29,22 +29,26 @@ function buildSidebarNav(role) {
     if (!navContainer) return;
 
     let navLinks = '';
-    if (role === 'admin') {
+    // For simplicity, we'll assume admin gets all links for now.
+    // This can be broken down by role.
+    if (role === 'admin' || role === 'owner' || role === 'manager') {
         navLinks = `
-            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="users"><i class="fas fa-users-cog mr-3"></i>User Management</a>
-            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="orders"><i class="fas fa-receipt mr-3"></i>Order Management</a>
-            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="menu-items"><i class="fas fa-pizza-slice mr-3"></i>Menu Items</a>
-            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="offers"><i class="fas fa-tags mr-3"></i>Offers</a>
-            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="promo-codes"><i class="fas fa-percent mr-3"></i>Promo Codes</a>
-            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="stock"><i class="fas fa-boxes mr-3"></i>Stock Control</a>
-            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="assign-deliveries"><i class="fas fa-motorcycle mr-3"></i>Assign Deliveries</a>
-            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="team"><i class="fas fa-users mr-3"></i>Team Roster</a>
-            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="feedback"><i class="fas fa-comment-dots mr-3"></i>Feedback</a>
-            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="analytics"><i class="fas fa-chart-line mr-3"></i>Analytics</a>
-            <a href="#" class="block py-2.5 px-4 rounded-lg transition" data-panel="system"><i class="fas fa-cogs mr-3"></i>System Config</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="stock"><i class="fas fa-boxes mr-3"></i>Stock & Sales</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="orders"><i class="fas fa-receipt mr-3"></i>Live Orders</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="analytics"><i class="fas fa-chart-line mr-3"></i>Analytics</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="menu-items"><i class="fas fa-pizza-slice mr-3"></i>Menu Items</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="offers"><i class="fas fa-tags mr-3"></i>Offers</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="promo-codes"><i class="fas fa-percent mr-3"></i>Promo Codes</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="assign-deliveries"><i class="fas fa-motorcycle mr-3"></i>Assign Deliveries</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="team"><i class="fas fa-users mr-3"></i>Team Roster</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="feedback"><i class="fas fa-comment-dots mr-3"></i>Feedback</a>
+            ${(role === 'admin' || role === 'owner') ? `
+            <div class="border-t border-gray-700 my-2"></div>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="users"><i class="fas fa-users-cog mr-3"></i>User Management</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="system"><i class="fas fa-cogs mr-3"></i>System Config</a>` : ''}
         `;
     }
-    // Add other roles here if needed (e.g., manager, staff)
+    // Add other roles here...
     navContainer.innerHTML = navLinks;
 }
 
@@ -52,6 +56,31 @@ function capitalizeFirstLetter(string) {
     if (!string) return '';
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
+
+/**
+ * Checks if the previous day's report was locked and shows an alert if not.
+ */
+async function checkUnclosedDays() {
+    const alertBanner = document.getElementById('unclosed-day-alert');
+    if (!alertBanner) return;
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayString = yesterday.toISOString().split('T')[0];
+
+    try {
+        const lockRef = db.ref(`reports/daily/${yesterdayString}/locked`);
+        const snapshot = await lockRef.once('value');
+        if (snapshot.val() !== true) {
+            alertBanner.classList.remove('hidden');
+        } else {
+            alertBanner.classList.add('hidden');
+        }
+    } catch (error) {
+        console.error("Error checking for unclosed days:", error);
+    }
+}
+
 
 /**
  * Dynamically loads the panel for the given role and content section.
@@ -88,8 +117,8 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
         case 'promo-codes': panelModuleToLoad = loadPromoCodesPanel; break;
         case 'system': panelModuleToLoad = loadSystemPanel; break;
         default:
-            effectivePanelKey = role === 'admin' ? 'users' : 'defaultPanel';
-            panelModuleToLoad = loadAdminPanel;
+            effectivePanelKey = role === 'admin' ? 'stock' : 'defaultPanel';
+            panelModuleToLoad = loadStockPanel;
             break;
     }
 
@@ -97,9 +126,9 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
         await panelModuleToLoad(panelRoot, panelTitle, db, auth);
         
         navContainer.querySelectorAll('a').forEach(link => {
-            link.classList.remove('bg-gray-700');
+            link.classList.remove('bg-gray-700', 'text-white');
             if (link.dataset.panel === effectivePanelKey) {
-                link.classList.add('bg-gray-700');
+                link.classList.add('bg-gray-700', 'text-white');
             }
         });
     } else {
@@ -118,6 +147,7 @@ auth.onAuthStateChanged(async (user) => {
             await user.getIdToken(true);
 
             buildSidebarNav(userRole);
+            checkUnclosedDays();
             
             const initialPanel = 'stock';
             loadRolePanel(userRole, initialPanel);

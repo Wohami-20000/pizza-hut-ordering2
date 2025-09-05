@@ -7,6 +7,9 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
     <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png">
@@ -74,6 +77,11 @@
                 </div>
             </div>
         </header>
+        
+        <div id="unclosed-day-alert" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 m-4" role="alert">
+            <p class="font-bold">Attention Required</p>
+            <p>Yesterday's report was not closed and locked. Please review and finalize it to ensure data integrity.</p>
+        </div>
 
         <main id="panel-root" class="flex-1 p-6 overflow-y-auto animate-fadeInUp">
             <div class="text-center py-20 bg-white rounded-xl shadow-lg">
@@ -85,18 +93,16 @@
 
     <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden"></div>
     <audio id="notification-sound" src="../message-ringtone-magic.mp3" preload="auto"></audio>
-
-    <div id="edit-ingredient-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"><div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-md"><h3 id="edit-modal-title" class="text-xl font-bold mb-4">Edit Ingredient</h3><form id="edit-ingredient-form" class="space-y-4"><div><label for="edit-ingredient-name" class="block text-sm font-medium">Ingredient Name</label><input type="text" id="edit-ingredient-name" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="edit-ingredient-stock" class="block text-sm font-medium">Stock Level</label><input type="number" id="edit-ingredient-stock" step="0.1" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="edit-ingredient-unit" class="block text-sm font-medium">Unit</label><input type="text" id="edit-ingredient-unit" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="edit-supplier-contact" class="block text-sm font-medium">Supplier Contact</label><input type="text" id="edit-supplier-contact" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="edit-low-stock-threshold" class="block text-sm font-medium">Low Stock Threshold</label><input type="number" id="edit-low-stock-threshold" step="0.1" required class="w-full mt-1 p-2 border rounded-md"></div><div class="flex justify-end gap-4 pt-4"><button type="button" id="cancel-edit-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Save Changes</button></div></form></div></div>
-    <div id="end-of-day-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50"><div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-lg"><h3 class="text-xl font-bold mb-4">End of Day Count</h3><form id="eod-form"><div class="max-h-96 overflow-y-auto"><table class="min-w-full"><thead><tr><th class="text-left py-2">Ingredient</th><th class="text-left py-2">Actual Closing Stock</th></tr></thead><tbody id="eod-tbody"></tbody></table></div><div class="flex justify-end gap-4 pt-4 border-t mt-4"><button type="button" id="cancel-eod-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button><button type="submit" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">Calculate Variance</button></div></form></div></div>
     
+    <!-- MODALS -->
     <div id="report-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-2xl flex flex-col" style="max-height: 90vh;">
-            <h3 id="report-modal-title" class="text-2xl font-bold mb-4 border-b pb-3 flex-shrink-0">End of Day Report</h3>
+            <h3 id="report-modal-title" class="text-2xl font-bold mb-4 border-b pb-3 flex-shrink-0">Report</h3>
             <div id="report-modal-content" class="my-4 flex-grow overflow-y-auto">
-                </div>
-            <div class="flex justify-end gap-4 mt-4 flex-shrink-0">
-                <button id="print-report-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"><i class="fas fa-print mr-2"></i>Print</button>
-                <button id="close-report-btn" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Close</button>
+                <!-- Content will be injected by JS -->
+            </div>
+            <div id="report-modal-footer" class="flex justify-end gap-2 mt-4 flex-shrink-0 flex-wrap">
+                <!-- Buttons will be injected by JS -->
             </div>
         </div>
     </div>
