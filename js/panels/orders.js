@@ -187,7 +187,14 @@ function renderFilteredOrders(filter = 'All') {
             `).join('')
             : '<li>No items found in cart.</li>';
 
-        const statusButtons = ['Pending', 'Confirmed', 'Preparing', 'Ready', 'Out for Delivery', 'Delivered', 'Completed', 'Cancelled'].map(status => `
+        let availableStatuses;
+        if (order.orderType === 'delivery') {
+            availableStatuses = ['Pending', 'Confirmed', 'Preparing', 'Ready', 'Out for Delivery', 'Delivered', 'Completed', 'Cancelled'];
+        } else { // This covers 'dineIn' and 'pickup'
+            availableStatuses = ['Pending', 'Confirmed', 'Preparing', 'Ready', 'Completed', 'Cancelled'];
+        }
+
+        const statusButtons = availableStatuses.map(status => `
             <button data-order-id="${order.id}" data-status="${status}" class="status-btn px-2 py-1 text-xs rounded transition-colors ${order.status === status ? 'bg-blue-600 text-white font-bold' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}">
                 ${status}
             </button>
@@ -323,3 +330,4 @@ export function loadPanel(root, panelTitle) {
         }
     });
 }
+
