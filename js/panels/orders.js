@@ -229,6 +229,20 @@ function renderFilteredOrders(filter = 'All') {
                 <p class="text-sm text-gray-800 bg-yellow-50 p-3 rounded-lg border border-yellow-200">${escapeHTML(order.allergyInfo)}</p>
             </div>
         ` : '';
+        
+        let customerInfoHtml = '';
+        if (order.orderType === 'dineIn') {
+            customerInfoHtml = `<p class="text-sm text-gray-600 mt-2"><strong>Table:</strong> ${order.table || 'N/A'}</p>`;
+        } else if (order.orderType === 'pickup') {
+            customerInfoHtml = `<p class="text-sm text-gray-600 mt-2"><strong>Customer:</strong> ${order.customerInfo.name || 'N/A'} (${order.customerInfo.phone || 'N/A'})</p>`;
+        } else if (order.orderType === 'delivery') {
+            customerInfoHtml = `
+                <p class="text-sm text-gray-600 mt-2"><strong>Customer:</strong> ${order.customerInfo.name || 'N/A'} (${order.customerInfo.phone || 'N/A'})</p>
+                <p class="text-sm text-gray-600"><strong>Address:</strong> ${order.deliveryAddress || 'N/A'}</p>
+                <p class="text-sm text-gray-600"><strong>Assigned to:</strong> ${order.deliveryBoy ? deliveryMen[order.deliveryBoy] || 'Not Assigned' : 'Not Assigned'}</p>
+            `;
+        }
+
 
         return `
             <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
@@ -237,8 +251,7 @@ function renderFilteredOrders(filter = 'All') {
                         <h3 class="font-bold text-lg text-gray-800">Order #${order.id.substring(0, 6)}</h3>
                         <p class="text-sm font-semibold text-gray-700 capitalize mt-1"><i class="fas ${orderTypeIcon} fa-fw mr-2 text-gray-400"></i>${orderType}</p>
                         <p class="text-sm text-gray-500">${formattedDate}</p>
-                        <p class="text-sm text-gray-600 mt-2"><strong>Customer:</strong> ${order.customerInfo.name || 'N/A'} (${order.customerInfo.phone || 'N/A'})</p>
-                        <p class="text-sm text-gray-600"><strong>Address:</strong> ${order.customerInfo.address || 'N/A'}</p>
+                        ${customerInfoHtml}
                     </div>
                     <div class="text-right">
                         <span class="px-3 py-1 text-sm font-semibold rounded-full ${statusClasses[order.status] || 'bg-gray-100 text-gray-800'}">
@@ -338,5 +351,4 @@ export function loadPanel(root, panelTitle) {
         }
     });
 }
-
 
