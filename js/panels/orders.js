@@ -210,11 +210,18 @@ function renderFilteredOrders(filter = 'All') {
             </div>
         ` : '';
 
+        const orderType = order.orderType || 'N/A';
+        const orderTypeIcon =
+            order.orderType === 'delivery' ? 'fa-motorcycle' :
+            order.orderType === 'pickup' ? 'fa-shopping-bag' :
+            order.orderType === 'dineIn' ? 'fa-utensils' : 'fa-question-circle';
+
         return `
             <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
                 <div class="flex flex-wrap justify-between items-start gap-4">
                     <div>
                         <h3 class="font-bold text-lg text-gray-800">Order #${order.id.substring(0, 6)}</h3>
+                        <p class="text-sm font-semibold text-gray-700 capitalize mt-1"><i class="fas ${orderTypeIcon} fa-fw mr-2 text-gray-400"></i>${orderType}</p>
                         <p class="text-sm text-gray-500">${formattedDate}</p>
                         <p class="text-sm text-gray-600 mt-2"><strong>Customer:</strong> ${order.customerInfo.name || 'N/A'} (${order.customerInfo.phone || 'N/A'})</p>
                         <p class="text-sm text-gray-600"><strong>Address:</strong> ${order.customerInfo.address || 'N/A'}</p>
