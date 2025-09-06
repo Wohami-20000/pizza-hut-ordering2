@@ -106,6 +106,7 @@ async function processOrderForStockRTDB(orderId, orderData) {
 
 let allOrders = []; // Cache for all orders
 let deliveryMen = {}; // Cache for delivery men
+let timerInterval; // To hold the interval for updating timers
 
 function fetchDeliveryMen() {
     const deliveryRef = db.ref('users').orderByChild('role').equalTo('delivery');
@@ -120,7 +121,22 @@ function fetchDeliveryMen() {
 async function updateOrderStatus(orderId, status) {
     const orderRef = db.ref('orders/' + orderId);
     try {
-        await orderRef.update({ status: status });
+        const updates = { status };
+        const now = new Date().toISOString();
+
+        if (status.toLowerCase() === 'confirmed') {
+            const orderSnapshot = await orderRef.once('value');
+            if (orderSnapshot.exists() && !orderSnapshot.val().confirmedTimestamp) {
+                updates.confirmedTimestamp = now;
+            }
+        } else if (['ready', 'delivered', 'completed'].includes(status.toLowerCase())) {
+            const orderSnapshot = await orderRef.once('value');
+            if (orderSnapshot.exists() && !orderSnapshot.val().readyTimestamp) {
+                updates.readyTimestamp = now;
+            }
+        }
+
+        await orderRef.update(updates);
         showToast('Order status updated successfully.');
 
         if (status.toLowerCase() === 'delivered' || status.toLowerCase() === 'completed') {
@@ -243,9 +259,39 @@ function renderFilteredOrders(filter = 'All') {
             `;
         }
 
+        // Timer and Border Logic
+        let timerHtml = '';
+        let cardBorderClass = 'border-gray-200';
+        const isTimerActive = order.confirmedTimestamp && ['Confirmed', 'Preparing'].includes(order.status);
+        const prepTimeFinished = order.confirmedTimestamp && order.readyTimestamp;
+
+        if (isTimerActive) {
+            const confirmedTime = new Date(order.confirmedTimestamp).getTime();
+            const now = new Date().getTime();
+            const elapsedMinutes = Math.floor((now - confirmedTime) / (1000 * 60));
+
+            if (elapsedMinutes >= 7) cardBorderClass = 'border-l-4 border-red-500';
+            else if (elapsedMinutes >= 3) cardBorderClass = 'border-l-4 border-yellow-400';
+            else cardBorderClass = 'border-l-4 border-green-500';
+
+            timerHtml = `<div class="live-timer text-sm font-bold" data-confirmed-time="${order.confirmedTimestamp}"></div>`;
+        } else if (prepTimeFinished) {
+            const confirmedTime = new Date(order.confirmedTimestamp).getTime();
+            const readyTime = new Date(order.readyTimestamp).getTime();
+            const elapsedSeconds = Math.floor((readyTime - confirmedTime) / 1000);
+            const minutes = Math.floor(elapsedSeconds / 60);
+            const seconds = elapsedSeconds % 60;
+            
+            if (minutes >= 7) cardBorderClass = 'border-l-4 border-red-500';
+            else if (minutes >= 3) cardBorderClass = 'border-l-4 border-yellow-400';
+            else cardBorderClass = 'border-l-4 border-green-500';
+
+            timerHtml = `<div class="text-sm text-gray-600"><i class="fas fa-stopwatch mr-1"></i>Prep: ${minutes}m ${seconds}s</div>`;
+        }
+
 
         return `
-            <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <div class="bg-white p-6 rounded-lg shadow-md border ${cardBorderClass}">
                 <div class="flex flex-wrap justify-between items-start gap-4">
                     <div>
                         <h3 class="font-bold text-lg text-gray-800">Order #${order.id.substring(0, 6)}</h3>
@@ -254,9 +300,12 @@ function renderFilteredOrders(filter = 'All') {
                         ${customerInfoHtml}
                     </div>
                     <div class="text-right">
-                        <span class="px-3 py-1 text-sm font-semibold rounded-full ${statusClasses[order.status] || 'bg-gray-100 text-gray-800'}">
-                            ${order.status}
-                        </span>
+                        <div class="flex items-center justify-end gap-4">
+                            ${timerHtml}
+                            <span class="px-3 py-1 text-sm font-semibold rounded-full ${statusClasses[order.status] || 'bg-gray-100 text-gray-800'}">
+                                ${order.status}
+                            </span>
+                        </div>
                         <p class="text-2xl font-bold mt-2 text-gray-800">${(order.priceDetails.finalTotal || 0).toFixed(2)} MAD</p>
                     </div>
                 </div>
@@ -274,6 +323,33 @@ function renderFilteredOrders(filter = 'All') {
             </div>
         `;
     }).join('');
+}
+
+function updateLiveTimers() {
+    const timerElements = document.querySelectorAll('.live-timer');
+    timerElements.forEach(el => {
+        const confirmedTime = new Date(el.dataset.confirmedTime).getTime();
+        if (isNaN(confirmedTime)) return;
+
+        const now = new Date().getTime();
+        const elapsedSeconds = Math.floor((now - confirmedTime) / 1000);
+        const minutes = Math.floor(elapsedSeconds / 60);
+        const seconds = elapsedSeconds % 60;
+
+        el.innerHTML = `<i class="fas fa-clock mr-1"></i> ${minutes}m ${String(seconds).padStart(2, '0')}s`;
+
+        const card = el.closest('.bg-white');
+        if (card) {
+            card.classList.remove('border-green-500', 'border-yellow-400', 'border-red-500');
+            if (minutes >= 7) {
+                card.classList.add('border-red-500');
+            } else if (minutes >= 3) {
+                card.classList.add('border-yellow-400');
+            } else {
+                card.classList.add('border-green-500');
+            }
+        }
+    });
 }
 
 function listenToOrders() {
@@ -323,6 +399,9 @@ export function loadPanel(root, panelTitle) {
 
     fetchDeliveryMen();
     listenToOrders();
+
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(updateLiveTimers, 1000);
 
     root.addEventListener('click', e => {
         const target = e.target;
