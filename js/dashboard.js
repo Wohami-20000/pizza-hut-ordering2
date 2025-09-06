@@ -4,6 +4,9 @@
 const auth = firebase.auth();
 const db = firebase.database();
 
+// NOTE: Analytics temporarily frozen (Sept 2025) – re-enable by setting ENABLE_ANALYTICS = true.
+const ENABLE_ANALYTICS = false;
+
 // Import panel modules
 import { loadPanel as loadAdminPanel } from './panels/admin.js';
 import { loadPanel as loadManagerPanel } from './panels/manager.js';
@@ -16,7 +19,8 @@ import { loadPanel as loadPromoCodesPanel } from './panels/promo-codes.js';
 import { loadPanel as loadOrdersPanel } from './panels/orders.js';
 import { loadPanel as loadFeedbackPanel } from './panels/feedback.js';
 import { loadPanel as loadTeamPanel } from './panels/team.js';
-import { loadPanel as loadAnalyticsPanel } from './panels/analytics.js';
+// To re-enable Analytics, set ENABLE_ANALYTICS to true and uncomment the line below.
+// import { loadPanel as loadAnalyticsPanel } from './panels/analytics.js';
 import { loadPanel as loadAssignDeliveriesPanel } from './panels/assign-deliveries.js';
 import { loadPanel as loadStockPanel } from './panels/stock.js';
 import { loadPanel as loadSystemPanel } from './panels/system.js';
@@ -32,10 +36,15 @@ function buildSidebarNav(role) {
     // For simplicity, we'll assume admin gets all links for now.
     // This can be broken down by role.
     if (role === 'admin' || role === 'owner' || role === 'manager') {
+        let analyticsLink = '';
+        if (ENABLE_ANALYTICS) {
+            analyticsLink = `<a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="analytics"><i class="fas fa-chart-line mr-3"></i>Analytics</a>`;
+        }
+
         navLinks = `
             <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="stock"><i class="fas fa-boxes mr-3"></i>Stock & Sales</a>
             <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="orders"><i class="fas fa-receipt mr-3"></i>Live Orders</a>
-            <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="analytics"><i class="fas fa-chart-line mr-3"></i>Analytics</a>
+            ${analyticsLink}
             <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="menu-items"><i class="fas fa-pizza-slice mr-3"></i>Menu Items</a>
             <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="offers"><i class="fas fa-tags mr-3"></i>Offers</a>
             <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="promo-codes"><i class="fas fa-percent mr-3"></i>Promo Codes</a>
@@ -106,7 +115,8 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
 
     switch (targetPanelKey) {
         case 'users': panelModuleToLoad = loadAdminPanel; break;
-        case 'analytics': panelModuleToLoad = loadAnalyticsPanel; break;
+        // To re-enable Analytics, set ENABLE_ANALYTICS to true and uncomment the line below.
+        // case 'analytics': panelModuleToLoad = loadAnalyticsPanel; break;
         case 'team': panelModuleToLoad = loadTeamPanel; break;
         case 'assign-deliveries': panelModuleToLoad = loadAssignDeliveriesPanel; break;
         case 'stock': panelModuleToLoad = loadStockPanel; break;
@@ -198,3 +208,4 @@ document.addEventListener('DOMContentLoaded', () => {
     if(closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
     if(sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 });
+

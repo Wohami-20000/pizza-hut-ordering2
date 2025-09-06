@@ -1413,7 +1413,7 @@ export function loadPanel(root, panelTitle, database) {
                     <button data-tab="daily-count" class="tab-button py-2 px-4 font-semibold">Daily Count</button>
                     <button data-tab="sales-input" class="tab-button py-2 px-4 font-semibold">Sales Input</button>
                     <button data-tab="warehouse" class="tab-button py-2 px-4 font-semibold">Warehouse</button>
-                    <button data-tab="analytics" class="tab-button py-2 px-4 font-semibold">Analytics</button>
+                    <!-- <button data-tab="analytics" class="tab-button py-2 px-4 font-semibold">Analytics</button> -->
                     <button data-tab="alerts" class="tab-button py-2 px-4 font-semibold">Alerts</button>
                 </nav>
             </div>
@@ -1458,6 +1458,7 @@ export function loadPanel(root, panelTitle, database) {
                  </form>
             </div>
 
+            <!--
             <div id="analytics-section" class="tab-content" style="display: none;">
                  <div class="flex justify-between items-center mb-4">
                     <h3 class="text-xl font-bold text-gray-800">Reports & Analytics</h3>
@@ -1471,6 +1472,7 @@ export function loadPanel(root, panelTitle, database) {
                      <div id="yearly-report-container"></div>
                  </div>
             </div>
+            -->
 
             <div id="alerts-section" class="tab-content" style="display: none;">
                  <h3 class="text-xl font-bold text-gray-800 mb-4">Alerts & Notifications</h3>
@@ -1663,4 +1665,3 @@ export function loadPanel(root, panelTitle, database) {
         updateFinancialKPIs();
     })();
 }
-
