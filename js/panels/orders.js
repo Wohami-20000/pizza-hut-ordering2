@@ -1,4 +1,4 @@
-import { showToast } from '../../ui-components.js';
+import { showToast, escapeHTML } from '../../ui-components.js';
 
 // Store a reference to the database
 const db = firebase.database();
@@ -223,6 +223,13 @@ function renderFilteredOrders(filter = 'All') {
             order.orderType === 'pickup' ? 'fa-shopping-bag' :
             order.orderType === 'dineIn' ? 'fa-utensils' : 'fa-question-circle';
 
+        const allergyInfoHtml = order.allergyInfo ? `
+            <div class="mt-4 border-t pt-4">
+                <h4 class="font-semibold text-md mb-2 text-yellow-700 flex items-center"><i class="fas fa-exclamation-triangle mr-2"></i>Allergies or Special Instructions</h4>
+                <p class="text-sm text-gray-800 bg-yellow-50 p-3 rounded-lg border border-yellow-200">${escapeHTML(order.allergyInfo)}</p>
+            </div>
+        ` : '';
+
         return `
             <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
                 <div class="flex flex-wrap justify-between items-start gap-4">
@@ -240,6 +247,7 @@ function renderFilteredOrders(filter = 'All') {
                         <p class="text-2xl font-bold mt-2 text-gray-800">${(order.priceDetails.finalTotal || 0).toFixed(2)} MAD</p>
                     </div>
                 </div>
+                ${allergyInfoHtml}
                 <div class="mt-4 border-t pt-4">
                     <h4 class="font-semibold text-md mb-2 text-gray-700">Items:</h4>
                     <ul class="space-y-1 text-sm">${itemsHtml}</ul>
@@ -330,4 +338,5 @@ export function loadPanel(root, panelTitle) {
         }
     });
 }
+
 
