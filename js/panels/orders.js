@@ -385,6 +385,7 @@ function renderFilteredOrders(filter = 'All') {
             <a href="../edit-order.html?orderId=${order.id}" target="_blank" class="px-3 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 transition"><i class="fas fa-edit mr-2"></i>Edit Order</a>
         ` : '';
 
+
         return `
             <div class="bg-white p-6 rounded-lg shadow-md ${cardBorderClass}">
                 <div class="flex flex-wrap justify-between items-start gap-4">
@@ -412,7 +413,7 @@ function renderFilteredOrders(filter = 'All') {
                 <div class="mt-4 border-t pt-4">
                     <h4 class="font-semibold text-md mb-2 text-gray-700">Actions:</h4>
                     <div class="flex flex-wrap gap-2">
-                        <button onclick="window.printOrderReceipt('${order.id}')" class="px-3 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition"><i class="fas fa-print mr-2"></i>Print Receipt</button>
+                        <button onclick="window.printOrderReceipt('${order.id}')" class="px-3 py-2 text-sm rounded-md bg-purple-600 text-white hover:bg-purple-700 transition"><i class="fas fa-print mr-2"></i>Print Receipt</button>
                         ${editOrderButtonHtml}
                     </div>
                 </div>
@@ -540,3 +541,4 @@ export function loadPanel(root, panelTitle) {
         }
     });
 }
+
