@@ -9,5 +9,11 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-console.log("firebase.js: Firebase App Initialized.");
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+
+console.log("firebase.js: Firebase App Initialized and services exported.");
+
+// Export the initialized services
+export { db, auth };
