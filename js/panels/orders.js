@@ -121,7 +121,7 @@ function fetchDeliveryMen() {
 async function updateOrderStatus(orderId, status) {
     const orderRef = db.ref('orders/' + orderId);
     try {
-        const updates = { status };
+        const updates = { status: status };
         const now = new Date().toISOString();
 
         if (status.toLowerCase() === 'confirmed') {
@@ -261,20 +261,16 @@ function renderFilteredOrders(filter = 'All') {
 
         // Timer and Border Logic
         let timerHtml = '';
-        let cardBorderClass = 'border-gray-200';
+        let cardBorderClass = 'border border-gray-200'; // Default with full border
+        let timerTextColorClass = 'text-gray-600'; // Default text color for prep time
         const isTimerActive = order.confirmedTimestamp && ['Confirmed', 'Preparing'].includes(order.status);
         const prepTimeFinished = order.confirmedTimestamp && order.readyTimestamp;
 
         if (isTimerActive) {
-            const confirmedTime = new Date(order.confirmedTimestamp).getTime();
-            const now = new Date().getTime();
-            const elapsedMinutes = Math.floor((now - confirmedTime) / (1000 * 60));
-
-            if (elapsedMinutes >= 7) cardBorderClass = 'border-l-4 border-red-500';
-            else if (elapsedMinutes >= 3) cardBorderClass = 'border-l-4 border-yellow-400';
-            else cardBorderClass = 'border-l-4 border-green-500';
-
-            timerHtml = `<div class="live-timer text-sm font-bold" data-confirmed-time="${order.confirmedTimestamp}"></div>`;
+            // Live timer will handle its own color and the card border via updateLiveTimers()
+            // Start with a green border, updateLiveTimers will take over
+            cardBorderClass = 'border-l-4 border-green-500';
+            timerHtml = `<div class="live-timer text-sm font-bold text-green-500" data-confirmed-time="${order.confirmedTimestamp}"></div>`;
         } else if (prepTimeFinished) {
             const confirmedTime = new Date(order.confirmedTimestamp).getTime();
             const readyTime = new Date(order.readyTimestamp).getTime();
@@ -282,16 +278,23 @@ function renderFilteredOrders(filter = 'All') {
             const minutes = Math.floor(elapsedSeconds / 60);
             const seconds = elapsedSeconds % 60;
             
-            if (minutes >= 7) cardBorderClass = 'border-l-4 border-red-500';
-            else if (minutes >= 3) cardBorderClass = 'border-l-4 border-yellow-400';
-            else cardBorderClass = 'border-l-4 border-green-500';
+            if (minutes >= 7) {
+                cardBorderClass = 'border-l-4 border-red-500';
+                timerTextColorClass = 'text-red-500 font-bold';
+            } else if (minutes >= 3) {
+                cardBorderClass = 'border-l-4 border-yellow-400';
+                timerTextColorClass = 'text-yellow-500 font-bold';
+            } else {
+                cardBorderClass = 'border-l-4 border-green-500';
+                timerTextColorClass = 'text-green-500 font-bold';
+            }
 
-            timerHtml = `<div class="text-sm text-gray-600"><i class="fas fa-stopwatch mr-1"></i>Prep: ${minutes}m ${seconds}s</div>`;
+            timerHtml = `<div class="text-sm ${timerTextColorClass}"><i class="fas fa-stopwatch mr-1"></i>Prep: ${minutes}m ${seconds}s</div>`;
         }
 
 
         return `
-            <div class="bg-white p-6 rounded-lg shadow-md border ${cardBorderClass}">
+            <div class="bg-white p-6 rounded-lg shadow-md ${cardBorderClass}">
                 <div class="flex flex-wrap justify-between items-start gap-4">
                     <div>
                         <h3 class="font-bold text-lg text-gray-800">Order #${order.id.substring(0, 6)}</h3>
@@ -337,16 +340,24 @@ function updateLiveTimers() {
         const seconds = elapsedSeconds % 60;
 
         el.innerHTML = `<i class="fas fa-clock mr-1"></i> ${minutes}m ${String(seconds).padStart(2, '0')}s`;
+        
+        // Also update text color live
+        el.classList.remove('text-green-500', 'text-yellow-500', 'text-red-500');
 
         const card = el.closest('.bg-white');
         if (card) {
-            card.classList.remove('border-green-500', 'border-yellow-400', 'border-red-500');
+            // Remove all potential border classes before adding the correct one
+            card.classList.remove('border-gray-200', 'border-green-500', 'border-yellow-400', 'border-red-500', 'border-l-4', 'border');
+            
             if (minutes >= 7) {
-                card.classList.add('border-red-500');
+                card.classList.add('border-l-4', 'border-red-500');
+                el.classList.add('text-red-500');
             } else if (minutes >= 3) {
-                card.classList.add('border-yellow-400');
+                card.classList.add('border-l-4', 'border-yellow-400');
+                el.classList.add('text-yellow-500');
             } else {
-                card.classList.add('border-green-500');
+                card.classList.add('border-l-4', 'border-green-500');
+                el.classList.add('text-green-500');
             }
         }
     });
