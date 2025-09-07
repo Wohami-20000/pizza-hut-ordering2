@@ -2,7 +2,6 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     const db = firebase.database();
-    const auth = firebase.auth(); // Get Firebase Auth instance
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('orderId');
 
@@ -109,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         db.ref(`orders/${orderId}`).update(currentOrder)
             .then(() => {
                 alert('Order updated successfully!');
-                window.location.href = 'dashboard.html';
+                window.close(); // Close the tab after saving
             })
             .catch(err => {
                 alert('Error updating order: ' + err.message);
@@ -121,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Initial Load: Wrapped in onAuthStateChanged ---
     // This ensures the user's authentication state (including admin claims) is loaded
     // before attempting to read from the database.
-    auth.onAuthStateChanged(user => {
+    firebase.auth().onAuthStateChanged(user => {
         if (user) {
             db.ref(`orders/${orderId}`).once('value', (snapshot) => {
                 if (snapshot.exists()) {
@@ -142,9 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // User is not authenticated, redirect to login or show error
             loadingState.style.display = 'none';
-            container.innerHTML = '<p class="text-red-500 text-center">You must be logged in to view this page.</p>';
-            // Optional: Redirect to auth.html after a delay
-            // setTimeout(() => window.location.href = 'auth.html', 3000);
+            container.innerHTML = '<p class="text-red-500 text-center">You must be logged in to view this page. Please log in on the main dashboard and try again.</p>';
         }
     });
 });

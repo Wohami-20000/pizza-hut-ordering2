@@ -381,6 +381,9 @@ function renderFilteredOrders(filter = 'All') {
             timerHtml = `<div class="text-sm ${timerTextColorClass}"><i class="fas fa-stopwatch mr-1"></i>Prep: ${minutes}m ${seconds}s</div>`;
         }
 
+        const editOrderButtonHtml = order.status === 'Pending' ? `
+            <a href="../edit-order.html?orderId=${order.id}" target="_blank" class="px-3 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 transition"><i class="fas fa-edit mr-2"></i>Edit Order</a>
+        ` : '';
 
         return `
             <div class="bg-white p-6 rounded-lg shadow-md ${cardBorderClass}">
@@ -409,8 +412,8 @@ function renderFilteredOrders(filter = 'All') {
                 <div class="mt-4 border-t pt-4">
                     <h4 class="font-semibold text-md mb-2 text-gray-700">Actions:</h4>
                     <div class="flex flex-wrap gap-2">
-                        <button onclick="window.printOrderReceipt('${order.id}')" class="px-3 py-2 text-sm rounded-md bg-gray-600 text-white hover:bg-gray-700 transition"><i class="fas fa-print mr-2"></i>Print Receipt</button>
-                        <a href="../edit-order.html?orderId=${order.id}" target="_blank" class="px-3 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 transition"><i class="fas fa-edit mr-2"></i>Edit Order</a>
+                        <button onclick="window.printOrderReceipt('${order.id}')" class="px-3 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition"><i class="fas fa-print mr-2"></i>Print Receipt</button>
+                        ${editOrderButtonHtml}
                     </div>
                 </div>
                 <div class="mt-4 border-t pt-4">
