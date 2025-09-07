@@ -168,6 +168,95 @@ function assignDelivery(orderId, deliveryManId) {
     });
 }
 
+function printOrderReceipt(orderId) {
+    const order = allOrders.find(o => o.id === orderId);
+    if (!order) {
+        alert('Could not find order details to print.');
+        return;
+    }
+
+    const printWindow = window.open('', '_blank', 'height=600,width=400');
+    printWindow.document.write('<html><head><title>Print Order</title>');
+    printWindow.document.write(`
+        <style>
+            body { font-family: 'Courier New', monospace; font-size: 10pt; margin: 0; padding: 10px; }
+            .receipt-header { text-align: center; margin-bottom: 20px; }
+            .receipt-header h1 { margin: 0; font-size: 16pt; }
+            .receipt-header p { margin: 2px 0; font-size: 9pt;}
+            .item-table { width: 100%; border-collapse: collapse; font-size: 9pt;}
+            .item-table th, .item-table td { text-align: left; padding: 5px 0; border-bottom: 1px dashed #ccc; }
+            .item-table th { border-bottom: 1px solid #000; }
+            .totals { margin-top: 20px; width: 100%; font-size: 10pt;}
+            .totals td { padding: 2px 0; }
+            .text-right { text-align: right; }
+            .notes { margin-top: 20px; border-top: 1px solid #000; padding-top: 10px; font-size: 9pt;}
+            hr { border: none; border-top: 1px dashed #000; }
+        </style>
+    `);
+    printWindow.document.write('</head><body>');
+
+    // Receipt Content
+    printWindow.document.write('<div class="receipt-header">');
+    printWindow.document.write('<h1>Pizza Hut</h1>');
+    printWindow.document.write('<p>123 Pizza Lane, Oujda</p>');
+    printWindow.document.write(`<p>Date: ${new Date(order.timestamp).toLocaleString()}</p>`);
+    printWindow.document.write(`<h2>Order #${order.id.substring(0, 6)}</h2>`);
+    printWindow.document.write('</div>');
+
+    printWindow.document.write('<hr>');
+    printWindow.document.write(`<p><strong>Order Type:</strong> ${order.orderType}</p>`);
+    if (order.orderType === 'dineIn') {
+         printWindow.document.write(`<p><strong>Table:</strong> ${order.table}</p>`);
+    } else {
+         printWindow.document.write(`<p><strong>Customer:</strong> ${order.customerInfo.name}</p>`);
+         printWindow.document.write(`<p><strong>Phone:</strong> ${order.customerInfo.phone}</p>`);
+         if (order.orderType === 'delivery') {
+            printWindow.document.write(`<p><strong>Address:</strong> ${order.deliveryAddress}</p>`);
+         }
+    }
+    printWindow.document.write('<hr>');
+
+
+    printWindow.document.write('<table class="item-table">');
+    printWindow.document.write('<thead><tr><th>Qty</th><th>Item</th><th class="text-right">Price</th></tr></thead>');
+    printWindow.document.write('<tbody>');
+    order.cart.forEach(item => {
+        printWindow.document.write(`
+            <tr>
+                <td>${item.quantity}x</td>
+                <td>${escapeHTML(item.name)}</td>
+                <td class="text-right">${(item.price * item.quantity).toFixed(2)}</td>
+            </tr>
+        `);
+    });
+    printWindow.document.write('</tbody></table>');
+
+    printWindow.document.write('<table class="totals">');
+    printWindow.document.write(`<tr><td>Subtotal:</td><td class="text-right">${order.priceDetails.itemsTotal.toFixed(2)}</td></tr>`);
+    printWindow.document.write(`<tr><td>Taxes:</td><td class="text-right">${order.priceDetails.taxes.toFixed(2)}</td></tr>`);
+     if (order.orderType === 'delivery') {
+        printWindow.document.write(`<tr><td>Delivery Fee:</td><td class="text-right">${order.priceDetails.deliveryFee.toFixed(2)}</td></tr>`);
+    }
+    if (order.priceDetails.discount > 0) {
+        printWindow.document.write(`<tr><td>Discount:</td><td class="text-right">-${order.priceDetails.discount.toFixed(2)}</td></tr>`);
+    }
+    printWindow.document.write(`<tr><td style="font-weight: bold; font-size: 12pt;">Total:</td><td class="text-right" style="font-weight: bold; font-size: 12pt;">${order.priceDetails.finalTotal.toFixed(2)} MAD</td></tr>`);
+    printWindow.document.write('</table>');
+    
+    if (order.allergyInfo) {
+        printWindow.document.write(`<div class="notes"><strong>Notes:</strong> ${escapeHTML(order.allergyInfo)}</div>`);
+    }
+
+
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+}
+
+// Expose the print function to the global scope so inline `onclick` can access it
+window.printOrderReceipt = printOrderReceipt;
+
 function renderFilteredOrders(filter = 'All') {
     const ordersContainer = document.getElementById('orders-container');
     if (!ordersContainer) return;
@@ -318,6 +407,13 @@ function renderFilteredOrders(filter = 'All') {
                     <ul class="space-y-1 text-sm">${itemsHtml}</ul>
                 </div>
                 <div class="mt-4 border-t pt-4">
+                    <h4 class="font-semibold text-md mb-2 text-gray-700">Actions:</h4>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="window.printOrderReceipt('${order.id}')" class="px-3 py-2 text-sm rounded-md bg-gray-600 text-white hover:bg-gray-700 transition"><i class="fas fa-print mr-2"></i>Print Receipt</button>
+                        <a href="../edit-order.html?orderId=${order.id}" target="_blank" class="px-3 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 transition"><i class="fas fa-edit mr-2"></i>Edit Order</a>
+                    </div>
+                </div>
+                <div class="mt-4 border-t pt-4">
                     <h4 class="font-semibold text-md mb-2 text-gray-700">Update Status:</h4>
                     <div class="flex flex-wrap gap-2">${statusButtons}</div>
                 </div>
@@ -441,4 +537,3 @@ export function loadPanel(root, panelTitle) {
         }
     });
 }
-
