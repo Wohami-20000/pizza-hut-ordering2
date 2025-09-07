@@ -1,147 +1,91 @@
 // edit-order.js
+import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-document.addEventListener('DOMContentLoaded', () => {
-    const db = firebase.database();
-    const params = new URLSearchParams(window.location.search);
-    const orderId = params.get('orderId');
+// Initialize DB from the global firebase object (initialized in firebase.js)
+const db = getDatabase();
 
-    const loadingState = document.getElementById('loading-state');
-    const container = document.getElementById('edit-order-container');
-    const itemsContainer = document.getElementById('items-container');
-    const orderIdDisplay = document.getElementById('order-id-display');
-    const saveChangesBtn = document.getElementById('save-changes-btn');
+// 1. Get the order ID from the URL
+const urlParams = new URLSearchParams(window.location.search);
+const orderId = urlParams.get("orderId");
+console.log("Editing order:", orderId);
 
-    // Price elements
-    const subtotalEl = document.getElementById('subtotal');
-    const taxesEl = document.getElementById('taxes');
-    const deliveryFeeEl = document.getElementById('delivery-fee');
-    const discountEl = document.getElementById('discount');
-    const finalTotalEl = document.getElementById('final-total');
-
-    let currentOrder = null;
-    const TAX_RATE = 0.20;
-
-    if (!orderId) {
-        container.innerHTML = '<p class="text-red-500 text-center">No Order ID found.</p>';
-        loadingState.style.display = 'none';
-        return;
-    }
-
-    orderIdDisplay.textContent = `ID: ${orderId}`;
-
-    // --- Functions ---
-
-    function calculateTotals() {
-        if (!currentOrder) return;
-
-        const subtotal = currentOrder.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const taxes = subtotal * TAX_RATE;
-        const deliveryFee = currentOrder.priceDetails.deliveryFee || 0;
-        const discount = currentOrder.priceDetails.discount || 0;
-        const finalTotal = subtotal + taxes + deliveryFee - discount;
-
-        // Update UI
-        subtotalEl.textContent = `${subtotal.toFixed(2)} MAD`;
-        taxesEl.textContent = `${taxes.toFixed(2)} MAD`;
-        deliveryFeeEl.textContent = `${deliveryFee.toFixed(2)} MAD`;
-        discountEl.textContent = `-${discount.toFixed(2)} MAD`;
-        finalTotalEl.textContent = `${finalTotal.toFixed(2)} MAD`;
-
-        // Update the order object in memory
-        currentOrder.priceDetails.itemsTotal = subtotal;
-        currentOrder.priceDetails.taxes = taxes;
-        currentOrder.priceDetails.finalTotal = finalTotal;
-    }
-
-    function renderItems() {
-        itemsContainer.innerHTML = '';
-        if (!currentOrder || !currentOrder.cart) return;
-
-        currentOrder.cart.forEach((item, index) => {
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'item-row border-b pb-3';
-            itemDiv.innerHTML = `
-                <div>
-                    <p class="font-semibold">${item.name}</p>
-                    <p class="text-sm text-gray-500">${item.price.toFixed(2)} MAD</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button data-index="${index}" class="change-qty-btn bg-gray-200 w-6 h-6 rounded-full">-</button>
-                    <span>${item.quantity}</span>
-                    <button data-index="${index}" class="change-qty-btn bg-gray-200 w-6 h-6 rounded-full">+</button>
-                </div>
-                <button data-index="${index}" class="remove-item-btn text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button>
-            `;
-            itemsContainer.appendChild(itemDiv);
-        });
-        calculateTotals();
-    }
-
-    // --- Event Listeners ---
-    
-    itemsContainer.addEventListener('click', (e) => {
-        const target = e.target.closest('button');
-        if (!target) return;
-        
-        const index = parseInt(target.dataset.index);
-
-        if (target.classList.contains('remove-item-btn')) {
-            if (confirm('Are you sure you want to remove this item?')) {
-                currentOrder.cart.splice(index, 1);
-                renderItems();
-            }
-        } else if (target.classList.contains('change-qty-btn')) {
-            const delta = target.textContent === '+' ? 1 : -1;
-            currentOrder.cart[index].quantity += delta;
-            if (currentOrder.cart[index].quantity <= 0) {
-                currentOrder.cart.splice(index, 1);
-            }
-            renderItems();
-        }
-    });
-
-    saveChangesBtn.addEventListener('click', () => {
-        if (!currentOrder) return;
-        saveChangesBtn.textContent = 'Saving...';
-        saveChangesBtn.disabled = true;
-
-        db.ref(`orders/${orderId}`).update(currentOrder)
-            .then(() => {
-                alert('Order updated successfully!');
-                window.close(); // Close the tab after saving
-            })
-            .catch(err => {
-                alert('Error updating order: ' + err.message);
-                saveChangesBtn.textContent = 'Save Changes to Order';
-                saveChangesBtn.disabled = false;
-            });
-    });
-
-    // --- Initial Load: Wrapped in onAuthStateChanged ---
-    // This ensures the user's authentication state (including admin claims) is loaded
-    // before attempting to read from the database.
-    firebase.auth().onAuthStateChanged(user => {
-        if (user) {
-            db.ref(`orders/${orderId}`).once('value', (snapshot) => {
-                if (snapshot.exists()) {
-                    currentOrder = snapshot.val();
-                    renderItems();
-                    loadingState.style.display = 'none';
-                    container.classList.remove('hidden');
-                } else {
-                    loadingState.style.display = 'none';
-                    container.innerHTML = '<p class="text-red-500 text-center">Order not found.</p>';
-                }
-            }).catch(error => {
-                // Catch any Firebase errors during the .once('value') call
-                console.error("Error fetching order details:", error);
-                loadingState.style.display = 'none';
-                container.innerHTML = `<p class="text-red-500 text-center">Error loading order: ${error.message}. Please check console for details.</p>`;
-            });
+if (orderId) {
+    // 2. Fetch the order from Firebase
+    const orderRef = ref(db, 'orders/' + orderId);
+    get(orderRef).then(snapshot => {
+        if (snapshot.exists()) {
+            const order = snapshot.val();
+            console.log("Order Data:", order);
+            // Add the ID to the order object itself for easy access
+            order.id = orderId; 
+            renderOrder(order);
         } else {
-            // User is not authenticated, redirect to login or show error
-            loadingState.style.display = 'none';
-            container.innerHTML = '<p class="text-red-500 text-center">You must be logged in to view this page. Please log in on the main dashboard and try again.</p>';
+            const container = document.getElementById("edit-order-container");
+            container.innerHTML = `<p style="color: red;">Error: No order found with ID: ${orderId}</p>`;
+            console.error("No order found with ID:", orderId);
         }
+    }).catch(error => {
+        const container = document.getElementById("edit-order-container");
+        container.innerHTML = `<p style="color: red;">Error fetching order: ${error.message}</p>`;
+        console.error("Error fetching order:", error);
     });
-});
+} else {
+    const container = document.getElementById("edit-order-container");
+    container.innerHTML = `<p style="color: red;">Error: No orderId provided in the URL.</p>`;
+}
+
+
+// 3. Render the order on the page
+function renderOrder(order) {
+    const container = document.getElementById("edit-order-container");
+    if (!container) return;
+
+    // Use a more detailed structure from your previous files
+    container.innerHTML = `
+        <div class="bg-white p-6 rounded-xl shadow-lg space-y-6">
+            <div class="flex justify-between items-center">
+                 <h2 class="text-xl font-bold">Order Details #${order.orderId}</h2>
+                 <p><strong>Customer:</strong> ${order.customerInfo.name || 'N/A'}</p>
+            </div>
+            
+            <div>
+                <p><strong>Status:</strong> ${order.status}</p>
+                <p><strong>Total:</strong> ${order.priceDetails.finalTotal.toFixed(2)} MAD</p>
+            </div>
+
+            <div>
+                <h4 class="font-semibold mb-2">Items:</h4>
+                <ul class="list-disc list-inside space-y-1">
+                    ${order.cart.map(item => `<li>${item.name} x${item.quantity}</li>`).join("")}
+                </ul>
+            </div>
+
+            <div class="border-t pt-4">
+                <h4 class="font-semibold mb-2">Update Status:</h4>
+                <div class="flex gap-2">
+                    <button onclick="updateStatus('${order.id}', 'Preparing')">Set to Preparing</button>
+                    <button onclick="updateStatus('${order.id}', 'Ready')">Set to Ready</button>
+                    <button onclick="updateStatus('${order.id}', 'Completed')">Set to Completed</button>
+                    <button onclick="updateStatus('${order.id}', 'Cancelled')">Cancel Order</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// 4. Allow updates
+function updateStatus(orderId, newStatus) {
+    const orderRef = ref(db, 'orders/' + orderId);
+    update(orderRef, { status: newStatus })
+        .then(() => {
+            alert("Order status updated!");
+            location.reload(); // Reload the page to show the new status
+        })
+        .catch(err => {
+            console.error("Error updating status:", err);
+            alert("Failed to update status.");
+        });
+}
+
+// Expose the function to the global scope so inline onclick can find it
+window.updateStatus = updateStatus;
