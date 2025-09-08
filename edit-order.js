@@ -23,8 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const TAX_RATE = 0.20;
 
     if (!orderId) {
-        container.innerHTML = '<p class="text-red-500 text-center">No Order ID found.</p>';
         loadingState.style.display = 'none';
+        container.innerHTML = '<p class="text-red-500 text-center">No Order ID found.</p>';
+        container.classList.remove('hidden');
         return;
     }
 
@@ -132,17 +133,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     loadingState.style.display = 'none';
                     container.innerHTML = '<p class="text-red-500 text-center">Order not found.</p>';
+                    container.classList.remove('hidden'); // Show the error
                 }
             }).catch(error => {
                 // Catch any Firebase errors during the .once('value') call
                 console.error("Error fetching order details:", error);
                 loadingState.style.display = 'none';
                 container.innerHTML = `<p class="text-red-500 text-center">Error loading order: ${error.message}. Please check console for details.</p>`;
+                container.classList.remove('hidden'); // Show the error
             });
         } else {
             // User is not authenticated, redirect to login or show error
             loadingState.style.display = 'none';
             container.innerHTML = '<p class="text-red-500 text-center">You must be logged in to view this page.</p>';
+            container.classList.remove('hidden'); // Show the error
             // Optional: Redirect to auth.html after a delay
             // setTimeout(() => window.location.href = 'auth.html', 3000);
         }
