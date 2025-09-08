@@ -280,7 +280,7 @@ function printOrderReceipt(orderId) {
     printWindow.document.write('<h1>Pizza Hut</h1>');
     printWindow.document.write('<p>123 Pizza Lane, Oujda</p>');
     printWindow.document.write(`<p>Date: ${new Date(order.timestamp).toLocaleString()}</p>`);
-    printWindow.document.write(`<h2>Order #${order.id.substring(0, 6)}</h2>`);
+    printWindow.document.write(`<h2>Order #${order.orderNumber}</h2>`);
     printWindow.document.write('</div>');
 
     printWindow.document.write('<hr>');
@@ -360,10 +360,35 @@ function renderFilteredOrders() {
     // Apply search filter
     if (searchQuery) {
         filteredOrders = filteredOrders.filter(order =>
-            (order.id && order.id.toLowerCase().includes(searchQuery)) ||
+            (order.orderNumber && String(order.orderNumber).toLowerCase().includes(searchQuery)) ||
             (order.customerInfo && order.customerInfo.name && order.customerInfo.name.toLowerCase().includes(searchQuery))
         );
     }
+    
+    // Smart sort logic
+    filteredOrders.sort((a, b) => {
+        const isAFinal = ['Delivered', 'Completed', 'Cancelled'].includes(a.status);
+        const isBFinal = ['Delivered', 'Completed', 'Cancelled'].includes(b.status);
+
+        if (isAFinal && !isBFinal) return 1;
+        if (!isAFinal && isBFinal) return -1;
+
+        if (!isAFinal && !isBFinal) {
+            const aItemCount = a.cart ? a.cart.reduce((sum, item) => sum + (item.quantity || 1), 0) : 0;
+            const bItemCount = b.cart ? b.cart.reduce((sum, item) => sum + (item.quantity || 1), 0) : 0;
+            if (aItemCount !== bItemCount) {
+                return bItemCount - aItemCount;
+            }
+
+            if (a.priceDetails.finalTotal !== b.priceDetails.finalTotal) {
+                return b.priceDetails.finalTotal - a.priceDetails.finalTotal;
+            }
+            return a.orderNumber - b.orderNumber;
+        }
+
+        return b.orderNumber - a.orderNumber;
+    });
+
 
     if (filteredOrders.length === 0) {
         ordersContainer.innerHTML = `<div class="text-center py-12 bg-white rounded-lg shadow"><p class="text-gray-500">No orders match the current filters.</p></div>`;
@@ -492,7 +517,7 @@ function renderFilteredOrders() {
             <div class="bg-white p-6 rounded-lg shadow-md ${cardBorderClass}">
                 <div class="flex flex-wrap justify-between items-start gap-4">
                     <div>
-                        <h3 class="font-bold text-lg text-gray-800">Order #${order.id.substring(0, 6)}</h3>
+                        <h3 class="font-bold text-lg text-gray-800">Order #${order.orderNumber}</h3>
                         <p class="text-sm font-semibold text-gray-700 capitalize mt-1"><i class="fas ${orderTypeIcon} fa-fw mr-2 text-gray-400"></i>${orderType}</p>
                         <p class="text-sm text-gray-500">${formattedDate}</p>
                         ${customerInfoHtml}
@@ -672,7 +697,7 @@ function listenToOrders(dateString) {
                 allOrders.push({ id: childSnapshot.key, ...childSnapshot.val() });
             });
         }
-        allOrders.reverse(); // Show the newest orders first
+        // No initial sort here, renderFilteredOrders will handle it
         
         updateDashboardStats();
         updateDailyPerformance(); // Recalculate performance with the full day's data
