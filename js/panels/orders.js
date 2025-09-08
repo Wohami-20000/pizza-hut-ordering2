@@ -527,7 +527,38 @@ function renderFilteredOrders() {
     }).join('');
 }
 
+
+function updateDashboardStats() {
+    const stats = {
+        total: allOrders.length,
+        Pending: 0,
+        Confirmed: 0,
+        Preparing: 0,
+        Ready: 0,
+        'Out for Delivery': 0,
+        Delivered: 0,
+        Completed: 0,
+        Cancelled: 0
+    };
+
+    allOrders.forEach(order => {
+        if (stats.hasOwnProperty(order.status)) {
+            stats[order.status]++;
+        }
+    });
+
+    document.getElementById('stats-total-orders').textContent = stats.total;
+    document.getElementById('stats-pending-count').textContent = stats.Pending;
+    document.getElementById('stats-confirmed-count').textContent = stats.Confirmed;
+    document.getElementById('stats-preparing-count').textContent = stats.Preparing;
+    document.getElementById('stats-ready-count').textContent = stats.Ready;
+    document.getElementById('stats-delivery-count').textContent = stats['Out for Delivery'];
+    document.getElementById('stats-completed-count').textContent = stats.Completed + stats.Delivered;
+}
+
+
 function updateLiveTimers() {
+    // Individual order timers
     const timerElements = document.querySelectorAll('.live-timer');
     timerElements.forEach(el => {
         const confirmedTime = new Date(el.dataset.confirmedTime).getTime();
@@ -540,12 +571,10 @@ function updateLiveTimers() {
 
         el.innerHTML = `<i class="fas fa-clock mr-1"></i> ${minutes}m ${String(seconds).padStart(2, '0')}s`;
         
-        // Also update text color live
         el.classList.remove('text-green-500', 'text-yellow-500', 'text-red-500');
 
         const card = el.closest('.bg-white');
         if (card) {
-            // Remove all potential border classes before adding the correct one
             card.classList.remove('border-gray-200', 'border-green-500', 'border-yellow-400', 'border-red-500', 'border-l-4', 'border');
             
             if (minutes >= 7) {
@@ -560,7 +589,49 @@ function updateLiveTimers() {
             }
         }
     });
+
+    // Kitchen Performance Bar
+    const preparingOrders = allOrders.filter(o => o.status === 'Preparing' && o.confirmedTimestamp);
+    const totalPreparing = preparingOrders.length;
+    let lateOrders = 0;
+
+    if (totalPreparing > 0) {
+        const now = new Date().getTime();
+        preparingOrders.forEach(order => {
+            const confirmedTime = new Date(order.confirmedTimestamp).getTime();
+            const elapsedMinutes = (now - confirmedTime) / 60000;
+            if (elapsedMinutes > 7) {
+                lateOrders++;
+            }
+        });
+
+        const performancePercent = Math.max(0, ((totalPreparing - lateOrders) / totalPreparing) * 100);
+        const perfBar = document.getElementById('kitchen-performance-bar');
+        const perfPercentText = document.getElementById('kitchen-performance-percent');
+        const perfSubtext = document.getElementById('kitchen-performance-subtext');
+
+        perfBar.style.width = `${performancePercent}%`;
+        perfPercentText.textContent = `${Math.round(performancePercent)}%`;
+
+        perfBar.classList.remove('bg-green-500', 'bg-yellow-500', 'bg-red-500');
+        if (performancePercent >= 80) {
+            perfBar.classList.add('bg-green-500');
+        } else if (performancePercent >= 50) {
+            perfBar.classList.add('bg-yellow-500');
+        } else {
+            perfBar.classList.add('bg-red-500');
+        }
+        perfSubtext.textContent = `${lateOrders} of ${totalPreparing} orders are running late.`;
+
+    } else {
+        // Reset when no orders are preparing
+        document.getElementById('kitchen-performance-bar').style.width = '100%';
+        document.getElementById('kitchen-performance-bar').className = 'bg-green-500 h-4 rounded-full transition-all duration-500';
+        document.getElementById('kitchen-performance-percent').textContent = '100%';
+        document.getElementById('kitchen-performance-subtext').textContent = 'No orders currently in preparation.';
+    }
 }
+
 
 function listenToOrders(dateString) {
     if (currentOrdersRef) {
@@ -590,6 +661,7 @@ function listenToOrders(dateString) {
         }
         allOrders.reverse(); // Show the newest orders first
         
+        updateDashboardStats();
         renderFilteredOrders();
     }, error => {
         console.error("Error fetching orders: ", error);
@@ -608,6 +680,49 @@ export function loadPanel(root, panelTitle) {
     panelTitle.textContent = 'Live Orders';
     root.innerHTML = `
         <div class="p-4 md:p-8 bg-gray-50 min-h-screen">
+            <!-- New Dashboard Section -->
+            <div id="live-orders-dashboard" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
+                <div class="stat-card bg-white p-4 rounded-lg shadow flex items-center gap-3">
+                    <i class="fas fa-receipt text-3xl text-blue-500"></i>
+                    <div><p class="text-sm text-gray-500">Total Orders</p><p id="stats-total-orders" class="text-2xl font-bold">0</p></div>
+                </div>
+                <div class="stat-card bg-white p-4 rounded-lg shadow flex items-center gap-3">
+                    <i class="fas fa-clock text-3xl text-yellow-500"></i>
+                    <div><p class="text-sm text-gray-500">Pending</p><p id="stats-pending-count" class="text-2xl font-bold">0</p></div>
+                </div>
+                 <div class="stat-card bg-white p-4 rounded-lg shadow flex items-center gap-3">
+                    <i class="fas fa-check-circle text-3xl text-blue-400"></i>
+                    <div><p class="text-sm text-gray-500">Confirmed</p><p id="stats-confirmed-count" class="text-2xl font-bold">0</p></div>
+                </div>
+                 <div class="stat-card bg-white p-4 rounded-lg shadow flex items-center gap-3">
+                    <i class="fas fa-utensils text-3xl text-indigo-500"></i>
+                    <div><p class="text-sm text-gray-500">Preparing</p><p id="stats-preparing-count" class="text-2xl font-bold">0</p></div>
+                </div>
+                <div class="stat-card bg-white p-4 rounded-lg shadow flex items-center gap-3">
+                    <i class="fas fa-box-open text-3xl text-cyan-500"></i>
+                    <div><p class="text-sm text-gray-500">Ready</p><p id="stats-ready-count" class="text-2xl font-bold">0</p></div>
+                </div>
+                 <div class="stat-card bg-white p-4 rounded-lg shadow flex items-center gap-3">
+                    <i class="fas fa-motorcycle text-3xl text-purple-500"></i>
+                    <div><p class="text-sm text-gray-500">Out for Delivery</p><p id="stats-delivery-count" class="text-2xl font-bold">0</p></div>
+                </div>
+                 <div class="stat-card bg-white p-4 rounded-lg shadow flex items-center gap-3">
+                    <i class="fas fa-check-double text-3xl text-green-500"></i>
+                    <div><p class="text-sm text-gray-500">Completed</p><p id="stats-completed-count" class="text-2xl font-bold">0</p></div>
+                </div>
+                <div class="col-span-2 md:col-span-4 lg:col-span-7 bg-white p-4 rounded-lg shadow">
+                    <div class="flex justify-between items-center mb-1">
+                        <h4 class="font-semibold text-gray-700">Kitchen Performance</h4>
+                        <span id="kitchen-performance-percent" class="font-bold text-lg">100%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-4">
+                        <div id="kitchen-performance-bar" class="bg-green-500 h-4 rounded-full transition-all duration-500" style="width: 100%;"></div>
+                    </div>
+                    <p id="kitchen-performance-subtext" class="text-xs text-gray-500 mt-1">Status of orders currently in preparation.</p>
+                </div>
+            </div>
+            <!-- End Dashboard Section -->
+
             <div class="flex flex-wrap items-center justify-between mb-4 gap-4">
                 <div class="relative flex-grow">
                     <input type="search" id="order-search-input" placeholder="Search by Order ID or Customer Name..." class="w-full p-2 pl-10 border rounded-lg shadow-sm bg-white">
