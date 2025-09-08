@@ -11,6 +11,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const itemsContainer = document.getElementById('items-container');
     const orderIdDisplay = document.getElementById('order-id-display');
     const saveChangesBtn = document.getElementById('save-changes-btn');
+    
+    // --- Modal Elements ---
+    const addItemBtn = document.getElementById('add-item-btn');
+    const addItemModal = document.getElementById('add-item-modal');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    const menuItemSearch = document.getElementById('menu-item-search');
+    const menuItemsList = document.getElementById('menu-items-list');
 
     // Price elements
     const subtotalEl = document.getElementById('subtotal');
@@ -20,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const finalTotalEl = document.getElementById('final-total');
 
     let currentOrder = null;
+    let menuItemsCache = {}; // Cache for all menu items
     const TAX_RATE = 0.20;
 
     if (!orderId) {
@@ -32,6 +40,61 @@ document.addEventListener('DOMContentLoaded', () => {
     orderIdDisplay.textContent = `ID: ${orderId}`;
 
     // --- Functions ---
+
+    /**
+     * Fetches all items from all categories in the menu.
+     */
+    function fetchMenuItems() {
+        db.ref('menu').once('value', (snapshot) => {
+            if (snapshot.exists()) {
+                const menuData = snapshot.val();
+                menuItemsCache = {}; // Reset cache
+                for (const categoryId in menuData) {
+                    const category = menuData[categoryId];
+                    if (category.items) {
+                        for (const itemId in category.items) {
+                            menuItemsCache[itemId] = {
+                                id: itemId,
+                                ...category.items[itemId]
+                            };
+                        }
+                    }
+                }
+            }
+        }).catch(error => console.error("Error fetching menu items:", error));
+    }
+
+    /**
+     * Renders menu items inside the "Add Item" modal, with an optional filter.
+     * @param {string} [filter=''] - A search string to filter items by name.
+     */
+    function renderMenuItemsInModal(filter = '') {
+        menuItemsList.innerHTML = '';
+        const filterLower = filter.toLowerCase();
+
+        const filteredItems = Object.values(menuItemsCache).filter(item =>
+            item.name.toLowerCase().includes(filterLower)
+        );
+
+        if (filteredItems.length === 0) {
+            menuItemsList.innerHTML = '<p class="text-gray-500 text-center">No items found.</p>';
+            return;
+        }
+
+        filteredItems.forEach(item => {
+            const itemEl = document.createElement('div');
+            itemEl.className = 'flex justify-between items-center p-2 hover:bg-gray-100 rounded-md cursor-pointer';
+            itemEl.dataset.itemId = item.id;
+            itemEl.innerHTML = `
+                <div>
+                    <p class="font-semibold">${item.name}</p>
+                    <p class="text-sm text-gray-500">${item.price.toFixed(2)} MAD</p>
+                </div>
+                <i class="fas fa-plus-circle text-green-500"></i>
+            `;
+            menuItemsList.appendChild(itemEl);
+        });
+    }
 
     function calculateTotals() {
         if (!currentOrder) return;
@@ -118,12 +181,58 @@ document.addEventListener('DOMContentLoaded', () => {
                 saveChangesBtn.disabled = false;
             });
     });
+    
+    if (addItemBtn) {
+        addItemBtn.addEventListener('click', () => {
+            renderMenuItemsInModal(); // Render with no filter initially
+            addItemModal.classList.remove('hidden');
+        });
+    }
+
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', () => {
+            addItemModal.classList.add('hidden');
+        });
+    }
+
+    if (menuItemSearch) {
+        menuItemSearch.addEventListener('input', (e) => {
+            renderMenuItemsInModal(e.target.value);
+        });
+    }
+
+    if (menuItemsList) {
+        menuItemsList.addEventListener('click', (e) => {
+            const targetItem = e.target.closest('[data-item-id]');
+            if (!targetItem) return;
+
+            const itemId = targetItem.dataset.itemId;
+            const itemToAdd = menuItemsCache[itemId];
+
+            if (itemToAdd && currentOrder) {
+                const existingItemInCart = currentOrder.cart.find(cartItem => cartItem.id === itemId && (!cartItem.options || cartItem.options.length === 0));
+                
+                if (existingItemInCart) {
+                    existingItemInCart.quantity++;
+                } else {
+                    currentOrder.cart.push({
+                        id: itemToAdd.id,
+                        name: itemToAdd.name,
+                        price: itemToAdd.price,
+                        quantity: 1
+                    });
+                }
+                
+                renderItems(); 
+                addItemModal.classList.add('hidden');
+            }
+        });
+    }
 
     // --- Initial Load: Wrapped in onAuthStateChanged ---
-    // This ensures the user's authentication state (including admin claims) is loaded
-    // before attempting to read from the database.
     auth.onAuthStateChanged(user => {
         if (user) {
+            fetchMenuItems(); // Fetch menu items right away
             db.ref(`orders/${orderId}`).once('value', (snapshot) => {
                 if (snapshot.exists()) {
                     currentOrder = snapshot.val();
@@ -133,22 +242,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     loadingState.style.display = 'none';
                     container.innerHTML = '<p class="text-red-500 text-center">Order not found.</p>';
-                    container.classList.remove('hidden'); // Show the error
+                    container.classList.remove('hidden'); 
                 }
             }).catch(error => {
-                // Catch any Firebase errors during the .once('value') call
                 console.error("Error fetching order details:", error);
                 loadingState.style.display = 'none';
                 container.innerHTML = `<p class="text-red-500 text-center">Error loading order: ${error.message}. Please check console for details.</p>`;
-                container.classList.remove('hidden'); // Show the error
+                container.classList.remove('hidden');
             });
         } else {
-            // User is not authenticated, redirect to login or show error
             loadingState.style.display = 'none';
             container.innerHTML = '<p class="text-red-500 text-center">You must be logged in to view this page.</p>';
-            container.classList.remove('hidden'); // Show the error
-            // Optional: Redirect to auth.html after a delay
-            // setTimeout(() => window.location.href = 'auth.html', 3000);
+            container.classList.remove('hidden'); 
         }
     });
 });
+

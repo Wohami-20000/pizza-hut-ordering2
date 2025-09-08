@@ -24,9 +24,12 @@
 
         <div id="edit-order-container" class="hidden space-y-6">
             <div class="bg-white p-6 rounded-xl shadow-lg">
-                <h2 class="text-lg font-bold mb-4">Items in Order</h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold">Items in Order</h2>
+                    <button id="add-item-btn" class="bg-blue-500 text-white font-semibold py-1 px-3 rounded-md text-sm hover:bg-blue-600 transition">+ Add Item</button>
+                </div>
                 <div id="items-container" class="space-y-4">
-                    </div>
+                </div>
             </div>
 
             <div class="bg-white p-6 rounded-xl shadow-lg">
@@ -43,6 +46,20 @@
             <button id="save-changes-btn" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 transition">
                 Save Changes to Order
             </button>
+        </div>
+
+        <!-- Add Item Modal -->
+        <div id="add-item-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
+            <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg flex flex-col" style="max-height: 90vh;">
+                <div class="flex justify-between items-center border-b pb-3 mb-4">
+                    <h3 class="text-2xl font-bold text-gray-800">Add Item to Order</h3>
+                    <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                </div>
+                <input type="text" id="menu-item-search" placeholder="Search for a pizza, side, or drink..." class="w-full p-2 border rounded-md mb-4">
+                <div id="menu-items-list" class="flex-grow overflow-y-auto">
+                    <!-- Menu items will be loaded here -->
+                </div>
+            </div>
         </div>
     </main>
 
