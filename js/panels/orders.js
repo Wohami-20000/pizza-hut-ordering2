@@ -108,6 +108,9 @@ let allOrders = []; // Cache for all orders for the selected day
 let deliveryMen = {}; // Cache for delivery men
 let timerInterval; // To hold the interval for updating timers
 let currentOrdersRef; // To hold the current Firebase listener
+let dailyPerformanceScore = 100.0;
+let performanceTrackedOrders = new Set();
+
 
 // --- PIN Authorization ---
 const ADMIN_PIN = '1937';
@@ -556,6 +559,53 @@ function updateDashboardStats() {
     document.getElementById('stats-completed-count').textContent = stats.Completed + stats.Delivered;
 }
 
+function updateDailyPerformance() {
+    allOrders.forEach(order => {
+        // Check if order is complete and not yet tracked
+        if (order.readyTimestamp && order.confirmedTimestamp && !performanceTrackedOrders.has(order.id)) {
+            const confirmedTime = new Date(order.confirmedTimestamp).getTime();
+            const readyTime = new Date(order.readyTimestamp).getTime();
+            const prepTimeMinutes = (readyTime - confirmedTime) / 60000;
+
+            if (prepTimeMinutes > 7) { // Late order penalty
+                dailyPerformanceScore -= 5;
+            } else if (prepTimeMinutes < 3) { // Fast order reward
+                dailyPerformanceScore += 2;
+            }
+            // Neutral for times between 3 and 7 minutes
+
+            performanceTrackedOrders.add(order.id);
+        }
+    });
+
+    // Clamp the score between 0 and 100
+    dailyPerformanceScore = Math.max(0, Math.min(100, dailyPerformanceScore));
+    renderPerformanceDashboard();
+}
+
+function renderPerformanceDashboard() {
+    const perfBar = document.getElementById('kitchen-performance-bar');
+    const perfPercentText = document.getElementById('kitchen-performance-percent');
+    const perfSubtext = document.getElementById('kitchen-performance-subtext');
+
+    if (!perfBar || !perfPercentText || !perfSubtext) return;
+
+    perfBar.style.width = `${dailyPerformanceScore}%`;
+    perfPercentText.textContent = `${Math.round(dailyPerformanceScore)}%`;
+
+    perfBar.classList.remove('bg-green-500', 'bg-yellow-500', 'bg-red-500');
+    if (dailyPerformanceScore >= 80) {
+        perfBar.classList.add('bg-green-500');
+        perfSubtext.textContent = "Excellent performance today!";
+    } else if (dailyPerformanceScore >= 50) {
+        perfBar.classList.add('bg-yellow-500');
+        perfSubtext.textContent = "Kitchen is keeping up, but there's room to improve.";
+    } else {
+        perfBar.classList.add('bg-red-500');
+        perfSubtext.textContent = "Attention needed: Several orders were prepared late today.";
+    }
+}
+
 
 function updateLiveTimers() {
     // Individual order timers
@@ -589,47 +639,6 @@ function updateLiveTimers() {
             }
         }
     });
-
-    // Kitchen Performance Bar
-    const preparingOrders = allOrders.filter(o => o.status === 'Preparing' && o.confirmedTimestamp);
-    const totalPreparing = preparingOrders.length;
-    let lateOrders = 0;
-
-    if (totalPreparing > 0) {
-        const now = new Date().getTime();
-        preparingOrders.forEach(order => {
-            const confirmedTime = new Date(order.confirmedTimestamp).getTime();
-            const elapsedMinutes = (now - confirmedTime) / 60000;
-            if (elapsedMinutes > 7) {
-                lateOrders++;
-            }
-        });
-
-        const performancePercent = Math.max(0, ((totalPreparing - lateOrders) / totalPreparing) * 100);
-        const perfBar = document.getElementById('kitchen-performance-bar');
-        const perfPercentText = document.getElementById('kitchen-performance-percent');
-        const perfSubtext = document.getElementById('kitchen-performance-subtext');
-
-        perfBar.style.width = `${performancePercent}%`;
-        perfPercentText.textContent = `${Math.round(performancePercent)}%`;
-
-        perfBar.classList.remove('bg-green-500', 'bg-yellow-500', 'bg-red-500');
-        if (performancePercent >= 80) {
-            perfBar.classList.add('bg-green-500');
-        } else if (performancePercent >= 50) {
-            perfBar.classList.add('bg-yellow-500');
-        } else {
-            perfBar.classList.add('bg-red-500');
-        }
-        perfSubtext.textContent = `${lateOrders} of ${totalPreparing} orders are running late.`;
-
-    } else {
-        // Reset when no orders are preparing
-        document.getElementById('kitchen-performance-bar').style.width = '100%';
-        document.getElementById('kitchen-performance-bar').className = 'bg-green-500 h-4 rounded-full transition-all duration-500';
-        document.getElementById('kitchen-performance-percent').textContent = '100%';
-        document.getElementById('kitchen-performance-subtext').textContent = 'No orders currently in preparation.';
-    }
 }
 
 
@@ -637,6 +646,10 @@ function listenToOrders(dateString) {
     if (currentOrdersRef) {
         currentOrdersRef.off(); // Detach previous listener to prevent memory leaks
     }
+
+    // Reset daily performance stats when the date changes
+    dailyPerformanceScore = 100.0;
+    performanceTrackedOrders.clear();
 
     const startOfDay = new Date(dateString);
     startOfDay.setHours(0, 0, 0, 0);
@@ -662,7 +675,9 @@ function listenToOrders(dateString) {
         allOrders.reverse(); // Show the newest orders first
         
         updateDashboardStats();
+        updateDailyPerformance(); // Recalculate performance with the full day's data
         renderFilteredOrders();
+
     }, error => {
         console.error("Error fetching orders: ", error);
         if (ordersContainer) {
@@ -718,7 +733,7 @@ export function loadPanel(root, panelTitle) {
                     <div class="w-full bg-gray-200 rounded-full h-4">
                         <div id="kitchen-performance-bar" class="bg-green-500 h-4 rounded-full transition-all duration-500" style="width: 100%;"></div>
                     </div>
-                    <p id="kitchen-performance-subtext" class="text-xs text-gray-500 mt-1">Status of orders currently in preparation.</p>
+                    <p id="kitchen-performance-subtext" class="text-xs text-gray-500 mt-1">Today's kitchen efficiency score.</p>
                 </div>
             </div>
             <!-- End Dashboard Section -->
