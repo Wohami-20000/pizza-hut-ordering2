@@ -114,5 +114,19 @@
     <script src="firebase.js"></script>
     
     <script type="module" src="js/dashboard.js"></script>
+
+    <!-- PIN Code Modal -->
+    <div id="pin-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-sm text-center">
+            <h3 id="pin-modal-title" class="text-xl font-bold text-gray-900">Admin PIN Required</h3>
+            <p id="pin-modal-message" class="text-sm text-gray-600 my-4">Please enter the admin PIN to confirm this change.</p>
+            <input type="password" id="pin-input" class="w-full p-2 border rounded-md text-center text-lg tracking-widest" maxlength="4" pattern="[0-9]*" inputmode="numeric">
+            <p id="pin-error-message" class="text-red-500 text-sm h-5 mt-2"></p>
+            <div id="pin-modal-buttons" class="mt-4 flex flex-col sm:flex-row-reverse gap-3">
+                <button id="pin-submit-btn" class="w-full px-4 py-2 rounded-md font-semibold bg-red-600 hover:bg-red-700 text-white">Confirm</button>
+                <button id="pin-cancel-btn" class="w-full px-4 py-2 rounded-md font-semibold bg-gray-200 hover:bg-gray-300 text-gray-800">Cancel</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

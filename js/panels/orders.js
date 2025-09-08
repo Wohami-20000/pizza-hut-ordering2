@@ -108,6 +108,61 @@ let allOrders = []; // Cache for all orders
 let deliveryMen = {}; // Cache for delivery men
 let timerInterval; // To hold the interval for updating timers
 
+// --- PIN Authorization ---
+const ADMIN_PIN = '1937';
+const statusHierarchy = [
+    'Pending',
+    'Confirmed',
+    'Preparing',
+    'Ready',
+    'Out for Delivery',
+    'Delivered',
+    'Completed'
+];
+let pendingStatusChange = null; // To store { orderId, newStatus }
+
+function showPinModal(orderId, newStatus) {
+    const modal = document.getElementById('pin-modal');
+    const pinInput = document.getElementById('pin-input');
+    const pinError = document.getElementById('pin-error-message');
+    
+    pendingStatusChange = { orderId, newStatus };
+    
+    if (modal && pinInput && pinError) {
+        pinInput.value = '';
+        pinError.textContent = '';
+        modal.classList.remove('hidden');
+        pinInput.focus();
+    } else {
+        console.error('PIN Modal elements not found in dashboard.html');
+    }
+}
+
+function hidePinModal() {
+    const modal = document.getElementById('pin-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    pendingStatusChange = null;
+}
+
+function handlePinSubmit() {
+    const pinInput = document.getElementById('pin-input');
+    const pinError = document.getElementById('pin-error-message');
+    const enteredPin = pinInput.value;
+
+    if (enteredPin === ADMIN_PIN) {
+        if (pendingStatusChange) {
+            performStatusUpdate(pendingStatusChange.orderId, pendingStatusChange.newStatus);
+        }
+        hidePinModal();
+    } else {
+        pinError.textContent = 'Incorrect PIN. Please try again.';
+        pinInput.value = '';
+        pinInput.focus();
+    }
+}
+
 function fetchDeliveryMen() {
     const deliveryRef = db.ref('users').orderByChild('role').equalTo('delivery');
     deliveryRef.on('value', snapshot => {
@@ -118,7 +173,7 @@ function fetchDeliveryMen() {
     });
 }
 
-async function updateOrderStatus(orderId, status) {
+async function performStatusUpdate(orderId, status) {
     const orderRef = db.ref('orders/' + orderId);
     try {
         const updates = { status: status };
@@ -150,6 +205,27 @@ async function updateOrderStatus(orderId, status) {
         showToast('Failed to update order status.', true);
     }
 }
+
+function attemptStatusUpdate(orderId, newStatus) {
+    const order = allOrders.find(o => o.id === orderId);
+    if (!order) {
+        showToast('Could not find the order to update.', true);
+        return;
+    }
+
+    const currentStatus = order.status;
+    const currentIndex = statusHierarchy.indexOf(currentStatus);
+    const newIndex = statusHierarchy.indexOf(newStatus);
+
+    // Require PIN if the new status is "Cancelled" or is a step backward in the hierarchy.
+    if (newStatus === 'Cancelled' || (currentIndex !== -1 && newIndex !== -1 && newIndex < currentIndex)) {
+        showPinModal(orderId, newStatus);
+    } else {
+        // Otherwise, proceed without PIN for forward progress.
+        performStatusUpdate(orderId, newStatus);
+    }
+}
+
 
 function assignDelivery(orderId, deliveryManId) {
     if (!deliveryManId) {
@@ -530,7 +606,7 @@ export function loadPanel(root, panelTitle) {
         if (target.classList.contains('status-btn')) {
             const orderId = target.dataset.orderId;
             const status = target.dataset.status;
-            updateOrderStatus(orderId, status);
+            attemptStatusUpdate(orderId, status);
         }
 
         if (target.classList.contains('assign-btn')) {
@@ -540,5 +616,13 @@ export function loadPanel(root, panelTitle) {
             assignDelivery(orderId, deliveryManId);
         }
     });
+    
+    // Attach PIN modal listeners if not already attached
+    const pinModal = document.getElementById('pin-modal');
+    if (pinModal && !pinModal.dataset.listenerAttached) {
+        document.getElementById('pin-submit-btn').addEventListener('click', handlePinSubmit);
+        document.getElementById('pin-cancel-btn').addEventListener('click', hidePinModal);
+        pinModal.dataset.listenerAttached = 'true';
+    }
 }
 
