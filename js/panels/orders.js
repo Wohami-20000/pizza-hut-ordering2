@@ -361,6 +361,7 @@ function renderFilteredOrders() {
     if (searchQuery) {
         filteredOrders = filteredOrders.filter(order =>
             (order.orderNumber && String(order.orderNumber).toLowerCase().includes(searchQuery)) ||
+            (order.id && order.id.toLowerCase().includes(searchQuery)) ||
             (order.customerInfo && order.customerInfo.name && order.customerInfo.name.toLowerCase().includes(searchQuery))
         );
     }
@@ -518,6 +519,7 @@ function renderFilteredOrders() {
                 <div class="flex flex-wrap justify-between items-start gap-4">
                     <div>
                         <h3 class="font-bold text-lg text-gray-800">Order #${order.orderNumber}</h3>
+                         <p class="text-xs text-gray-500">ID: ${order.id.substring(0, 6).toUpperCase()}</p>
                         <p class="text-sm font-semibold text-gray-700 capitalize mt-1"><i class="fas ${orderTypeIcon} fa-fw mr-2 text-gray-400"></i>${orderType}</p>
                         <p class="text-sm text-gray-500">${formattedDate}</p>
                         ${customerInfoHtml}
@@ -765,7 +767,7 @@ export function loadPanel(root, panelTitle) {
 
             <div class="flex flex-wrap items-center justify-between mb-4 gap-4">
                 <div class="relative flex-grow">
-                    <input type="search" id="order-search-input" placeholder="Search by Order ID or Customer Name..." class="w-full p-2 pl-10 border rounded-lg shadow-sm bg-white">
+                    <input type="search" id="order-search-input" placeholder="Search by Order #, ID, or Customer Name..." class="w-full p-2 pl-10 border rounded-lg shadow-sm bg-white">
                     <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
                 </div>
                 <div>
