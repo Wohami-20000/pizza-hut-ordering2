@@ -104,9 +104,10 @@ async function processOrderForStockRTDB(orderId, orderData) {
 
 // --- Main Panel Rendering and Logic ---
 
-let allOrders = []; // Cache for all orders
+let allOrders = []; // Cache for all orders for the selected day
 let deliveryMen = {}; // Cache for delivery men
 let timerInterval; // To hold the interval for updating timers
+let currentOrdersRef; // To hold the current Firebase listener
 
 // --- PIN Authorization ---
 const ADMIN_PIN = '1937';
@@ -539,16 +540,33 @@ function updateLiveTimers() {
     });
 }
 
-function listenToOrders() {
-    const ordersRef = db.ref('orders').orderByChild('timestamp');
+function listenToOrders(dateString) {
+    if (currentOrdersRef) {
+        currentOrdersRef.off(); // Detach previous listener to prevent memory leaks
+    }
+
+    const startOfDay = new Date(dateString);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(dateString);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const startISO = startOfDay.toISOString();
+    const endISO = endOfDay.toISOString();
+
+    const ordersRef = db.ref('orders').orderByChild('timestamp').startAt(startISO).endAt(endISO);
+    currentOrdersRef = ordersRef; // Store the new listener reference
+
     const ordersContainer = document.getElementById('orders-container');
+    ordersContainer.innerHTML = '<p class="text-center text-gray-500 mt-8">Loading orders...</p>';
 
     ordersRef.on('value', snapshot => {
         allOrders = [];
-        snapshot.forEach(childSnapshot => {
-            allOrders.push({ id: childSnapshot.key, ...childSnapshot.val() });
-        });
-        allOrders.reverse(); 
+        if (snapshot.exists()) {
+            snapshot.forEach(childSnapshot => {
+                allOrders.push({ id: childSnapshot.key, ...childSnapshot.val() });
+            });
+        }
+        allOrders.reverse(); // Show the newest orders first
         
         const currentFilter = document.querySelector('.filter-btn.bg-blue-500')?.dataset.status || 'All';
         renderFilteredOrders(currentFilter);
@@ -569,14 +587,20 @@ export function loadPanel(root, panelTitle) {
     panelTitle.textContent = 'Live Orders';
     root.innerHTML = `
         <div class="p-4 md:p-8 bg-gray-50 min-h-screen">
-            <div id="order-filters" class="mb-4 flex flex-wrap gap-2">
-                <button class="filter-btn bg-blue-500 text-white px-4 py-2 rounded-lg shadow" data-status="All">All</button>
-                <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Pending">Pending</button>
-                <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Confirmed">Confirmed</button>
-                <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Preparing">Preparing</button>
-                <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Out for Delivery">Out for Delivery</button>
-                <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Delivered">Delivered</button>
-                <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Cancelled">Cancelled</button>
+            <div class="flex flex-wrap items-center justify-between mb-4 gap-4">
+                <div id="order-filters" class="flex flex-wrap gap-2">
+                    <button class="filter-btn bg-blue-500 text-white px-4 py-2 rounded-lg shadow" data-status="All">All</button>
+                    <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Pending">Pending</button>
+                    <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Confirmed">Confirmed</button>
+                    <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Preparing">Preparing</button>
+                    <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Out for Delivery">Out for Delivery</button>
+                    <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Delivered">Delivered</button>
+                    <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Cancelled">Cancelled</button>
+                </div>
+                 <div>
+                    <label for="order-date-picker" class="text-sm font-medium mr-2">View Orders for:</label>
+                    <input type="date" id="order-date-picker" value="${getTodayDateString()}" class="p-2 border rounded-lg shadow-sm bg-white">
+                 </div>
             </div>
             <div id="orders-container" class="space-y-6">
                 <p class="text-center text-gray-500 mt-8">Loading orders...</p>
@@ -585,7 +609,13 @@ export function loadPanel(root, panelTitle) {
     `;
 
     fetchDeliveryMen();
-    listenToOrders();
+    
+    const datePicker = root.querySelector('#order-date-picker');
+    listenToOrders(datePicker.value); // Initial load for today
+
+    datePicker.addEventListener('change', () => {
+        listenToOrders(datePicker.value);
+    });
 
     if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(updateLiveTimers, 1000);
