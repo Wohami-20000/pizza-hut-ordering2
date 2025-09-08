@@ -334,14 +334,36 @@ function printOrderReceipt(orderId) {
 // Expose the print function to the global scope so inline `onclick` can access it
 window.printOrderReceipt = printOrderReceipt;
 
-function renderFilteredOrders(filter = 'All') {
+function renderFilteredOrders() {
     const ordersContainer = document.getElementById('orders-container');
     if (!ordersContainer) return;
 
-    const filteredOrders = filter === 'All' ? allOrders : allOrders.filter(order => order.status === filter);
+    const statusFilter = document.querySelector('.status-filter-btn.bg-blue-500')?.dataset.status || 'All';
+    const typeFilter = document.querySelector('.type-filter-btn.bg-blue-500')?.dataset.type || 'All';
+    const searchQuery = document.getElementById('order-search-input')?.value.toLowerCase() || '';
+
+    let filteredOrders = allOrders;
+
+    // Apply status filter
+    if (statusFilter !== 'All') {
+        filteredOrders = filteredOrders.filter(order => order.status === statusFilter);
+    }
+
+    // Apply type filter
+    if (typeFilter !== 'All') {
+        filteredOrders = filteredOrders.filter(order => order.orderType === typeFilter);
+    }
+    
+    // Apply search filter
+    if (searchQuery) {
+        filteredOrders = filteredOrders.filter(order =>
+            (order.id && order.id.toLowerCase().includes(searchQuery)) ||
+            (order.customerInfo && order.customerInfo.name && order.customerInfo.name.toLowerCase().includes(searchQuery))
+        );
+    }
 
     if (filteredOrders.length === 0) {
-        ordersContainer.innerHTML = `<div class="text-center py-12 bg-white rounded-lg shadow"><p class="text-gray-500">No ${filter !== 'All' ? filter : ''} orders found.</p></div>`;
+        ordersContainer.innerHTML = `<div class="text-center py-12 bg-white rounded-lg shadow"><p class="text-gray-500">No orders match the current filters.</p></div>`;
         return;
     }
 
@@ -568,8 +590,7 @@ function listenToOrders(dateString) {
         }
         allOrders.reverse(); // Show the newest orders first
         
-        const currentFilter = document.querySelector('.filter-btn.bg-blue-500')?.dataset.status || 'All';
-        renderFilteredOrders(currentFilter);
+        renderFilteredOrders();
     }, error => {
         console.error("Error fetching orders: ", error);
         if (ordersContainer) {
@@ -588,20 +609,38 @@ export function loadPanel(root, panelTitle) {
     root.innerHTML = `
         <div class="p-4 md:p-8 bg-gray-50 min-h-screen">
             <div class="flex flex-wrap items-center justify-between mb-4 gap-4">
-                <div id="order-filters" class="flex flex-wrap gap-2">
-                    <button class="filter-btn bg-blue-500 text-white px-4 py-2 rounded-lg shadow" data-status="All">All</button>
-                    <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Pending">Pending</button>
-                    <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Confirmed">Confirmed</button>
-                    <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Preparing">Preparing</button>
-                    <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Out for Delivery">Out for Delivery</button>
-                    <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Delivered">Delivered</button>
-                    <button class="filter-btn bg-white text-gray-700 px-4 py-2 rounded-lg shadow border" data-status="Cancelled">Cancelled</button>
+                <div class="relative flex-grow">
+                    <input type="search" id="order-search-input" placeholder="Search by Order ID or Customer Name..." class="w-full p-2 pl-10 border rounded-lg shadow-sm bg-white">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
                 </div>
-                 <div>
+                <div>
                     <label for="order-date-picker" class="text-sm font-medium mr-2">View Orders for:</label>
                     <input type="date" id="order-date-picker" value="${getTodayDateString()}" class="p-2 border rounded-lg shadow-sm bg-white">
-                 </div>
+                </div>
             </div>
+
+            <div class="flex flex-wrap items-center justify-between mb-4 gap-4">
+                 <div id="order-type-filters" class="flex flex-wrap gap-2 items-center">
+                     <span class="text-sm font-medium mr-2">Type:</span>
+                     <button class="type-filter-btn bg-blue-500 text-white px-3 py-1 rounded-full text-sm" data-type="All">All</button>
+                     <button class="type-filter-btn bg-white text-gray-700 px-3 py-1 rounded-full text-sm border" data-type="dineIn">Dine-In</button>
+                     <button class="type-filter-btn bg-white text-gray-700 px-3 py-1 rounded-full text-sm border" data-type="pickup">Pickup</button>
+                     <button class="type-filter-btn bg-white text-gray-700 px-3 py-1 rounded-full text-sm border" data-type="delivery">Delivery</button>
+                </div>
+            </div>
+            <div id="order-status-filters" class="flex flex-wrap gap-2 mb-4">
+                <span class="text-sm font-medium mr-2 self-center">Status:</span>
+                <button class="status-filter-btn bg-blue-500 text-white px-3 py-1 rounded-full text-sm" data-status="All">All</button>
+                <button class="status-filter-btn bg-white text-gray-700 px-3 py-1 rounded-full text-sm border" data-status="Pending">Pending</button>
+                <button class="status-filter-btn bg-white text-gray-700 px-3 py-1 rounded-full text-sm border" data-status="Confirmed">Confirmed</button>
+                <button class="status-filter-btn bg-white text-gray-700 px-3 py-1 rounded-full text-sm border" data-status="Preparing">Preparing</button>
+                <button class="status-filter-btn bg-white text-gray-700 px-3 py-1 rounded-full text-sm border" data-status="Ready">Ready</button>
+                <button class="status-filter-btn bg-white text-gray-700 px-3 py-1 rounded-full text-sm border" data-status="Out for Delivery">Out for Delivery</button>
+                <button class="status-filter-btn bg-white text-gray-700 px-3 py-1 rounded-full text-sm border" data-status="Delivered">Delivered</button>
+                <button class="status-filter-btn bg-white text-gray-700 px-3 py-1 rounded-full text-sm border" data-status="Completed">Completed</button>
+                <button class="status-filter-btn bg-white text-gray-700 px-3 py-1 rounded-full text-sm border" data-status="Cancelled">Cancelled</button>
+            </div>
+
             <div id="orders-container" class="space-y-6">
                 <p class="text-center text-gray-500 mt-8">Loading orders...</p>
             </div>
@@ -623,14 +662,24 @@ export function loadPanel(root, panelTitle) {
     root.addEventListener('click', e => {
         const target = e.target;
         
-        if (target.classList.contains('filter-btn')) {
-            document.querySelectorAll('.filter-btn').forEach(btn => {
+        if (target.classList.contains('status-filter-btn')) {
+            document.querySelectorAll('.status-filter-btn').forEach(btn => {
                 btn.classList.remove('bg-blue-500', 'text-white');
                 btn.classList.add('bg-white', 'text-gray-700', 'border');
             });
             target.classList.add('bg-blue-500', 'text-white');
             target.classList.remove('bg-white', 'text-gray-700', 'border');
-            renderFilteredOrders(target.dataset.status);
+            renderFilteredOrders();
+        }
+
+        if (target.classList.contains('type-filter-btn')) {
+            document.querySelectorAll('.type-filter-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-500', 'text-white');
+                btn.classList.add('bg-white', 'text-gray-700', 'border');
+            });
+            target.classList.add('bg-blue-500', 'text-white');
+            target.classList.remove('bg-white', 'text-gray-700', 'border');
+            renderFilteredOrders();
         }
 
         if (target.classList.contains('status-btn')) {
@@ -645,6 +694,10 @@ export function loadPanel(root, panelTitle) {
             const deliveryManId = select.value;
             assignDelivery(orderId, deliveryManId);
         }
+    });
+
+    root.querySelector('#order-search-input').addEventListener('input', () => {
+        renderFilteredOrders();
     });
     
     // Attach PIN modal listeners if not already attached
