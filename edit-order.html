@@ -7,7 +7,18 @@
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
     <style>
-        .item-row { display: grid; grid-template-columns: 1fr auto auto; gap: 1rem; align-items: center; }
+        .item-row { display: grid; grid-template-columns: 1fr auto auto; gap: 1rem; align-items: start; }
+        .item-row .item-details { grid-column: 1 / 2; }
+        .item-row .item-qty { grid-column: 2 / 3; }
+        .item-row .item-remove { grid-column: 3 / 4; }
+
+        /* Customization option styling from item-details page */
+        .customization-option input:checked + label {
+            border-color: #D71921; /* brand-red */
+            background-color: #FEF2F2;
+            color: #D71921; /* brand-red */
+            box-shadow: 0 0 0 2px #D71921; /* brand-red */
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -53,7 +64,7 @@
             <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg flex flex-col" style="max-height: 90vh;">
                 <div class="flex justify-between items-center border-b pb-3 mb-4">
                     <h3 class="text-2xl font-bold text-gray-800">Add Item to Order</h3>
-                    <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                    <button id="close-add-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
                 </div>
                 <input type="text" id="menu-item-search" placeholder="Search for a pizza, side, or drink..." class="w-full p-2 border rounded-md mb-4">
                 <div id="menu-items-list" class="flex-grow overflow-y-auto">

@@ -187,44 +187,6 @@ decreaseQtyBtn.addEventListener('click', () => {
     }
 });
     
-addToCartBtn.addEventListener('click', () => {
-    if (!currentItemData) return;
-    let cart = JSON.parse(localStorage.getItem("cart")) || [];
-    
-    // Construct a unique cartItemId for customized items
-    // This ensures different customizations of the same base item are treated as separate entries
-    const customizationDetails = [];
-    if (selectedSize) customizationDetails.push(selectedSize.size);
-    if (selectedRecipe) customizationDetails.push(selectedRecipe);
-    if (selectedAddons.length > 0) customizationDetails.push(selectedAddons.map(a => a.name).join('+'));
-    
-    const cartItemId = `${currentItemData.id}-${customizationDetails.join('-').replace(/\s/g, '_')}-${Date.now()}`;
-
-    const newItem = {
-        cartItemId: cartItemId, // Unique ID for this specific customization
-        id: currentItemData.id, // Base item ID
-        name: currentItemData.name, // Base item name
-        image: currentItemData.image_url,
-        price: parseFloat(totalPriceSpan.textContent) / quantity, // Price per unit of this customized item
-        quantity: quantity,
-        categoryId: currentItemData.category, // Pass categoryId for menu card re-rendering
-        sizes: selectedSize ? [selectedSize] : [], // Store selected size as an array
-        recipes: selectedRecipe ? [selectedRecipe] : [], // Store selected recipe as an array
-        options: selectedAddons.map(a => a.name) // Store only names of selected options
-    };
-    
-    cart.push(newItem);
-    localStorage.setItem("cart", JSON.stringify(cart));
-    updateCartCount();
-    
-    addToCartBtn.textContent = 'Added! ✓';
-    addToCartBtn.classList.add('bg-green-500');
-    
-    setTimeout(() => {
-        window.location.href = 'menu.html';
-    }, 800);
-});
-
 document.addEventListener('DOMContentLoaded', () => {
     updateCartCount();
     updateQuantityDisplay();
@@ -232,19 +194,67 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const categoryId = params.get('categoryId');
     const itemId = params.get('itemId');
+    const editOrderId = params.get('editOrderId'); // Check if we are in edit mode
 
     if (!categoryId || !itemId) {
         showError();
         return;
     }
+    
+    addToCartBtn.addEventListener('click', () => {
+        if (!currentItemData) return;
+        
+        const cartItemId = `${itemId}-${selectedSize ? selectedSize.size : 'std'}-${Date.now()}`;
+        const selectedAddonNames = selectedAddons.map(a => a.name);
+    
+        const newItem = {
+            cartItemId: cartItemId,
+            id: itemId,
+            name: currentItemData.name,
+            image_url: currentItemData.image_url,
+            price: parseFloat(totalPriceSpan.textContent) / quantity,
+            quantity: quantity,
+            categoryId: categoryId,
+            sizes: selectedSize ? [selectedSize] : [],
+            recipes: selectedRecipe ? [selectedRecipe] : [],
+            options: selectedAddonNames
+        };
+    
+        // If we are editing an order, save the new item to session storage and redirect back
+        if (editOrderId) {
+            const dataToStore = {
+                item: newItem,
+                forOrderId: editOrderId
+            };
+            sessionStorage.setItem('newItemForOrder', JSON.stringify(dataToStore));
+    
+            addToCartBtn.textContent = 'Added! ✓';
+            addToCartBtn.classList.add('bg-green-500');
+            setTimeout(() => {
+                window.location.href = `edit-order.html?orderId=${editOrderId}`;
+            }, 800);
+        } else {
+            // Standard customer flow: save to local storage cart
+            let cart = JSON.parse(localStorage.getItem("cart")) || [];
+            cart.push(newItem);
+            localStorage.setItem("cart", JSON.stringify(cart));
+            updateCartCount();
+    
+            addToCartBtn.textContent = 'Added! ✓';
+            addToCartBtn.classList.add('bg-green-500');
+            setTimeout(() => {
+                window.location.href = 'menu.html';
+            }, 800);
+        }
+    });
 
-    db.ref(`menu/${categoryId}/items/${itemId}`).once('value') // Directly fetch item from items sub-node
+    db.ref(`menu/${categoryId}/items/${itemId}`).once('value')
         .then(snapshot => {
             const itemData = snapshot.val();
             
             if (itemData) {
-                // Ensure itemData has a 'category' property for consistency
                 itemData.category = categoryId; 
+                itemData.id = itemId;
                 displayItemDetails(itemData);
             } else {
                 showError();
@@ -255,3 +265,4 @@ document.addEventListener('DOMContentLoaded', () => {
             showError();
         });
 });
+
