@@ -215,8 +215,68 @@ function closeEditModal() { editModal.classList.add('hidden'); }
 function addSizeField(container, size = '', price = '') { const div = document.createElement('div'); div.className = 'flex gap-2 items-center'; div.innerHTML = `<input type="text" class="size-name-input w-2/3 p-2 border rounded-md" placeholder="Size Name (e.g., Small)" value="${size}"><input type="number" step="0.01" class="size-price-input w-1/3 p-2 border rounded-md" placeholder="Price" value="${price}"><button type="button" class="remove-field-btn text-red-500 hover:text-red-700"><i class="fas fa-times-circle"></i></button>`; div.querySelector('.remove-field-btn').addEventListener('click', () => div.remove()); container.appendChild(div); }
 function addOptionField(container, name = '', price = '') { const div = document.createElement('div'); div.className = 'flex gap-2 items-center'; div.innerHTML = `<input type="text" class="option-name-input w-2/3 p-2 border rounded-md" placeholder="Option Name (e.g., Mushrooms)" value="${name}"><input type="number" step="0.01" class="option-price-input w-1/3 p-2 border rounded-md" placeholder="Price" value="${price}"><button type="button" class="remove-field-btn text-red-500 hover:text-red-700"><i class="fas fa-times-circle"></i></button>`; div.querySelector('.remove-field-btn').addEventListener('click', () => div.remove()); container.appendChild(div); }
 async function saveEditedEntity(event) { event.preventDefault(); const categoryId = document.getElementById('edit-item-category-id').value; const newBasePrice = parseFloat(document.getElementById('edit-item-price').value); const sizes = []; document.querySelectorAll('#edit-item-sizes-container .flex').forEach(row => { const sizeName = row.querySelector('.size-name-input').value.trim(); const sizePrice = parseFloat(row.querySelector('.size-price-input').value); if (sizeName && !isNaN(sizePrice)) { sizes.push({ size: sizeName, price: sizePrice }); } }); if (sizes.length === 0 && !isNaN(newBasePrice)) { sizes.push({ size: "Regular", price: newBasePrice }); } const recipesInput = document.getElementById('edit-item-recipes').value.trim(); const recipes = recipesInput ? recipesInput.split(',').map(r => r.trim()).filter(r => r) : []; const options = []; document.querySelectorAll('#edit-item-options-container .flex').forEach(row => { const optionName = row.querySelector('.option-name-input').value.trim(); const optionPrice = parseFloat(row.querySelector('.option-price-input').value); if (optionName && !isNaN(optionPrice)) { options.push({ name: optionName, price: { Triple: optionPrice } }); } }); const updatedData = { name: document.getElementById('edit-item-name').value, description: document.getElementById('edit-item-description').value, price: newBasePrice, image_url: document.getElementById('edit-item-image-url').value, sizes: sizes, recipes: recipes, options: options, allergies: document.getElementById('edit-item-allergies').value.trim() }; const dbRef = db.ref(`menu/${categoryId}/items/${currentEditId}`); try { await dbRef.update(updatedData); alert(`Item updated successfully!`); closeEditModal(); loadMenuItems(); } catch (error) { alert(`Failed to update item: ` + error.message); } }
-function loadMenuItems() { db.ref('menu').on('value', (snapshot) => { const menuItemsList = document.getElementById('menu-items-list'); if (menuItemsList) { menuItemsList.innerHTML = ''; if (snapshot.exists()) { let itemsHtml = ''; snapshot.forEach((categorySnapshot) => { const categoryId = categorySnapshot.key; const categoryData = categorySnapshot.val(); if (categoryData.items) { for (const itemId in categoryData.items) { itemsHtml += createMenuItemRow(categoryId, itemId, categoryData.items[itemId]); } } }); menuItemsList.innerHTML = itemsHtml || `<tr><td colspan="6" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`; } else { menuItemsList.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`; } populateCategoryDropdown(); } }); }
-function populateCategoryDropdown() { const categorySelect = document.getElementById('new-item-category'); if (!categorySelect) return; db.ref('menu').once('value').then(snapshot => { categorySelect.innerHTML = '<option value="">Select a category</option>'; if (snapshot.exists()) { snapshot.forEach(categorySnap => { const categoryName = categorySnap.val().category; const categoryId = categorySnap.key; const option = document.createElement('option'); option.value = categoryId; option.textContent = categoryName; categorySelect.appendChild(option); }); } }); }
+
+function filterItems() {
+    const searchTerm = document.getElementById('item-search').value.toLowerCase();
+    const categoryFilter = document.getElementById('category-filter').value;
+    const rows = document.querySelectorAll('#menu-items-list tr');
+
+    rows.forEach(row => {
+        const itemName = (row.dataset.itemName || '').toLowerCase();
+        const categoryId = row.dataset.categoryId || '';
+
+        const nameMatch = itemName.includes(searchTerm);
+        const categoryMatch = (categoryFilter === 'all' || categoryId === categoryFilter);
+
+        if (nameMatch && categoryMatch) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function loadMenuItems() { db.ref('menu').on('value', (snapshot) => { const menuItemsList = document.getElementById('menu-items-list'); if (menuItemsList) { menuItemsList.innerHTML = ''; if (snapshot.exists()) { let itemsHtml = ''; snapshot.forEach((categorySnapshot) => { const categoryId = categorySnapshot.key; const categoryData = categorySnapshot.val(); if (categoryData.items) { for (const itemId in categoryData.items) { itemsHtml += createMenuItemRow(categoryId, itemId, categoryData.items[itemId]); } } }); menuItemsList.innerHTML = itemsHtml || `<tr><td colspan="6" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`; } else { menuItemsList.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`; } populateCategoryDropdowns(); } }); }
+function populateCategoryDropdowns() {
+    const categorySelect = document.getElementById('new-item-category');
+    const categoryFilter = document.getElementById('category-filter');
+
+    db.ref('menu').once('value').then(snapshot => {
+        if(categorySelect) {
+            categorySelect.innerHTML = '<option value="">Select a category</option>';
+        }
+        if(categoryFilter) {
+            categoryFilter.innerHTML = '<option value="all">All Categories</option>';
+        }
+
+        if (snapshot.exists()) {
+            // Sort categories by displayOrder before populating dropdowns
+            const categories = [];
+            snapshot.forEach(categorySnap => {
+                categories.push({ id: categorySnap.key, ...categorySnap.val() });
+            });
+            categories.sort((a, b) => a.displayOrder - b.displayOrder);
+            
+            categories.forEach(category => {
+                const categoryName = category.category;
+                const categoryId = category.id;
+                
+                if (categorySelect) {
+                    const option = document.createElement('option');
+                    option.value = categoryId;
+                    option.textContent = categoryName;
+                    categorySelect.appendChild(option);
+                }
+                if (categoryFilter) {
+                     const option = document.createElement('option');
+                    option.value = categoryId;
+                    option.textContent = categoryName;
+                    categoryFilter.appendChild(option);
+                }
+            });
+        }
+    });
+}
 
 export function loadPanel(root, panelTitle) {
     panelRoot = root; 
@@ -238,6 +298,12 @@ export function loadPanel(root, panelTitle) {
                 <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition">Add Item</button>
             </form>
             <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4 mt-8">Current Menu Items</h2>
+            <div class="flex justify-between items-center mb-4">
+                <input type="text" id="item-search" placeholder="Search by name..." class="w-1/3 p-2 border rounded-md">
+                <select id="category-filter" class="p-2 border rounded-md bg-white">
+                    <option value="all">All Categories</option>
+                </select>
+            </div>
             <div class="overflow-x-auto rounded-lg border border-gray-200">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -306,6 +372,9 @@ export function loadPanel(root, panelTitle) {
     panelRoot.querySelector('#add-new-size-btn').addEventListener('click', () => addSizeField(panelRoot.querySelector('#new-item-sizes-container')));
     panelRoot.querySelector('#add-new-option-btn').addEventListener('click', () => addOptionField(panelRoot.querySelector('#new-item-options-container')));
     
+    panelRoot.querySelector('#item-search').addEventListener('input', filterItems);
+    panelRoot.querySelector('#category-filter').addEventListener('change', filterItems);
+
     panelRoot.addEventListener('click', async (event) => {
         const target = event.target.closest('button');
         if (!target) return;
@@ -338,3 +407,4 @@ export function loadPanel(root, panelTitle) {
 
     loadMenuItems();
 }
+
