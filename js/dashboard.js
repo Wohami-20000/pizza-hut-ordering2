@@ -14,6 +14,7 @@ import { loadPanel as loadStaffPanel } from './panels/staff.js';
 import { loadPanel as loadDeliveryPanel } from './panels/delivery.js';
 import { loadPanel as loadOwnerPanel } from './panels/owner.js';
 import { loadPanel as loadMenuItemsPanel } from './panels/menu-items.js';
+import { loadPanel as loadCategoriesPanel } from './panels/categories.js'; // Import the new panel
 import { loadPanel as loadOffersPanel } from './panels/offers.js';
 import { loadPanel as loadPromoCodesPanel } from './panels/promo-codes.js';
 import { loadPanel as loadOrdersPanel } from './panels/orders.js';
@@ -46,6 +47,7 @@ function buildSidebarNav(role) {
             <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="orders"><i class="fas fa-receipt mr-3"></i>Live Orders</a>
             ${analyticsLink}
             <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="menu-items"><i class="fas fa-pizza-slice mr-3"></i>Menu Items</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="categories"><i class="fas fa-list-alt mr-3"></i>Categories</a>
             <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="offers"><i class="fas fa-tags mr-3"></i>Offers</a>
             <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="promo-codes"><i class="fas fa-percent mr-3"></i>Promo Codes</a>
             <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="assign-deliveries"><i class="fas fa-motorcycle mr-3"></i>Assign Deliveries</a>
@@ -123,6 +125,7 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
         case 'orders': panelModuleToLoad = loadOrdersPanel; break;
         case 'feedback': panelModuleToLoad = loadFeedbackPanel; break;
         case 'menu-items': panelModuleToLoad = loadMenuItemsPanel; break;
+        case 'categories': panelModuleToLoad = loadCategoriesPanel; break;
         case 'offers': panelModuleToLoad = loadOffersPanel; break;
         case 'promo-codes': panelModuleToLoad = loadPromoCodesPanel; break;
         case 'system': panelModuleToLoad = loadSystemPanel; break;
@@ -208,4 +211,3 @@ document.addEventListener('DOMContentLoaded', () => {
     if(closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
     if(sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 });
-
