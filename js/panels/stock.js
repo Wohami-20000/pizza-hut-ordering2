@@ -426,7 +426,7 @@ function accumulateUsage(usageMap, bom, multiplier) {
 }
 
 // This function now reads raw orders and simulates the ordersSummary structure in memory.
-async function calculateExpectedUsageForDate(date, recipes, modifiers) {
+async function calculateExpectedUsageForDate(date, recipes) {
     console.log(`Calculating expected usage for ${date}...`);
     const dayStart = date + "T00:00:00.000Z";
     const dayEnd = date + "T23:59:59.999Z";
@@ -491,6 +491,9 @@ async function calculateExpectedUsageForDate(date, recipes, modifiers) {
                 accumulateUsage(usage, bom, count);
              }
 
+            // The concept of modifiers having their own ingredient recipes is not fully implemented
+            // in the UI. This block is removed to prevent errors and align with current features.
+            /*
              for(const key in variantData){
                  if(key.startsWith('mod_')){
                      const modKey = key.replace('mod_', '');
@@ -501,6 +504,7 @@ async function calculateExpectedUsageForDate(date, recipes, modifiers) {
                      }
                  }
              }
+            */
         }
     }
 
@@ -862,7 +866,7 @@ async function loadDailyCountData() {
         
         if (ingSnapshot.exists()) ingredientsCache = ingSnapshot.val();
 
-        await calculateExpectedUsageForDate(currentStockDate, recipesCache, modifiersCache);
+        await calculateExpectedUsageForDate(currentStockDate, recipesCache);
         const expectedUsageSnap = await db.ref(`stockCounts/${currentStockDate}`).once('value');
 
         const prevStock = prevStockSnapshot.exists() ? prevStockSnapshot.val() : {};
@@ -968,7 +972,7 @@ async function saveDailyCount() {
         return;
     }
 
-    await calculateExpectedUsageForDate(date, recipesCache, modifiersCache);
+    await calculateExpectedUsageForDate(date, recipesCache);
 
     const saveData = {};
     const rows = panelRoot.querySelectorAll('#daily-count-tbody tr[data-id]');
@@ -1648,9 +1652,6 @@ export function loadPanel(root, panelTitle, database) {
             db.ref('recipes').once('value').then(snap => {
                  if (snap.exists()) recipesCache = snap.val();
             }),
-            db.ref('modifiers').once('value').then(snap => {
-                 if (snap.exists()) modifiersCache = snap.val();
-            }),
             db.ref('menu').once('value').then(snap => {
                 if (snap.exists()) {
                     const menu = snap.val();
@@ -1665,3 +1666,4 @@ export function loadPanel(root, panelTitle, database) {
         updateFinancialKPIs();
     })();
 }
+
