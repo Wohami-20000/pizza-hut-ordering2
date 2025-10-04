@@ -4,8 +4,9 @@ const db = firebase.database();
 // REMOVED: Firebase Storage reference is no longer needed
 
 // --- NEW: CLOUDINARY CONFIGURATION ---
+// IMPORTANT: Your Cloud Name is added. Just replace the upload preset below.
 const CLOUDINARY_CLOUD_NAME = "ddgjamijw";
-const CLOUDINARY_UPLOAD_PRESET = "pizza-hut-menu";
+const CLOUDINARY_UPLOAD_PRESET = "pizza-hut-menu"; // <-- PASTE YOUR UPLOAD PRESET NAME HERE
 // ------------------------------------
 
 // --- MODAL ELEMENTS ---
@@ -13,6 +14,31 @@ let editModal, editModalTitle, editForm, recipeModal, panelRoot;
 let currentEditId = ''; // Firebase key of the item being edited
 let currentRecipeItemId = ''; // ID of the item for which the recipe is being edited
 let ingredientsCache = {}; // Cache for the master ingredient list
+let selectedItems = new Map(); // For bulk editing { itemId: categoryId }
+
+/**
+ * Updates the visibility and count of the bulk action UI.
+ */
+function updateBulkActionUI() {
+    const bulkActionContainer = panelRoot.querySelector('#bulk-action-container');
+    const selectedCountSpan = panelRoot.querySelector('#selected-count');
+    const selectAllCheckbox = panelRoot.querySelector('#select-all-items');
+
+    if (selectedItems.size > 0) {
+        bulkActionContainer.classList.remove('hidden');
+        selectedCountSpan.textContent = `${selectedItems.size} selected`;
+    } else {
+        bulkActionContainer.classList.add('hidden');
+    }
+
+    // Update the "select all" checkbox state
+    const totalRows = panelRoot.querySelectorAll('#menu-items-list tr[data-item-id]').length;
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = selectedItems.size > 0 && selectedItems.size === totalRows;
+        selectAllCheckbox.indeterminate = selectedItems.size > 0 && selectedItems.size < totalRows;
+    }
+}
+
 
 /**
  * Creates the HTML for a single menu item row.
@@ -28,6 +54,9 @@ function createMenuItemRow(categoryId, itemId, itemData) {
 
     return `
         <tr class="hover:bg-gray-50 transition duration-150 ease-in-out ${inStock === false ? 'bg-gray-100 opacity-60' : ''}" data-category-id="${categoryId}" data-item-id="${itemId}" data-item-name="${name}">
+            <td class="px-4 py-3 text-center">
+                <input type="checkbox" class="item-checkbox rounded border-gray-300 text-red-600 shadow-sm focus:ring-red-500" data-item-id="${itemId}" data-category-id="${categoryId}">
+            </td>
             <td class="px-4 py-3 text-sm text-gray-700 font-medium">
                 <div class="flex items-center">
                     <img src="${imageUrl}" alt="${name}" class="w-10 h-10 rounded-md object-cover mr-3 shadow-sm">
@@ -373,6 +402,7 @@ function filterItems() {
     const searchTerm = document.getElementById('item-search').value.toLowerCase();
     const categoryFilter = document.getElementById('category-filter').value;
     const rows = document.querySelectorAll('#menu-items-list tr');
+    let visibleCount = 0;
 
     rows.forEach(row => {
         const itemName = (row.dataset.itemName || '').toLowerCase();
@@ -383,24 +413,39 @@ function filterItems() {
 
         if (nameMatch && categoryMatch) {
             row.style.display = '';
+            visibleCount++;
         } else {
             row.style.display = 'none';
         }
     });
+
+    // Update select all checkbox based on filtered view
+    const selectAllCheckbox = panelRoot.querySelector('#select-all-items');
+    if (selectAllCheckbox) {
+        const allVisibleSelected = selectedItems.size > 0 && selectedItems.size === visibleCount;
+        selectAllCheckbox.checked = allVisibleSelected;
+        selectAllCheckbox.indeterminate = selectedItems.size > 0 && !allVisibleSelected;
+    }
 }
 
-function loadMenuItems() { db.ref('menu').on('value', (snapshot) => { const menuItemsList = document.getElementById('menu-items-list'); if (menuItemsList) { menuItemsList.innerHTML = ''; if (snapshot.exists()) { let itemsHtml = ''; snapshot.forEach((categorySnapshot) => { const categoryId = categorySnapshot.key; const categoryData = categorySnapshot.val(); if (categoryData.items) { for (const itemId in categoryData.items) { itemsHtml += createMenuItemRow(categoryId, itemId, categoryData.items[itemId]); } } }); menuItemsList.innerHTML = itemsHtml || `<tr><td colspan="6" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`; } else { menuItemsList.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`; } populateCategoryDropdowns(); } }); }
+
+function loadMenuItems() { db.ref('menu').on('value', (snapshot) => { const menuItemsList = document.getElementById('menu-items-list'); if (menuItemsList) { menuItemsList.innerHTML = ''; if (snapshot.exists()) { let itemsHtml = ''; snapshot.forEach((categorySnapshot) => { const categoryId = categorySnapshot.key; const categoryData = categorySnapshot.val(); if (categoryData.items) { for (const itemId in categoryData.items) { itemsHtml += createMenuItemRow(categoryId, itemId, categoryData.items[itemId]); } } }); menuItemsList.innerHTML = itemsHtml || `<tr><td colspan="7" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`; } else { menuItemsList.innerHTML = `<tr><td colspan="7" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`; } populateCategoryDropdowns(); filterItems(); updateBulkActionUI(); } }); }
 function populateCategoryDropdowns() {
     const categorySelect = document.getElementById('new-item-category');
     const categoryFilter = document.getElementById('category-filter');
+    const bulkCategorySelect = document.getElementById('bulk-category-select');
+
 
     db.ref('menu').once('value').then(snapshot => {
-        if(categorySelect) {
-            categorySelect.innerHTML = '<option value="">Select a category</option>';
-        }
-        if(categoryFilter) {
-            categoryFilter.innerHTML = '<option value="all">All Categories</option>';
-        }
+        const selects = [categorySelect, categoryFilter, bulkCategorySelect];
+        selects.forEach(sel => {
+            if (sel) {
+                const firstOption = sel.options[0];
+                sel.innerHTML = '';
+                sel.appendChild(firstOption);
+            }
+        });
+
 
         if (snapshot.exists()) {
             const categories = [];
@@ -413,18 +458,14 @@ function populateCategoryDropdowns() {
                 const categoryName = category.category;
                 const categoryId = category.id;
                 
-                if (categorySelect) {
-                    const option = document.createElement('option');
-                    option.value = categoryId;
-                    option.textContent = categoryName;
-                    categorySelect.appendChild(option);
-                }
-                if (categoryFilter) {
-                     const option = document.createElement('option');
-                    option.value = categoryId;
-                    option.textContent = categoryName;
-                    categoryFilter.appendChild(option);
-                }
+                selects.forEach(sel => {
+                    if (sel) {
+                        const option = document.createElement('option');
+                        option.value = categoryId;
+                        option.textContent = categoryName;
+                        sel.appendChild(option);
+                    }
+                });
             });
         }
     });
@@ -460,6 +501,24 @@ export function loadPanel(root, panelTitle) {
                 <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition">Add Item</button>
             </form>
             <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4 mt-8">Current Menu Items</h2>
+             
+            <!-- Bulk Actions -->
+            <div id="bulk-action-container" class="hidden bg-gray-100 p-4 rounded-lg mb-4 space-y-2 md:space-y-0 md:flex md:items-center md:gap-4 flex-wrap">
+                <span id="selected-count" class="font-bold text-sm">0 selected</span>
+                <select id="bulk-category-select" class="p-2 border rounded-md bg-white text-sm"><option value="">Change category...</option></select>
+                <button id="bulk-change-category-btn" class="text-sm bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600">Apply</button>
+                <div class="flex items-center gap-2">
+                    <button id="bulk-set-instock-btn" class="text-sm bg-green-500 text-white px-3 py-1 rounded-md hover:bg-green-600">Set In Stock</button>
+                    <button id="bulk-set-oot-btn" class="text-sm bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600">Set Out of Stock</button>
+                </div>
+                 <div class="flex items-center gap-2">
+                    <input type="number" id="bulk-price-adjust" placeholder="e.g., 10 or -5" class="p-1 border rounded-md w-24 text-sm">
+                    <button id="bulk-adjust-price-btn" class="text-sm bg-indigo-500 text-white px-3 py-1 rounded-md hover:bg-indigo-600">Adjust Price %</button>
+                </div>
+                <button id="bulk-delete-btn" class="text-sm bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700">Delete Selected</button>
+            </div>
+
+
             <div class="flex justify-between items-center mb-4">
                 <input type="text" id="item-search" placeholder="Search by name..." class="w-1/3 p-2 border rounded-md">
                 <select id="category-filter" class="p-2 border rounded-md bg-white">
@@ -470,6 +529,7 @@ export function loadPanel(root, panelTitle) {
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
+                            <th scope="col" class="px-4 py-3 text-center"><input type="checkbox" id="select-all-items" class="rounded border-gray-300 text-red-600 shadow-sm focus:ring-red-500"></th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Item Name</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Price</th>
@@ -603,25 +663,43 @@ export function loadPanel(root, panelTitle) {
     panelRoot.querySelector('#category-filter').addEventListener('change', filterItems);
 
     panelRoot.addEventListener('click', async (event) => {
-        const target = event.target.closest('button');
-        if (!target) return;
-        const row = target.closest('tr');
-        if (!row) return;
-        const categoryId = row.dataset.categoryId;
-        const itemId = row.dataset.itemId;
-        const itemName = row.dataset.itemName;
-        if (target.classList.contains('edit-item-btn')) {
-            const itemSnapshot = await db.ref(`menu/${categoryId}/items/${itemId}`).once('value');
-            if (itemSnapshot.exists()) {
-                openEditModal(itemId, { ...itemSnapshot.val(), category: categoryId });
+        const target = event.target;
+        
+        // --- Single Item Actions ---
+        const btn = target.closest('button');
+        if (btn) {
+            const row = btn.closest('tr');
+            if (!row) return;
+
+            const categoryId = row.dataset.categoryId;
+            const itemId = row.dataset.itemId;
+            const itemName = row.dataset.itemName;
+
+            if (btn.classList.contains('edit-item-btn')) {
+                const itemSnapshot = await db.ref(`menu/${categoryId}/items/${itemId}`).once('value');
+                if (itemSnapshot.exists()) {
+                    openEditModal(itemId, { ...itemSnapshot.val(), category: categoryId });
+                }
+            } else if (btn.classList.contains('recipe-item-btn')) {
+                openRecipeModal(itemId, itemName);
+            } else if (btn.classList.contains('delete-item-btn')) {
+                if (confirm(`Are you sure you want to delete ${itemName}?`)) {
+                    await db.ref(`menu/${categoryId}/items/${itemId}`).remove();
+                    alert('Item deleted!');
+                }
             }
-        } else if (target.classList.contains('recipe-item-btn')) {
-            openRecipeModal(itemId, itemName);
-        } else if (target.classList.contains('delete-item-btn')) {
-            if (confirm(`Are you sure you want to delete ${itemName}?`)) {
-                await db.ref(`menu/${categoryId}/items/${itemId}`).remove();
-                alert('Item deleted!');
+        }
+        
+        // --- Bulk Item Checkbox Handling ---
+        if (target.matches('.item-checkbox')) {
+            const itemId = target.dataset.itemId;
+            const categoryId = target.dataset.categoryId;
+            if (target.checked) {
+                selectedItems.set(itemId, categoryId);
+            } else {
+                selectedItems.delete(itemId);
             }
+            updateBulkActionUI();
         }
     });
 
@@ -631,6 +709,140 @@ export function loadPanel(root, panelTitle) {
             db.ref(`menu/${row.dataset.categoryId}/items/${row.dataset.itemId}/inStock`).set(e.target.checked);
         }
     });
+    
+    // --- Bulk Action Event Listeners ---
+    
+    panelRoot.querySelector('#select-all-items').addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        const itemCheckboxes = panelRoot.querySelectorAll('#menu-items-list tr .item-checkbox');
+        
+        selectedItems.clear();
+        itemCheckboxes.forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            // Only select visible rows
+            if (row.style.display !== 'none') {
+                checkbox.checked = isChecked;
+                if (isChecked) {
+                    selectedItems.set(checkbox.dataset.itemId, checkbox.dataset.categoryId);
+                }
+            }
+        });
+        updateBulkActionUI();
+    });
+
+    panelRoot.querySelector('#bulk-delete-btn').addEventListener('click', async () => {
+        if (selectedItems.size === 0) return;
+        if (!confirm(`Are you sure you want to delete ${selectedItems.size} items? This cannot be undone.`)) return;
+
+        const updates = {};
+        selectedItems.forEach((categoryId, itemId) => {
+            updates[`/menu/${categoryId}/items/${itemId}`] = null;
+        });
+
+        try {
+            await db.ref().update(updates);
+            alert(`${selectedItems.size} items deleted successfully.`);
+            selectedItems.clear();
+            updateBulkActionUI();
+            loadMenuItems();
+        } catch (error) {
+            alert('Error deleting items: ' + error.message);
+        }
+    });
+    
+    panelRoot.querySelector('#bulk-set-instock-btn').addEventListener('click', () => bulkUpdateAvailability(true));
+    panelRoot.querySelector('#bulk-set-oot-btn').addEventListener('click', () => bulkUpdateAvailability(false));
+
+    panelRoot.querySelector('#bulk-change-category-btn').addEventListener('click', async () => {
+        const newCategoryId = panelRoot.querySelector('#bulk-category-select').value;
+        if (!newCategoryId || selectedItems.size === 0) {
+            alert('Please select items and a target category.');
+            return;
+        }
+
+        const updates = {};
+        const itemsToMove = [];
+        
+        // Prepare data for moving
+        for (const [itemId, categoryId] of selectedItems.entries()) {
+            if (categoryId !== newCategoryId) {
+                 const itemSnapshot = await db.ref(`menu/${categoryId}/items/${itemId}`).once('value');
+                 if(itemSnapshot.exists()) {
+                     itemsToMove.push({ itemId, oldCategoryId: categoryId, data: itemSnapshot.val() });
+                 }
+            }
+        }
+
+        if (itemsToMove.length === 0) {
+            alert('All selected items are already in that category.');
+            return;
+        }
+
+        itemsToMove.forEach(item => {
+            updates[`/menu/${item.oldCategoryId}/items/${item.itemId}`] = null; // Delete old
+            updates[`/menu/${newCategoryId}/items/${item.itemId}`] = item.data; // Add new
+        });
+        
+        try {
+            await db.ref().update(updates);
+            alert(`${itemsToMove.length} items moved to category "${newCategoryId}".`);
+            selectedItems.clear();
+            updateBulkActionUI();
+            loadMenuItems(); // This re-renders the list
+        } catch (error) {
+            alert('Error moving items: ' + error.message);
+        }
+    });
+
+    panelRoot.querySelector('#bulk-adjust-price-btn').addEventListener('click', async () => {
+        const percentage = parseFloat(panelRoot.querySelector('#bulk-price-adjust').value);
+        if (isNaN(percentage) || selectedItems.size === 0) {
+            alert('Please select items and enter a valid percentage.');
+            return;
+        }
+
+        const updates = {};
+        for (const [itemId, categoryId] of selectedItems.entries()) {
+            const itemSnapshot = await db.ref(`menu/${categoryId}/items/${itemId}`).once('value');
+            if (itemSnapshot.exists()) {
+                const item = itemSnapshot.val();
+                const currentPrice = parseFloat(item.price);
+                if (!isNaN(currentPrice)) {
+                    const newPrice = currentPrice * (1 + percentage / 100);
+                    updates[`/menu/${categoryId}/items/${itemId}/price`] = parseFloat(newPrice.toFixed(2));
+                }
+            }
+        }
+        
+        try {
+            await db.ref().update(updates);
+            alert(`Prices for ${selectedItems.size} items adjusted by ${percentage}%.`);
+            selectedItems.clear();
+            updateBulkActionUI();
+            loadMenuItems();
+        } catch (error) {
+            alert('Error adjusting prices: ' + error.message);
+        }
+    });
+
 
     loadMenuItems();
+}
+
+async function bulkUpdateAvailability(inStock) {
+    if (selectedItems.size === 0) return;
+    const updates = {};
+    selectedItems.forEach((categoryId, itemId) => {
+        updates[`/menu/${categoryId}/items/${itemId}/inStock`] = inStock;
+    });
+
+    try {
+        await db.ref().update(updates);
+        alert(`Availability for ${selectedItems.size} items updated.`);
+        selectedItems.clear();
+        updateBulkActionUI();
+        loadMenuItems();
+    } catch (error) {
+        alert('Error updating availability: ' + error.message);
+    }
 }
