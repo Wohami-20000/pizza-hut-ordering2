@@ -33,7 +33,7 @@ function updateBulkActionUI() {
     }
 
     // Update the "select all" checkbox state
-    const totalRows = panelRoot.querySelectorAll('#menu-items-list tr[data-item-id]').length;
+    const totalRows = panelRoot.querySelectorAll('#menu-items-table tr[data-item-id]').length;
     if (selectAllCheckbox) {
         selectAllCheckbox.checked = selectedItems.size > 0 && selectedItems.size === totalRows;
         selectAllCheckbox.indeterminate = selectedItems.size > 0 && selectedItems.size < totalRows;
@@ -392,7 +392,7 @@ async function saveEditedEntity(event) {
         await dbRef.update(updatedData);
         alert(`Item updated successfully!`);
         closeEditModal();
-        loadMenuItems();
+        // The on() listener will automatically refresh the view
     } catch (error) {
         alert(`Failed to update item: ` + error.message);
         console.error("Save error:", error);
@@ -405,33 +405,29 @@ async function saveEditedEntity(event) {
 function filterItems() {
     const searchTerm = document.getElementById('item-search').value.toLowerCase();
     const categoryFilter = document.getElementById('category-filter').value;
-    const rows = document.querySelectorAll('#menu-items-list tr');
-    let visibleCount = 0;
+    const table = document.getElementById('menu-items-table');
+    if (!table) return;
 
-    rows.forEach(row => {
-        const itemName = (row.dataset.itemName || '').toLowerCase();
-        const categoryId = row.dataset.categoryId || '';
+    table.querySelectorAll('tbody').forEach(tbody => {
+        let hasVisibleRows = false;
+        tbody.querySelectorAll('tr').forEach(row => {
+            const itemName = (row.dataset.itemName || '').toLowerCase();
+            const categoryId = row.dataset.categoryId || '';
 
-        const nameMatch = itemName.includes(searchTerm);
-        const categoryMatch = (categoryFilter === 'all' || categoryId === categoryFilter);
+            const nameMatch = itemName.includes(searchTerm);
+            const categoryMatch = (categoryFilter === 'all' || categoryId === categoryFilter);
 
-        if (nameMatch && categoryMatch) {
-            row.style.display = '';
-            visibleCount++;
-        } else {
-            row.style.display = 'none';
-        }
+            if (nameMatch && categoryMatch) {
+                row.style.display = '';
+                hasVisibleRows = true;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        // You could hide entire category tbodies if they have no matching items
+        // tbody.style.display = hasVisibleRows ? '' : 'none';
     });
-
-    // Update select all checkbox based on filtered view
-    const selectAllCheckbox = panelRoot.querySelector('#select-all-items');
-    if (selectAllCheckbox) {
-        const allVisibleSelected = selectedItems.size > 0 && selectedItems.size === visibleCount;
-        selectAllCheckbox.checked = allVisibleSelected;
-        selectAllCheckbox.indeterminate = selectedItems.size > 0 && !allVisibleSelected;
-    }
 }
-
 
 function loadMenuItems() {
     db.ref('menu').on('value', (snapshot) => {
@@ -483,6 +479,64 @@ function loadMenuItems() {
         updateBulkActionUI();
     });
 }
+
+/**
+ * Initializes SortableJS on all category table bodies.
+ */
+function initializeSortable() {
+    // Destroy previous instances to avoid memory leaks
+    sortableInstances.forEach(instance => instance.destroy());
+    sortableInstances = [];
+
+    const categoryBodies = document.querySelectorAll('.sortable-category-body');
+    const saveOrderBtn = document.getElementById('save-order-btn');
+
+    categoryBodies.forEach(tbody => {
+        const sortable = new Sortable(tbody, {
+            animation: 150,
+            handle: '.drag-handle',
+            ghostClass: 'sortable-ghost',
+            onEnd: function (evt) {
+                // When the user drops an item, show the save button
+                saveOrderBtn.classList.remove('hidden');
+            },
+        });
+        sortableInstances.push(sortable);
+    });
+}
+
+/**
+ * Saves the new order of items to Firebase.
+ */
+async function saveOrder() {
+    const saveOrderBtn = document.getElementById('save-order-btn');
+    saveOrderBtn.disabled = true;
+    saveOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
+
+    const updates = {};
+    const categoryBodies = document.querySelectorAll('.sortable-category-body');
+
+    categoryBodies.forEach(tbody => {
+        const categoryId = tbody.dataset.categoryId;
+        tbody.querySelectorAll('tr').forEach((row, index) => {
+            const itemId = row.dataset.itemId;
+            updates[`/menu/${categoryId}/items/${itemId}/orderIndex`] = index;
+        });
+    });
+
+    try {
+        await db.ref().update(updates);
+        alert('Menu order saved successfully!');
+        saveOrderBtn.classList.add('hidden');
+    } catch (error) {
+        console.error("Error saving order:", error);
+        alert("Failed to save order. Please check the console for details.");
+    } finally {
+        saveOrderBtn.disabled = false;
+        saveOrderBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Save New Order';
+    }
+}
+
 
 function populateCategoryDropdowns() {
     const categorySelect = document.getElementById('new-item-category');
@@ -585,7 +639,7 @@ export function loadPanel(root, panelTitle) {
                 </select>
             </div>
             <div class="overflow-x-auto rounded-lg border border-gray-200">
-                <table id="menu-items-table" class="min-w-full divide-y divide-gray-200">
+                <table id="menu-items-table" class="min-w-full">
                     <thead class="bg-gray-50">
                         <tr>
                             <th scope="col" class="px-4 py-3"></th>
@@ -775,7 +829,7 @@ export function loadPanel(root, panelTitle) {
     
     panelRoot.querySelector('#select-all-items').addEventListener('change', (e) => {
         const isChecked = e.target.checked;
-        const itemCheckboxes = panelRoot.querySelectorAll('#menu-items-list tr .item-checkbox');
+        const itemCheckboxes = panelRoot.querySelectorAll('#menu-items-table tr .item-checkbox');
         
         selectedItems.clear();
         itemCheckboxes.forEach(checkbox => {
