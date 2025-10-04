@@ -15,6 +15,7 @@ let currentEditId = ''; // Firebase key of the item being edited
 let currentRecipeItemId = ''; // ID of the item for which the recipe is being edited
 let ingredientsCache = {}; // Cache for the master ingredient list
 let selectedItems = new Map(); // For bulk editing { itemId: categoryId }
+let sortableInstances = []; // To keep track of Sortable instances
 
 /**
  * Updates the visibility and count of the bulk action UI.
@@ -54,6 +55,9 @@ function createMenuItemRow(categoryId, itemId, itemData) {
 
     return `
         <tr class="hover:bg-gray-50 transition duration-150 ease-in-out ${inStock === false ? 'bg-gray-100 opacity-60' : ''}" data-category-id="${categoryId}" data-item-id="${itemId}" data-item-name="${name}">
+            <td class="drag-handle px-4 py-3 text-gray-400 cursor-grab active:cursor-grabbing">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+            </td>
             <td class="px-4 py-3 text-center">
                 <input type="checkbox" class="item-checkbox rounded border-gray-300 text-red-600 shadow-sm focus:ring-red-500" data-item-id="${itemId}" data-category-id="${categoryId}">
             </td>
@@ -428,8 +432,104 @@ function filterItems() {
     }
 }
 
+function loadMenuItems() {
+    db.ref('menu').on('value', (snapshot) => {
+        const menuItemsList = document.getElementById('menu-items-list');
+        if (!menuItemsList) return;
 
-function loadMenuItems() { db.ref('menu').on('value', (snapshot) => { const menuItemsList = document.getElementById('menu-items-list'); if (menuItemsList) { menuItemsList.innerHTML = ''; if (snapshot.exists()) { let itemsHtml = ''; snapshot.forEach((categorySnapshot) => { const categoryId = categorySnapshot.key; const categoryData = categorySnapshot.val(); if (categoryData.items) { for (const itemId in categoryData.items) { itemsHtml += createMenuItemRow(categoryId, itemId, categoryData.items[itemId]); } } }); menuItemsList.innerHTML = itemsHtml || `<tr><td colspan="7" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`; } else { menuItemsList.innerHTML = `<tr><td colspan="7" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`; } populateCategoryDropdowns(); filterItems(); updateBulkActionUI(); } }); }
+        menuItemsList.innerHTML = '';
+        if (snapshot.exists()) {
+            const menu = snapshot.val();
+            let allCategoriesHtml = '';
+
+            // Sort categories by displayOrder
+            const sortedCategories = Object.entries(menu).sort(([, a], [, b]) => (a.displayOrder || 0) - (b.displayOrder || 0));
+
+            sortedCategories.forEach(([categoryId, categoryData]) => {
+                if (categoryData.items) {
+                    // Sort items within the category by orderIndex
+                    const sortedItems = Object.entries(categoryData.items)
+                        .sort(([, a], [, b]) => (a.orderIndex || 0) - (b.orderIndex || 0));
+                    
+                    // Create a separate tbody for each category to make them sortable
+                    let categoryHtml = `<tbody class="sortable-category-body" data-category-id="${categoryId}">`;
+                    sortedItems.forEach(([itemId, itemData]) => {
+                        categoryHtml += createMenuItemRow(categoryId, itemId, itemData);
+                    });
+                    categoryHtml += `</tbody>`;
+                    allCategoriesHtml += categoryHtml;
+                }
+            });
+            menuItemsList.innerHTML = allCategoriesHtml || `<tr><td colspan="8" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`;
+        } else {
+            menuItemsList.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`;
+        }
+        
+        initializeSortable();
+        populateCategoryDropdowns();
+        filterItems();
+        updateBulkActionUI();
+    });
+}
+
+/**
+ * Initializes SortableJS on all category table bodies.
+ */
+function initializeSortable() {
+    // Destroy previous instances to avoid memory leaks
+    sortableInstances.forEach(instance => instance.destroy());
+    sortableInstances = [];
+
+    const categoryBodies = document.querySelectorAll('.sortable-category-body');
+    const saveOrderBtn = document.getElementById('save-order-btn');
+
+    categoryBodies.forEach(tbody => {
+        const sortable = new Sortable(tbody, {
+            animation: 150,
+            handle: '.drag-handle',
+            ghostClass: 'sortable-ghost',
+            onEnd: function (evt) {
+                // When the user drops an item, show the save button
+                saveOrderBtn.classList.remove('hidden');
+            },
+        });
+        sortableInstances.push(sortable);
+    });
+}
+
+/**
+ * Saves the new order of items to Firebase.
+ */
+async function saveOrder() {
+    const saveOrderBtn = document.getElementById('save-order-btn');
+    saveOrderBtn.disabled = true;
+    saveOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
+
+    const updates = {};
+    const categoryBodies = document.querySelectorAll('.sortable-category-body');
+
+    categoryBodies.forEach(tbody => {
+        const categoryId = tbody.dataset.categoryId;
+        tbody.querySelectorAll('tr').forEach((row, index) => {
+            const itemId = row.dataset.itemId;
+            updates[`/menu/${categoryId}/items/${itemId}/orderIndex`] = index;
+        });
+    });
+
+    try {
+        await db.ref().update(updates);
+        alert('Menu order saved successfully!');
+        saveOrderBtn.classList.add('hidden');
+    } catch (error) {
+        console.error("Error saving order:", error);
+        alert("Failed to save order. Please check the console for details.");
+    } finally {
+        saveOrderBtn.disabled = false;
+        saveOrderBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Save New Order';
+    }
+}
+
+
 function populateCategoryDropdowns() {
     const categorySelect = document.getElementById('new-item-category');
     const categoryFilter = document.getElementById('category-filter');
@@ -500,10 +600,15 @@ export function loadPanel(root, panelTitle) {
                 <div class="border-t pt-4 mt-4"><label for="new-item-allergies" class="block text-sm font-medium text-gray-700">Allergies</label><textarea id="new-item-allergies" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"></textarea></div>
                 <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition">Add Item</button>
             </form>
-            <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4 mt-8">Current Menu Items</h2>
+            <div class="flex justify-between items-center border-b pb-4 mt-8">
+                <h2 class="text-2xl font-bold text-gray-800">Current Menu Items</h2>
+                <button id="save-order-btn" class="hidden bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">
+                    <i class="fas fa-save mr-2"></i>Save New Order
+                </button>
+            </div>
              
             <!-- Bulk Actions -->
-            <div id="bulk-action-container" class="hidden bg-gray-100 p-4 rounded-lg mb-4 space-y-2 md:space-y-0 md:flex md:items-center md:gap-4 flex-wrap">
+            <div id="bulk-action-container" class="hidden bg-gray-100 p-4 rounded-lg my-4 space-y-2 md:space-y-0 md:flex md:items-center md:gap-4 flex-wrap">
                 <span id="selected-count" class="font-bold text-sm">0 selected</span>
                 <select id="bulk-category-select" class="p-2 border rounded-md bg-white text-sm"><option value="">Change category...</option></select>
                 <button id="bulk-change-category-btn" class="text-sm bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600">Apply</button>
@@ -519,7 +624,7 @@ export function loadPanel(root, panelTitle) {
             </div>
 
 
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex justify-between items-center mb-4 mt-4">
                 <input type="text" id="item-search" placeholder="Search by name..." class="w-1/3 p-2 border rounded-md">
                 <select id="category-filter" class="p-2 border rounded-md bg-white">
                     <option value="all">All Categories</option>
@@ -529,6 +634,7 @@ export function loadPanel(root, panelTitle) {
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
+                            <th scope="col" class="px-4 py-3"></th>
                             <th scope="col" class="px-4 py-3 text-center"><input type="checkbox" id="select-all-items" class="rounded border-gray-300 text-red-600 shadow-sm focus:ring-red-500"></th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Item Name</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
@@ -576,6 +682,8 @@ export function loadPanel(root, panelTitle) {
     panelRoot.querySelector('#cancel-recipe-modal-btn').addEventListener('click', closeRecipeModal);
     editForm.addEventListener('submit', saveEditedEntity);
     panelRoot.querySelector('#recipe-form').addEventListener('submit', handleSaveRecipe);
+    panelRoot.querySelector('#save-order-btn').addEventListener('click', saveOrder);
+
 
     panelRoot.querySelector('#add-item-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -744,7 +852,7 @@ export function loadPanel(root, panelTitle) {
             alert(`${selectedItems.size} items deleted successfully.`);
             selectedItems.clear();
             updateBulkActionUI();
-            loadMenuItems();
+            // The on('value') listener will automatically refresh the list
         } catch (error) {
             alert('Error deleting items: ' + error.message);
         }
@@ -788,7 +896,6 @@ export function loadPanel(root, panelTitle) {
             alert(`${itemsToMove.length} items moved to category "${newCategoryId}".`);
             selectedItems.clear();
             updateBulkActionUI();
-            loadMenuItems(); // This re-renders the list
         } catch (error) {
             alert('Error moving items: ' + error.message);
         }
@@ -819,7 +926,6 @@ export function loadPanel(root, panelTitle) {
             alert(`Prices for ${selectedItems.size} items adjusted by ${percentage}%.`);
             selectedItems.clear();
             updateBulkActionUI();
-            loadMenuItems();
         } catch (error) {
             alert('Error adjusting prices: ' + error.message);
         }
@@ -841,7 +947,6 @@ async function bulkUpdateAvailability(inStock) {
         alert(`Availability for ${selectedItems.size} items updated.`);
         selectedItems.clear();
         updateBulkActionUI();
-        loadMenuItems();
     } catch (error) {
         alert('Error updating availability: ' + error.message);
     }
