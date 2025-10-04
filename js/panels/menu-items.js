@@ -1,5 +1,7 @@
 // /js/panels/menu-items.js
 
+import { logAction } from './logs.js';
+
 const db = firebase.database();
 // REMOVED: Firebase Storage reference is no longer needed
 
@@ -254,7 +256,7 @@ async function handleSaveRecipe(e) {
     }
 }
 
-function openEditModal(id, data) {
+async function openEditModal(id, data) {
     currentEditId = id;
     const formFieldsContainer = document.getElementById('edit-form-fields');
     if (!formFieldsContainer) return;
@@ -388,8 +390,17 @@ async function saveEditedEntity(event) {
             options: options,
             allergies: document.getElementById('edit-item-allergies').value.trim()
         };
+        
+        // Fetch old data for logging changes
         const dbRef = db.ref(`menu/${categoryId}/items/${currentEditId}`);
+        const oldDataSnapshot = await dbRef.once('value');
+        const oldData = oldDataSnapshot.val();
+
         await dbRef.update(updatedData);
+        
+        // Log the update action
+        logAction('update', updatedData.name, currentEditId, { before: oldData, after: updatedData });
+
         alert(`Item updated successfully!`);
         closeEditModal();
         // The on() listener will automatically refresh the view
@@ -526,6 +537,7 @@ async function saveOrder() {
 
     try {
         await db.ref().update(updates);
+        logAction('reorder', 'Menu Items', 'all', { details: 'Admin reordered items within categories.' });
         alert('Menu order saved successfully!');
         saveOrderBtn.classList.add('hidden');
     } catch (error) {
@@ -728,6 +740,9 @@ export function loadPanel(root, panelTitle) {
             
             const newRef = await db.ref(`menu/${newItem.category}/items`).push();
             await newRef.set({ ...newItem, id: newRef.key });
+
+            logAction('create', newItem.name, newRef.key, { data: newItem });
+
             alert('Item added successfully!');
             e.target.reset();
             document.getElementById('new-image-preview').classList.add('hidden');
@@ -799,6 +814,7 @@ export function loadPanel(root, panelTitle) {
                 openRecipeModal(itemId, itemName);
             } else if (btn.classList.contains('delete-item-btn')) {
                 if (confirm(`Are you sure you want to delete ${itemName}?`)) {
+                    await logAction('delete', itemName, itemId);
                     await db.ref(`menu/${categoryId}/items/${itemId}`).remove();
                     alert('Item deleted!');
                 }
@@ -821,7 +837,9 @@ export function loadPanel(root, panelTitle) {
     panelRoot.addEventListener('change', (e) => {
         if (e.target.classList.contains('stock-toggle')) {
             const row = e.target.closest('tr');
-            db.ref(`menu/${row.dataset.categoryId}/items/${row.dataset.itemId}/inStock`).set(e.target.checked);
+            const newStatus = e.target.checked;
+            db.ref(`menu/${row.dataset.categoryId}/items/${row.dataset.itemId}/inStock`).set(newStatus);
+            logAction('update', row.dataset.itemName, row.dataset.itemId, { change: `Availability set to ${newStatus ? 'In Stock' : 'Out of Stock'}` });
         }
     });
     
@@ -850,16 +868,20 @@ export function loadPanel(root, panelTitle) {
         if (!confirm(`Are you sure you want to delete ${selectedItems.size} items? This cannot be undone.`)) return;
 
         const updates = {};
-        selectedItems.forEach((categoryId, itemId) => {
+        for (const [itemId, categoryId] of selectedItems.entries()) {
             updates[`/menu/${categoryId}/items/${itemId}`] = null;
-        });
+            // Log each deletion
+            const row = panelRoot.querySelector(`tr[data-item-id="${itemId}"]`);
+            if (row) {
+                 await logAction('delete', row.dataset.itemName, itemId, { details: 'Bulk delete action' });
+            }
+        }
 
         try {
             await db.ref().update(updates);
             alert(`${selectedItems.size} items deleted successfully.`);
             selectedItems.clear();
             updateBulkActionUI();
-            // The on('value') listener will automatically refresh the list
         } catch (error) {
             alert('Error deleting items: ' + error.message);
         }
@@ -896,6 +918,7 @@ export function loadPanel(root, panelTitle) {
         itemsToMove.forEach(item => {
             updates[`/menu/${item.oldCategoryId}/items/${item.itemId}`] = null; // Delete old
             updates[`/menu/${newCategoryId}/items/${item.itemId}`] = item.data; // Add new
+            logAction('update', item.data.name, item.itemId, { change: `Category moved from ${item.oldCategoryId} to ${newCategoryId}` });
         });
         
         try {
@@ -924,6 +947,7 @@ export function loadPanel(root, panelTitle) {
                 if (!isNaN(currentPrice)) {
                     const newPrice = currentPrice * (1 + percentage / 100);
                     updates[`/menu/${categoryId}/items/${itemId}/price`] = parseFloat(newPrice.toFixed(2));
+                    logAction('update', item.name, itemId, { change: `Price adjusted by ${percentage}% from ${currentPrice.toFixed(2)} to ${newPrice.toFixed(2)}` });
                 }
             }
         }
@@ -945,9 +969,13 @@ export function loadPanel(root, panelTitle) {
 async function bulkUpdateAvailability(inStock) {
     if (selectedItems.size === 0) return;
     const updates = {};
-    selectedItems.forEach((categoryId, itemId) => {
+    for (const [itemId, categoryId] of selectedItems.entries()) {
         updates[`/menu/${categoryId}/items/${itemId}/inStock`] = inStock;
-    });
+        const row = panelRoot.querySelector(`tr[data-item-id="${itemId}"]`);
+        if (row) {
+            await logAction('update', row.dataset.itemName, itemId, { change: `Availability set to ${inStock ? 'In Stock' : 'Out of Stock'}`, details: 'Bulk update action' });
+        }
+    }
 
     try {
         await db.ref().update(updates);
@@ -958,4 +986,3 @@ async function bulkUpdateAvailability(inStock) {
         alert('Error updating availability: ' + error.message);
     }
 }
-

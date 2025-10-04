@@ -25,6 +25,7 @@ import { loadPanel as loadTeamPanel } from './panels/team.js';
 import { loadPanel as loadAssignDeliveriesPanel } from './panels/assign-deliveries.js';
 import { loadPanel as loadStockPanel } from './panels/stock.js';
 import { loadPanel as loadSystemPanel } from './panels/system.js';
+import { loadPanel as loadLogsPanel } from './panels/logs.js'; // Import the new logs panel
 
 /**
  * Builds the sidebar navigation based on the user's role.
@@ -56,6 +57,7 @@ function buildSidebarNav(role) {
             ${(role === 'admin' || role === 'owner') ? `
             <div class="border-t border-gray-700 my-2"></div>
             <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="users"><i class="fas fa-users-cog mr-3"></i>User Management</a>
+            <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="logs"><i class="fas fa-history mr-3"></i>Audit Log</a>
             <a href="#" class="block py-2.5 px-4 rounded-lg transition hover:bg-gray-700" data-panel="system"><i class="fas fa-cogs mr-3"></i>System Config</a>` : ''}
         `;
     }
@@ -129,6 +131,7 @@ async function loadRolePanel(role, targetPanelKey = 'default') {
         case 'offers': panelModuleToLoad = loadOffersPanel; break;
         case 'promo-codes': panelModuleToLoad = loadPromoCodesPanel; break;
         case 'system': panelModuleToLoad = loadSystemPanel; break;
+        case 'logs': panelModuleToLoad = loadLogsPanel; break; // Added logs panel
         default:
             effectivePanelKey = role === 'admin' ? 'stock' : 'defaultPanel';
             panelModuleToLoad = loadStockPanel;
