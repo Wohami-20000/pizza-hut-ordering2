@@ -10,6 +10,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Add SortableJS library -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
     <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png">
@@ -69,6 +71,16 @@
             background-color: #3b82f6;
             width: 0%;
             transition: width 0.3s;
+        }
+        .sortable-ghost {
+            background: #f0f9ff;
+            opacity: 0.7;
+        }
+        .drag-handle {
+            cursor: grab;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
         }
     </style>
 </head>
@@ -134,7 +146,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <!-- MODIFIED: The Firebase Storage SDK script has been removed. -->
     
     <script src="firebase.js"></script>
     
@@ -155,4 +166,3 @@
     </div>
 </body>
 </html>
-
