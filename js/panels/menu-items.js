@@ -24,7 +24,7 @@ function createMenuItemRow(categoryId, itemId, itemData) {
     const priceDisplay = typeof price === 'number' ? price.toFixed(2) : 'N/A';
     const isChecked = inStock === false ? '' : 'checked'; // In stock by default
     const stockText = inStock === false ? 'Out of Stock' : 'In Stock';
-    const stockTextColor = inStock === false ? 'text-red-500' : 'text-green-600';
+    const stockTextColor = inStock === false ? 'text-red-500' : 'text-green-500';
 
     return `
         <tr class="hover:bg-gray-50 transition duration-150 ease-in-out ${inStock === false ? 'bg-gray-100 opacity-60' : ''}" data-category-id="${categoryId}" data-item-id="${itemId}" data-item-name="${name}">
