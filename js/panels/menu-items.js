@@ -1,6 +1,13 @@
 // /js/panels/menu-items.js
 
 const db = firebase.database();
+// REMOVED: Firebase Storage reference is no longer needed
+
+// --- NEW: CLOUDINARY CONFIGURATION ---
+// IMPORTANT: Your Cloud Name is added. Just replace the upload preset below.
+const CLOUDINARY_CLOUD_NAME = "ddgjamijw";
+const CLOUDINARY_UPLOAD_PRESET = "pizza-hut-menu"; // <-- PASTE YOUR UPLOAD PRESET NAME HERE
+// ------------------------------------
 
 // --- MODAL ELEMENTS ---
 let editModal, editModalTitle, editForm, recipeModal, panelRoot;
@@ -50,6 +57,61 @@ function createMenuItemRow(categoryId, itemId, itemData) {
         </tr>
     `;
 }
+
+// --- NEW: Cloudinary Image Upload Function ---
+/**
+ * Uploads an image file to Cloudinary and returns the secure URL.
+ * @param {File} file The image file to upload.
+ * @param {function} onProgress A callback function to report upload progress (receives a percentage).
+ * @returns {Promise<string>} A promise that resolves with the secure public URL of the image.
+ */
+async function uploadImage(file, onProgress) {
+    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+    return new Promise((resolve, reject) => {
+        if (CLOUDINARY_CLOUD_NAME === "YOUR_CLOUD_NAME" || CLOUDINARY_UPLOAD_PRESET === "YOUR_UPLOAD_PRESET_NAME") {
+            return reject(new Error("Cloudinary credentials are not configured in js/panels/menu-items.js. Please add them."));
+        }
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url, true);
+
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const progress = (event.loaded / event.total) * 100;
+                onProgress(progress);
+            }
+        };
+
+        xhr.onreadystatechange = () => {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    resolve(response.secure_url);
+                } else {
+                    try {
+                        const error = JSON.parse(xhr.responseText);
+                        console.error('Cloudinary upload failed:', error);
+                        reject(new Error(error.error.message || 'Cloudinary upload failed'));
+                    } catch (e) {
+                        console.error('Could not parse Cloudinary error response:', xhr.responseText);
+                        reject(new Error('Cloudinary upload failed with an unknown error.'));
+                    }
+                }
+            }
+        };
+        
+        xhr.onerror = () => {
+             reject(new Error('Network error during upload. Check your internet connection.'));
+        };
+
+        xhr.send(formData);
+    });
+}
+
 
 // --- RECIPE MODAL FUNCTIONS ---
 
@@ -169,6 +231,18 @@ function openEditModal(id, data) {
     let formHtml = `
         <input type="hidden" id="edit-item-category-id" value="${data.category}">
         <div>
+            <label class="block text-sm font-medium text-gray-700">Item Image</label>
+            <div id="edit-image-uploader" class="image-uploader mt-1">
+                <input type="file" id="edit-item-image-file" class="hidden" accept="image/*">
+                <p>Click to upload or drag & drop</p>
+                <img id="edit-image-preview" src="${data.image_url || ''}" class="image-preview ${data.image_url ? '' : 'hidden'}">
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2 mt-2 hidden" id="edit-progress-container">
+                <div class="progress-bar rounded-full" id="edit-progress-bar"></div>
+            </div>
+            <input type="hidden" id="edit-item-image-url" value="${data.image_url || ''}">
+        </div>
+        <div>
             <label for="edit-item-name" class="block text-sm font-medium text-gray-700">Item Name</label>
             <input type="text" id="edit-item-name" value="${data.name || ''}" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
         </div>
@@ -179,10 +253,6 @@ function openEditModal(id, data) {
         <div>
             <label for="edit-item-price" class="block text-sm font-medium text-gray-700">Base Price (MAD)</label>
             <input type="number" id="edit-item-price" step="0.01" value="${data.price || 0}" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-        </div>
-        <div>
-            <label for="edit-item-image-url" class="block text-sm font-medium text-gray-700">Image URL</label>
-            <input type="url" id="edit-item-image-url" value="${data.image_url || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
         </div>
         <div class="border-t pt-4 mt-4">
             <h4 class="text-md font-semibold text-gray-800 mb-2">Sizes</h4>
@@ -204,17 +274,101 @@ function openEditModal(id, data) {
         </div>`;
     formFieldsContainer.innerHTML = formHtml;
     editModal.classList.remove('hidden');
+
+    const editImageUploader = document.getElementById('edit-image-uploader');
+    const editImageFileInput = document.getElementById('edit-item-image-file');
+    const editImagePreview = document.getElementById('edit-image-preview');
+    editImageUploader.addEventListener('click', () => editImageFileInput.click());
+    editImageFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                editImagePreview.src = event.target.result;
+                editImagePreview.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
     const sizesContainer = document.getElementById('edit-item-sizes-container');
     const optionsContainer = document.getElementById('edit-item-options-container');
     (data.sizes || []).forEach(size => addSizeField(sizesContainer, size.size, size.price));
-    (data.options || []).forEach(option => addOptionField(optionsContainer, option.name, option.price.Triple));
+    (data.options || []).forEach(option => addOptionField(optionsContainer, option.name, option.price || ''));
     document.getElementById('add-edit-size-btn').addEventListener('click', () => addSizeField(sizesContainer));
     document.getElementById('add-edit-option-btn').addEventListener('click', () => addOptionField(optionsContainer));
 }
 function closeEditModal() { editModal.classList.add('hidden'); }
 function addSizeField(container, size = '', price = '') { const div = document.createElement('div'); div.className = 'flex gap-2 items-center'; div.innerHTML = `<input type="text" class="size-name-input w-2/3 p-2 border rounded-md" placeholder="Size Name (e.g., Small)" value="${size}"><input type="number" step="0.01" class="size-price-input w-1/3 p-2 border rounded-md" placeholder="Price" value="${price}"><button type="button" class="remove-field-btn text-red-500 hover:text-red-700"><i class="fas fa-times-circle"></i></button>`; div.querySelector('.remove-field-btn').addEventListener('click', () => div.remove()); container.appendChild(div); }
 function addOptionField(container, name = '', price = '') { const div = document.createElement('div'); div.className = 'flex gap-2 items-center'; div.innerHTML = `<input type="text" class="option-name-input w-2/3 p-2 border rounded-md" placeholder="Option Name (e.g., Mushrooms)" value="${name}"><input type="number" step="0.01" class="option-price-input w-1/3 p-2 border rounded-md" placeholder="Price" value="${price}"><button type="button" class="remove-field-btn text-red-500 hover:text-red-700"><i class="fas fa-times-circle"></i></button>`; div.querySelector('.remove-field-btn').addEventListener('click', () => div.remove()); container.appendChild(div); }
-async function saveEditedEntity(event) { event.preventDefault(); const categoryId = document.getElementById('edit-item-category-id').value; const newBasePrice = parseFloat(document.getElementById('edit-item-price').value); const sizes = []; document.querySelectorAll('#edit-item-sizes-container .flex').forEach(row => { const sizeName = row.querySelector('.size-name-input').value.trim(); const sizePrice = parseFloat(row.querySelector('.size-price-input').value); if (sizeName && !isNaN(sizePrice)) { sizes.push({ size: sizeName, price: sizePrice }); } }); if (sizes.length === 0 && !isNaN(newBasePrice)) { sizes.push({ size: "Regular", price: newBasePrice }); } const recipesInput = document.getElementById('edit-item-recipes').value.trim(); const recipes = recipesInput ? recipesInput.split(',').map(r => r.trim()).filter(r => r) : []; const options = []; document.querySelectorAll('#edit-item-options-container .flex').forEach(row => { const optionName = row.querySelector('.option-name-input').value.trim(); const optionPrice = parseFloat(row.querySelector('.option-price-input').value); if (optionName && !isNaN(optionPrice)) { options.push({ name: optionName, price: { Triple: optionPrice } }); } }); const updatedData = { name: document.getElementById('edit-item-name').value, description: document.getElementById('edit-item-description').value, price: newBasePrice, image_url: document.getElementById('edit-item-image-url').value, sizes: sizes, recipes: recipes, options: options, allergies: document.getElementById('edit-item-allergies').value.trim() }; const dbRef = db.ref(`menu/${categoryId}/items/${currentEditId}`); try { await dbRef.update(updatedData); alert(`Item updated successfully!`); closeEditModal(); loadMenuItems(); } catch (error) { alert(`Failed to update item: ` + error.message); } }
+
+async function saveEditedEntity(event) {
+    event.preventDefault();
+    const saveBtn = document.getElementById('save-edit-btn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+
+    const imageFile = document.getElementById('edit-item-image-file').files[0];
+    let imageUrl = document.getElementById('edit-item-image-url').value;
+
+    try {
+        if (imageFile) {
+            const progressContainer = document.getElementById('edit-progress-container');
+            const progressBar = document.getElementById('edit-progress-bar');
+            progressContainer.classList.remove('hidden');
+            imageUrl = await uploadImage(imageFile, (progress) => {
+                progressBar.style.width = `${progress}%`;
+            });
+            progressContainer.classList.add('hidden');
+        }
+
+        const categoryId = document.getElementById('edit-item-category-id').value;
+        const newBasePrice = parseFloat(document.getElementById('edit-item-price').value);
+        const sizes = [];
+        document.querySelectorAll('#edit-item-sizes-container .flex').forEach(row => {
+            const sizeName = row.querySelector('.size-name-input').value.trim();
+            const sizePrice = parseFloat(row.querySelector('.size-price-input').value);
+            if (sizeName && !isNaN(sizePrice)) {
+                sizes.push({ size: sizeName, price: sizePrice });
+            }
+        });
+        if (sizes.length === 0 && !isNaN(newBasePrice)) {
+            sizes.push({ size: "Regular", price: newBasePrice });
+        }
+        const recipesInput = document.getElementById('edit-item-recipes').value.trim();
+        const recipes = recipesInput ? recipesInput.split(',').map(r => r.trim()).filter(r => r) : [];
+        const options = [];
+        document.querySelectorAll('#edit-item-options-container .flex').forEach(row => {
+            const optionName = row.querySelector('.option-name-input').value.trim();
+            const optionPrice = parseFloat(row.querySelector('.option-price-input').value);
+            if (optionName && !isNaN(optionPrice)) {
+                options.push({ name: optionName, price: optionPrice });
+            }
+        });
+
+        const updatedData = {
+            name: document.getElementById('edit-item-name').value,
+            description: document.getElementById('edit-item-description').value,
+            price: newBasePrice,
+            image_url: imageUrl,
+            sizes: sizes,
+            recipes: recipes,
+            options: options,
+            allergies: document.getElementById('edit-item-allergies').value.trim()
+        };
+        const dbRef = db.ref(`menu/${categoryId}/items/${currentEditId}`);
+        await dbRef.update(updatedData);
+        alert(`Item updated successfully!`);
+        closeEditModal();
+        loadMenuItems();
+    } catch (error) {
+        alert(`Failed to update item: ` + error.message);
+        console.error("Save error:", error);
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Changes';
+    }
+}
 
 function filterItems() {
     const searchTerm = document.getElementById('item-search').value.toLowerCase();
@@ -250,7 +404,6 @@ function populateCategoryDropdowns() {
         }
 
         if (snapshot.exists()) {
-            // Sort categories by displayOrder before populating dropdowns
             const categories = [];
             snapshot.forEach(categorySnap => {
                 categories.push({ id: categorySnap.key, ...categorySnap.val() });
@@ -287,10 +440,20 @@ export function loadPanel(root, panelTitle) {
             <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">Add New Menu Item</h2>
             <form id="add-item-form" class="space-y-4">
                 <div><label for="new-item-name" class="block text-sm font-medium text-gray-700">Item Name</label><input type="text" id="new-item-name" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"></div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Item Image</label>
+                    <div id="new-image-uploader" class="image-uploader mt-1">
+                        <input type="file" id="new-item-image-file" class="hidden" accept="image/*" required>
+                        <p>Click to upload or drag & drop</p>
+                        <img id="new-image-preview" src="" class="image-preview hidden">
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2 hidden" id="new-progress-container">
+                        <div class="progress-bar rounded-full" id="new-progress-bar"></div>
+                    </div>
+                </div>
                 <div><label for="new-item-description" class="block text-sm font-medium text-gray-700">Description</label><textarea id="new-item-description" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"></textarea></div>
                 <div><label for="new-item-price" class="block text-sm font-medium text-gray-700">Base Price (MAD)</label><input type="number" id="new-item-price" step="0.01" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"></div>
                 <div><label for="new-item-category" class="block text-sm font-medium text-gray-700">Category</label><select id="new-item-category" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"><option value="">Select a category</option></select></div>
-                <div><label for="new-item-image-url" class="block text-sm font-medium text-gray-700">Image URL</label><input type="url" id="new-item-image-url" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"></div>
                 <div class="border-t pt-4 mt-4"><h4 class="text-md font-semibold text-gray-800 mb-2">Sizes (Optional)</h4><div id="new-item-sizes-container" class="space-y-2"></div><button type="button" id="add-new-size-btn" class="mt-2 bg-blue-100 text-blue-700 text-sm py-1 px-3 rounded-md hover:bg-blue-200"><i class="fas fa-plus mr-1"></i>Add Size</button></div>
                 <div class="border-t pt-4 mt-4"><h4 class="text-md font-semibold text-gray-800 mb-2">Recipes (Optional)</h4><input type="text" id="new-item-recipes" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., Spicy, BBQ"></div>
                 <div class="border-t pt-4 mt-4"><h4 class="text-md font-semibold text-gray-800 mb-2">Add-ons (Optional)</h4><div id="new-item-options-container" class="space-y-2"></div><button type="button" id="add-new-option-btn" class="mt-2 bg-blue-100 text-blue-700 text-sm py-1 px-3 rounded-md hover:bg-blue-200"><i class="fas fa-plus mr-1"></i>Add Option</button></div>
@@ -355,6 +518,56 @@ export function loadPanel(root, panelTitle) {
     editForm.addEventListener('submit', saveEditedEntity);
     panelRoot.querySelector('#recipe-form').addEventListener('submit', handleSaveRecipe);
 
+    panelRoot.querySelector('#add-item-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Adding...';
+
+        const imageFile = document.getElementById('new-item-image-file').files[0];
+        if (!imageFile) {
+            alert('Please select an image for the item.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Add Item';
+            return;
+        }
+
+        try {
+            const progressContainer = document.getElementById('new-progress-container');
+            const progressBar = document.getElementById('new-progress-bar');
+            progressContainer.classList.remove('hidden');
+            const imageUrl = await uploadImage(imageFile, (progress) => {
+                progressBar.style.width = `${progress}%`;
+            });
+            progressContainer.classList.add('hidden');
+
+            const newItemPrice = parseFloat(panelRoot.querySelector('#new-item-price').value);
+            const sizes = [];
+            panelRoot.querySelectorAll('#new-item-sizes-container .flex').forEach(row => { const sizeName = row.querySelector('.size-name-input').value.trim(); const sizePrice = parseFloat(row.querySelector('.size-price-input').value); if (sizeName && !isNaN(sizePrice)) { sizes.push({ size: sizeName, price: sizePrice }); } }); if (sizes.length === 0 && !isNaN(newItemPrice)) { sizes.push({ size: "Regular", price: newItemPrice }); }
+            const recipesInput = panelRoot.querySelector('#new-item-recipes').value.trim();
+            const recipes = recipesInput ? recipesInput.split(',').map(r => r.trim()).filter(r => r) : [];
+            const options = [];
+            panelRoot.querySelectorAll('#new-item-options-container .flex').forEach(row => { const optionName = row.querySelector('.option-name-input').value.trim(); const optionPrice = parseFloat(row.querySelector('.option-price-input').value); if (optionName && !isNaN(optionPrice)) { options.push({ name: optionName, price: optionPrice }); } });
+            
+            const newItem = { name: panelRoot.querySelector('#new-item-name').value, description: panelRoot.querySelector('#new-item-description').value, price: newItemPrice, category: panelRoot.querySelector('#new-item-category').value, image_url: imageUrl, sizes: sizes, recipes: recipes, options: options, allergies: panelRoot.querySelector('#new-item-allergies').value.trim(), inStock: true };
+            if (!newItem.category) { alert('Please select a category.'); return; }
+            
+            const newRef = await db.ref(`menu/${newItem.category}/items`).push();
+            await newRef.set({ ...newItem, id: newRef.key });
+            alert('Item added successfully!');
+            e.target.reset();
+            document.getElementById('new-image-preview').classList.add('hidden');
+            panelRoot.querySelector('#new-item-sizes-container').innerHTML = '';
+            panelRoot.querySelector('#new-item-options-container').innerHTML = '';
+        } catch (error) {
+            alert("Failed to add item: " + error.message);
+            console.error("Add item error:", error);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Add Item';
+        }
+    });
+
     if (recipeModal) {
         recipeModal.addEventListener('click', (e) => {
             const addBtn = e.target.closest('.add-ingredient-to-recipe-btn');
@@ -368,7 +581,22 @@ export function loadPanel(root, panelTitle) {
         });
     }
 
-    panelRoot.querySelector('#add-item-form').addEventListener('submit', async (e) => { e.preventDefault(); const newItemPrice = parseFloat(document.getElementById('new-item-price').value); const sizes = []; panelRoot.querySelectorAll('#new-item-sizes-container .flex').forEach(row => { const sizeName = row.querySelector('.size-name-input').value.trim(); const sizePrice = parseFloat(row.querySelector('.size-price-input').value); if (sizeName && !isNaN(sizePrice)) { sizes.push({ size: sizeName, price: sizePrice }); } }); if (sizes.length === 0 && !isNaN(newItemPrice)) { sizes.push({ size: "Regular", price: newItemPrice }); } const recipesInput = panelRoot.querySelector('#new-item-recipes').value.trim(); const recipes = recipesInput ? recipesInput.split(',').map(r => r.trim()).filter(r => r) : []; const options = []; panelRoot.querySelectorAll('#new-item-options-container .flex').forEach(row => { const optionName = row.querySelector('.option-name-input').value.trim(); const optionPrice = parseFloat(row.querySelector('.option-price-input').value); if (optionName && !isNaN(optionPrice)) { options.push({ name: optionName, price: { Triple: optionPrice } }); } }); const newItem = { name: panelRoot.querySelector('#new-item-name').value, description: panelRoot.querySelector('#new-item-description').value, price: newItemPrice, category: panelRoot.querySelector('#new-item-category').value, image_url: panelRoot.querySelector('#new-item-image-url').value || 'https://www.pizzahut.ma/images/Default_pizza.png', sizes: sizes, recipes: recipes, options: options, allergies: panelRoot.querySelector('#new-item-allergies').value.trim(), inStock: true }; if (!newItem.category) { alert('Please select a category.'); return; } try { const newRef = await db.ref(`menu/${newItem.category}/items`).push(); await newRef.set({ ...newItem, id: newRef.key }); alert('Item added successfully!'); e.target.reset(); panelRoot.querySelector('#new-item-sizes-container').innerHTML = ''; panelRoot.querySelector('#new-item-options-container').innerHTML = ''; panelRoot.querySelector('#new-item-recipes').value = ''; panelRoot.querySelector('#new-item-allergies').value = ''; loadMenuItems(); } catch (error) { alert("Failed to add item: " + error.message); } });
+    const newImageUploader = document.getElementById('new-image-uploader');
+    const newImageFileInput = document.getElementById('new-item-image-file');
+    const newImagePreview = document.getElementById('new-image-preview');
+    newImageUploader.addEventListener('click', () => newImageFileInput.click());
+    newImageFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                newImagePreview.src = event.target.result;
+                newImagePreview.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
     panelRoot.querySelector('#add-new-size-btn').addEventListener('click', () => addSizeField(panelRoot.querySelector('#new-item-sizes-container')));
     panelRoot.querySelector('#add-new-option-btn').addEventListener('click', () => addOptionField(panelRoot.querySelector('#new-item-options-container')));
     

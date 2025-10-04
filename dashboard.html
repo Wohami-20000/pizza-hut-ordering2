@@ -46,6 +46,30 @@
                  visibility: visible;
             }
         }
+        /* Style for image uploader */
+        .image-uploader {
+            border: 2px dashed #d1d5db;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .image-uploader:hover {
+            background-color: #f9fafb;
+        }
+        .image-preview {
+            max-width: 150px;
+            max-height: 150px;
+            margin-top: 1rem;
+            border-radius: 0.5rem;
+        }
+        .progress-bar {
+            height: 8px;
+            background-color: #3b82f6;
+            width: 0%;
+            transition: width 0.3s;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex">
@@ -110,6 +134,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <!-- MODIFIED: The Firebase Storage SDK script has been removed. -->
     
     <script src="firebase.js"></script>
     
@@ -130,3 +155,4 @@
     </div>
 </body>
 </html>
+
