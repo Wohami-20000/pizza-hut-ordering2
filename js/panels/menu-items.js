@@ -4,9 +4,8 @@ const db = firebase.database();
 // REMOVED: Firebase Storage reference is no longer needed
 
 // --- NEW: CLOUDINARY CONFIGURATION ---
-// IMPORTANT: Your Cloud Name is added. Just replace the upload preset below.
 const CLOUDINARY_CLOUD_NAME = "ddgjamijw";
-const CLOUDINARY_UPLOAD_PRESET = "pizza-hut-menu"; // <-- PASTE YOUR UPLOAD PRESET NAME HERE
+const CLOUDINARY_UPLOAD_PRESET = "pizza-hut-menu";
 // ------------------------------------
 
 // --- MODAL ELEMENTS ---
@@ -635,4 +634,3 @@ export function loadPanel(root, panelTitle) {
 
     loadMenuItems();
 }
-
