@@ -432,37 +432,49 @@ function filterItems() {
     }
 }
 
+
 function loadMenuItems() {
     db.ref('menu').on('value', (snapshot) => {
-        const menuItemsList = document.getElementById('menu-items-list');
-        if (!menuItemsList) return;
+        const menuItemsTable = document.getElementById('menu-items-table');
+        if (!menuItemsTable) return;
 
-        menuItemsList.innerHTML = '';
+        // Clear existing tbody elements before re-rendering
+        menuItemsTable.querySelectorAll('tbody').forEach(tbody => tbody.remove());
+
         if (snapshot.exists()) {
             const menu = snapshot.val();
-            let allCategoriesHtml = '';
-
+            
             // Sort categories by displayOrder
             const sortedCategories = Object.entries(menu).sort(([, a], [, b]) => (a.displayOrder || 0) - (b.displayOrder || 0));
 
-            sortedCategories.forEach(([categoryId, categoryData]) => {
-                if (categoryData.items) {
-                    // Sort items within the category by orderIndex
-                    const sortedItems = Object.entries(categoryData.items)
-                        .sort(([, a], [, b]) => (a.orderIndex || 0) - (b.orderIndex || 0));
-                    
-                    // Create a separate tbody for each category to make them sortable
-                    let categoryHtml = `<tbody class="sortable-category-body" data-category-id="${categoryId}">`;
-                    sortedItems.forEach(([itemId, itemData]) => {
-                        categoryHtml += createMenuItemRow(categoryId, itemId, itemData);
-                    });
-                    categoryHtml += `</tbody>`;
-                    allCategoriesHtml += categoryHtml;
-                }
-            });
-            menuItemsList.innerHTML = allCategoriesHtml || `<tr><td colspan="8" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`;
+            if (sortedCategories.length === 0) {
+                 const emptyTbody = document.createElement('tbody');
+                 emptyTbody.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`;
+                 menuItemsTable.appendChild(emptyTbody);
+            } else {
+                sortedCategories.forEach(([categoryId, categoryData]) => {
+                    if (categoryData.items) {
+                        // Sort items within the category by orderIndex
+                        const sortedItems = Object.entries(categoryData.items)
+                            .sort(([, a], [, b]) => (a.orderIndex || 0) - (b.orderIndex || 0));
+                        
+                        const tbody = document.createElement('tbody');
+                        tbody.className = 'sortable-category-body bg-white divide-y divide-gray-200';
+                        tbody.dataset.categoryId = categoryId;
+                        
+                        let itemsHtml = '';
+                        sortedItems.forEach(([itemId, itemData]) => {
+                            itemsHtml += createMenuItemRow(categoryId, itemId, itemData);
+                        });
+                        tbody.innerHTML = itemsHtml;
+                        menuItemsTable.appendChild(tbody);
+                    }
+                });
+            }
         } else {
-            menuItemsList.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`;
+             const emptyTbody = document.createElement('tbody');
+             emptyTbody.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-gray-500">No menu items found.</td></tr>`;
+             menuItemsTable.appendChild(emptyTbody);
         }
         
         initializeSortable();
@@ -471,64 +483,6 @@ function loadMenuItems() {
         updateBulkActionUI();
     });
 }
-
-/**
- * Initializes SortableJS on all category table bodies.
- */
-function initializeSortable() {
-    // Destroy previous instances to avoid memory leaks
-    sortableInstances.forEach(instance => instance.destroy());
-    sortableInstances = [];
-
-    const categoryBodies = document.querySelectorAll('.sortable-category-body');
-    const saveOrderBtn = document.getElementById('save-order-btn');
-
-    categoryBodies.forEach(tbody => {
-        const sortable = new Sortable(tbody, {
-            animation: 150,
-            handle: '.drag-handle',
-            ghostClass: 'sortable-ghost',
-            onEnd: function (evt) {
-                // When the user drops an item, show the save button
-                saveOrderBtn.classList.remove('hidden');
-            },
-        });
-        sortableInstances.push(sortable);
-    });
-}
-
-/**
- * Saves the new order of items to Firebase.
- */
-async function saveOrder() {
-    const saveOrderBtn = document.getElementById('save-order-btn');
-    saveOrderBtn.disabled = true;
-    saveOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
-
-    const updates = {};
-    const categoryBodies = document.querySelectorAll('.sortable-category-body');
-
-    categoryBodies.forEach(tbody => {
-        const categoryId = tbody.dataset.categoryId;
-        tbody.querySelectorAll('tr').forEach((row, index) => {
-            const itemId = row.dataset.itemId;
-            updates[`/menu/${categoryId}/items/${itemId}/orderIndex`] = index;
-        });
-    });
-
-    try {
-        await db.ref().update(updates);
-        alert('Menu order saved successfully!');
-        saveOrderBtn.classList.add('hidden');
-    } catch (error) {
-        console.error("Error saving order:", error);
-        alert("Failed to save order. Please check the console for details.");
-    } finally {
-        saveOrderBtn.disabled = false;
-        saveOrderBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Save New Order';
-    }
-}
-
 
 function populateCategoryDropdowns() {
     const categorySelect = document.getElementById('new-item-category');
@@ -631,7 +585,7 @@ export function loadPanel(root, panelTitle) {
                 </select>
             </div>
             <div class="overflow-x-auto rounded-lg border border-gray-200">
-                <table class="min-w-full divide-y divide-gray-200">
+                <table id="menu-items-table" class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
                             <th scope="col" class="px-4 py-3"></th>
@@ -644,8 +598,7 @@ export function loadPanel(root, panelTitle) {
                             <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="menu-items-list" class="bg-white divide-y divide-gray-200">
-                    </tbody>
+                    {/* The tbody elements will be inserted here by loadMenuItems */}
                 </table>
             </div>
         </div>
@@ -951,3 +904,4 @@ async function bulkUpdateAvailability(inStock) {
         alert('Error updating availability: ' + error.message);
     }
 }
+
