@@ -67,9 +67,9 @@ export function loadPanel(panelRoot, panelTitle) {
             });
         }
 
-        // 2. Listen for delivery orders that are ready for assignment (status: 'preparing')
+        // 2. Listen for orders that are "Ready"
         const ordersRef = db.ref('orders');
-        ordersRef.orderByChild('orderType').equalTo('delivery').on('value', ordersSnapshot => {
+        ordersRef.orderByChild('status').equalTo('Ready').on('value', ordersSnapshot => {
             ordersContainer.innerHTML = '';
             let hasOrdersToAssign = false;
 
@@ -78,8 +78,8 @@ export function loadPanel(panelRoot, panelTitle) {
                     const orderId = orderSnap.key;
                     const orderData = orderSnap.val();
 
-                    // We only want to show orders that are 'preparing' and not yet assigned
-                    if (orderData.status === 'preparing') {
+                    // We only want to show "delivery" orders that are "Ready" and not yet assigned
+                    if (orderData.orderType === 'delivery' && !orderData.assignedDriver) {
                         hasOrdersToAssign = true;
                         ordersContainer.innerHTML += createOrderCard(orderId, orderData, deliveryStaff);
                     }
