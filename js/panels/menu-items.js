@@ -592,6 +592,49 @@ function populateCategoryDropdowns() {
     });
 }
 
+function prefillAddItemForm(data) {
+    // 1. Basic Fields
+    document.getElementById('new-item-name').value = data.name || '';
+    document.getElementById('new-item-description').value = data.description || '';
+    document.getElementById('new-item-price').value = data.price || '';
+    document.getElementById('new-item-recipes').value = (data.recipes || []).join(', ');
+    document.getElementById('new-item-allergies').value = data.allergies || '';
+    
+    // 2. Category
+    const categorySelect = document.getElementById('new-item-category');
+    if (data.category) {
+        categorySelect.value = data.category;
+    }
+
+    // 3. Clear Image (Requirement: Admin must re-upload)
+    document.getElementById('new-item-image-file').value = '';
+    const imgPreview = document.getElementById('new-image-preview');
+    imgPreview.src = '';
+    imgPreview.classList.add('hidden');
+
+    // 4. Sizes
+    const sizesContainer = document.getElementById('new-item-sizes-container');
+    sizesContainer.innerHTML = ''; // Clear existing
+    if (data.sizes && Array.isArray(data.sizes)) {
+        data.sizes.forEach(size => addSizeField(sizesContainer, size.size, size.price));
+    }
+
+    // 5. Options
+    const optionsContainer = document.getElementById('new-item-options-container');
+    optionsContainer.innerHTML = ''; // Clear existing
+    if (data.options && Array.isArray(data.options)) {
+        data.options.forEach(option => addOptionField(optionsContainer, option.name, option.price));
+    }
+
+    // 6. Scroll to form and highlight
+    const form = document.getElementById('add-item-form');
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // Optional: visual cue
+    form.classList.add('ring-2', 'ring-teal-500');
+    setTimeout(() => form.classList.remove('ring-2', 'ring-teal-500'), 1000);
+}
+
 export function loadPanel(root, panelTitle) {
     panelRoot = root; 
     panelTitle.textContent = 'Menu Items Management';
@@ -815,16 +858,12 @@ export function loadPanel(root, panelTitle) {
                 const itemSnapshot = await db.ref(`menu/${categoryId}/items/${itemId}`).once('value');
                 if (itemSnapshot.exists()) {
                     const originalItem = itemSnapshot.val();
-                    const newItem = { ...originalItem };
-                    newItem.name = `${originalItem.name} (Copy)`;
-                    delete newItem.id; // Ensure a new ID is generated
-                    
-                    if (confirm(`Duplicate "${originalItem.name}"?`)) {
-                        const newRef = await db.ref(`menu/${categoryId}/items`).push();
-                        await newRef.set({ ...newItem, id: newRef.key });
-                        logAction('create', newItem.name, newRef.key, { details: `Duplicated from ${originalItem.name} (${itemId})` });
-                        alert('Item duplicated successfully!');
-                    }
+                    const duplicatedData = {
+                        ...originalItem,
+                        name: `${originalItem.name} (Copy)`,
+                        category: categoryId, // Ensure category is preserved
+                    };
+                    prefillAddItemForm(duplicatedData);
                 }
             } else if (btn.classList.contains('recipe-item-btn')) {
                 openRecipeModal(itemId, itemName);
