@@ -205,7 +205,7 @@ function addIngredientToRecipeList(ingredientId, quantity = 0.1) {
     // We want to display the "Unknown/Deleted" state so the user can see and remove it.
 
     if (recipeList.querySelector(`[data-id="${ingredientId}"]`)) {
-        alert('Ingredient is already in the recipe.');
+        showToast('Ingredient is already in the recipe.', true);
         return;
     }
     if (recipeList.querySelector('p')) {
@@ -290,10 +290,10 @@ async function handleSaveRecipe(e) {
 
     try {
         await db.ref(`recipes/${currentRecipeItemId}`).set(recipeData);
-        alert('Recipe saved successfully!');
+        showToast('Recipe saved successfully!', false);
         closeRecipeModal();
     } catch (error) {
-        alert('Error saving recipe: ' + error.message);
+        showToast('Error saving recipe: ' + error.message, true);
         console.error("Recipe save error:", error);
     }
 }
@@ -443,11 +443,11 @@ async function saveEditedEntity(event) {
         // Log the update action
         logAction('update', updatedData.name, currentEditId, { before: oldData, after: updatedData });
 
-        alert(`Item updated successfully!`);
+        showToast('Item updated successfully!', false);
         closeEditModal();
         // The on() listener will automatically refresh the view
     } catch (error) {
-        alert(`Failed to update item: ` + error.message);
+        showToast('Failed to update item: ' + error.message, true);
         console.error("Save error:", error);
     } finally {
         saveBtn.disabled = false;
@@ -816,7 +816,7 @@ export function loadPanel(root, panelTitle) {
 
         const imageFile = document.getElementById('new-item-image-file').files[0];
         if (!imageFile) {
-            alert('Please select an image for the item.');
+            showToast('Please select an image for the item.', true);
             submitBtn.disabled = false;
             submitBtn.textContent = 'Add Item';
             return;
@@ -840,20 +840,20 @@ export function loadPanel(root, panelTitle) {
             panelRoot.querySelectorAll('#new-item-options-container .flex').forEach(row => { const optionName = row.querySelector('.option-name-input').value.trim(); const optionPrice = parseFloat(row.querySelector('.option-price-input').value); if (optionName && !isNaN(optionPrice)) { options.push({ name: optionName, price: optionPrice }); } });
             
             const newItem = { name: panelRoot.querySelector('#new-item-name').value, description: panelRoot.querySelector('#new-item-description').value, price: newItemPrice, category: panelRoot.querySelector('#new-item-category').value, image_url: imageUrl, sizes: sizes, recipes: recipes, options: options, allergies: panelRoot.querySelector('#new-item-allergies').value.trim(), inStock: true };
-            if (!newItem.category) { alert('Please select a category.'); return; }
+            if (!newItem.category) { showToast('Please select a category.', true); return; }
             
             const newRef = await db.ref(`menu/${newItem.category}/items`).push();
             await newRef.set({ ...newItem, id: newRef.key });
 
             logAction('create', newItem.name, newRef.key, { data: newItem });
 
-            alert('Item added successfully!');
+            showToast('Item added successfully!', false);
             e.target.reset();
             document.getElementById('new-image-preview').classList.add('hidden');
             panelRoot.querySelector('#new-item-sizes-container').innerHTML = '';
             panelRoot.querySelector('#new-item-options-container').innerHTML = '';
         } catch (error) {
-            alert("Failed to add item: " + error.message);
+            showToast("Failed to add item: " + error.message, true);
             console.error("Add item error:", error);
         } finally {
             submitBtn.disabled = false;
@@ -936,7 +936,7 @@ export function loadPanel(root, panelTitle) {
 
                     try {
                         await db.ref().update(updates);
-                        await logAction('delete', itemName, itemId, { details: 'Deleted item and associated recipe' });
+                        logAction('delete', itemName, itemId, { details: 'Deleted item and associated recipe' });
                         showToast('Item and associated recipe deleted!', false);
                     } catch (error) {
                         console.error("Error deleting item:", error);
@@ -999,17 +999,17 @@ export function loadPanel(root, panelTitle) {
             // Log each deletion
             const row = panelRoot.querySelector(`tr[data-item-id="${itemId}"]`);
             if (row) {
-                 await logAction('delete', row.dataset.itemName, itemId, { details: 'Bulk delete action' });
+                 logAction('delete', row.dataset.itemName, itemId, { details: 'Bulk delete action' });
             }
         }
 
         try {
             await db.ref().update(updates);
-            alert(`${selectedItems.size} items deleted successfully.`);
+            showToast(`${selectedItems.size} items deleted successfully.`, false);
             selectedItems.clear();
             updateBulkActionUI();
         } catch (error) {
-            alert('Error deleting items: ' + error.message);
+            showToast('Error deleting items: ' + error.message, true);
         }
     });
     
@@ -1019,7 +1019,7 @@ export function loadPanel(root, panelTitle) {
     panelRoot.querySelector('#bulk-change-category-btn').addEventListener('click', async () => {
         const newCategoryId = panelRoot.querySelector('#bulk-category-select').value;
         if (!newCategoryId || selectedItems.size === 0) {
-            alert('Please select items and a target category.');
+            showToast('Please select items and a target category.', true);
             return;
         }
 
@@ -1037,7 +1037,7 @@ export function loadPanel(root, panelTitle) {
         }
 
         if (itemsToMove.length === 0) {
-            alert('All selected items are already in that category.');
+            showToast('All selected items are already in that category.', true);
             return;
         }
 
@@ -1049,11 +1049,11 @@ export function loadPanel(root, panelTitle) {
         
         try {
             await db.ref().update(updates);
-            alert(`${itemsToMove.length} items moved to category "${newCategoryId}".`);
+            showToast(`${itemsToMove.length} items moved to category "${newCategoryId}".`, false);
             selectedItems.clear();
             updateBulkActionUI();
         } catch (error) {
-            alert('Error moving items: ' + error.message);
+            showToast('Error moving items: ' + error.message, true);
         }
     });
 
@@ -1065,7 +1065,7 @@ export function loadPanel(root, panelTitle) {
         const mode = modeSelect.value; // 'percent' or 'fixed'
 
         if (isNaN(rawValue) || selectedItems.size === 0) {
-            alert('Please select items and enter a valid number.');
+            showToast('Please select items and enter a valid number.', true);
             return;
         }
 
@@ -1099,11 +1099,11 @@ export function loadPanel(root, panelTitle) {
         
         try {
             await db.ref().update(updates);
-            alert(`Prices for ${selectedItems.size} items adjusted.`);
+            showToast(`Prices for ${selectedItems.size} items adjusted.`, false);
             selectedItems.clear();
             updateBulkActionUI();
         } catch (error) {
-            alert('Error adjusting prices: ' + error.message);
+            showToast('Error adjusting prices: ' + error.message, true);
         }
     });
 
@@ -1118,16 +1118,16 @@ async function bulkUpdateAvailability(inStock) {
         updates[`/menu/${categoryId}/items/${itemId}/inStock`] = inStock;
         const row = panelRoot.querySelector(`tr[data-item-id="${itemId}"]`);
         if (row) {
-            await logAction('update', row.dataset.itemName, itemId, { change: `Availability set to ${inStock ? 'In Stock' : 'Out of Stock'}`, details: 'Bulk update action' });
+            logAction('update', row.dataset.itemName, itemId, { change: `Availability set to ${inStock ? 'In Stock' : 'Out of Stock'}`, details: 'Bulk update action' });
         }
     }
 
     try {
         await db.ref().update(updates);
-        alert(`Availability for ${selectedItems.size} items updated.`);
+        showToast(`Availability for ${selectedItems.size} items updated.`, false);
         selectedItems.clear();
         updateBulkActionUI();
     } catch (error) {
-        alert('Error updating availability: ' + error.message);
+        showToast('Error updating availability: ' + error.message, true);
     }
 }
