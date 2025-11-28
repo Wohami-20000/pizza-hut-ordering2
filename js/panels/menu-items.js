@@ -1,6 +1,7 @@
 // /js/panels/menu-items.js
 
 import { logAction } from './logs.js';
+import { showToast } from '../../ui-components.js';
 
 const db = firebase.database();
 // REMOVED: Firebase Storage reference is no longer needed
@@ -153,8 +154,11 @@ async function uploadImage(file, onProgress) {
 async function populateRecipeModal() {
     const availableList = document.getElementById('available-ingredients');
     const recipeList = document.getElementById('recipe-ingredients-list');
+    const warningBanner = document.getElementById('recipe-broken-warning'); // Validation Banner
+    
     availableList.innerHTML = '<p class="text-gray-500">Loading ingredients...</p>';
     recipeList.innerHTML = '<p class="text-gray-500">Add ingredients from the left.</p>';
+    if(warningBanner) warningBanner.classList.add('hidden');
 
     const ingredientsSnapshot = await db.ref('ingredients').once('value');
     if (ingredientsSnapshot.exists()) {
@@ -176,16 +180,29 @@ async function populateRecipeModal() {
         const recipeData = recipeSnapshot.val();
         if (recipeData.ingredients) {
             recipeList.innerHTML = '';
+            
+            let hasDeletedIngredients = false;
+
             Object.entries(recipeData.ingredients).forEach(([ingredientId, data]) => {
+                if (!ingredientsCache[ingredientId]) {
+                    hasDeletedIngredients = true;
+                }
                 addIngredientToRecipeList(ingredientId, data.qty);
             });
+
+            // Show high-level warning if validation failed
+            if (hasDeletedIngredients && warningBanner) {
+                warningBanner.classList.remove('hidden');
+                warningBanner.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>Some ingredients in this recipe were deleted from stock. Please review and fix the recipe.';
+            }
         }
     }
 }
 
 function addIngredientToRecipeList(ingredientId, quantity = 0.1) {
     const recipeList = document.getElementById('recipe-ingredients-list');
-    if (!ingredientsCache[ingredientId]) return;
+    // Note: We intentionally do NOT return if ingredientsCache[ingredientId] is missing
+    // We want to display the "Unknown/Deleted" state so the user can see and remove it.
 
     if (recipeList.querySelector(`[data-id="${ingredientId}"]`)) {
         alert('Ingredient is already in the recipe.');
@@ -199,14 +216,35 @@ function addIngredientToRecipeList(ingredientId, quantity = 0.1) {
     const div = document.createElement('div');
     div.className = 'flex justify-between items-center p-2 bg-blue-50 rounded-md';
     div.dataset.id = ingredientId;
-    div.dataset.unit = ingredientData.unit;
+    
+    // Set unit only if ingredient exists
+    if (ingredientData) {
+        div.dataset.unit = ingredientData.unit;
+    }
+
+    let nameDisplay = '';
+    let unitDisplay = '';
+
+    if (ingredientData) {
+        nameDisplay = `<span class="font-semibold">${ingredientData.name}</span>`;
+        unitDisplay = ingredientData.unit;
+    } else {
+        // Render warning for missing ingredient
+        nameDisplay = `
+            <span class="text-red-600 font-semibold">Unknown ingredient (${ingredientId})</span>
+            <span class="ml-2 text-red-500 text-xs font-bold bg-red-100 px-2 py-0.5 rounded-full border border-red-200">
+                <i class="fas fa-exclamation-circle mr-1"></i>Deleted
+            </span>
+        `;
+        unitDisplay = '???';
+    }
 
     div.innerHTML = `
-        <span class="font-semibold">${ingredientData.name}</span>
+        <div class="flex-grow">${nameDisplay}</div>
         <div class="flex items-center gap-2">
             <input type="number" step="0.01" value="${quantity}" class="recipe-qty-input w-20 p-1 border rounded-md text-right">
-            <span class="text-sm text-gray-600">${ingredientData.unit}</span>
-            <button type="button" class="remove-ingredient-from-recipe-btn text-red-500 hover:text-red-700 text-lg">
+            <span class="text-sm text-gray-600 w-12 text-center">${unitDisplay}</span>
+            <button type="button" class="remove-ingredient-from-recipe-btn text-red-500 hover:text-red-700 text-lg p-1">
                 <i class="fas fa-minus-circle"></i>
             </button>
         </div>
@@ -243,7 +281,10 @@ async function handleSaveRecipe(e) {
         const unit = row.dataset.unit;
         const qty = parseFloat(row.querySelector('.recipe-qty-input').value);
         if (!isNaN(qty)) {
-            recipeData.ingredients[id] = { qty, unit };
+            // Only save valid ingredients that still have a unit (meaning they exist in stock)
+            if (unit && unit !== 'undefined') {
+                recipeData.ingredients[id] = { qty, unit };
+            }
         }
     });
 
@@ -511,6 +552,10 @@ function initializeSortable() {
             onEnd: function (evt) {
                 // When the user drops an item, show the save button
                 saveOrderBtn.classList.remove('hidden');
+                
+                // Visual cue for reordering
+                evt.item.classList.add('bg-yellow-100', 'transition-colors', 'duration-500');
+                evt.item.dataset.reordered = 'true';
             },
         });
         sortableInstances.push(sortable);
@@ -539,11 +584,18 @@ async function saveOrder() {
     try {
         await db.ref().update(updates);
         logAction('reorder', 'Menu Items', 'all', { details: 'Admin reordered items within categories.' });
-        alert('Menu order saved successfully!');
+        
+        // Remove visual cues after saving
+        document.querySelectorAll('[data-reordered="true"]').forEach(row => {
+            row.classList.remove('bg-yellow-100', 'transition-colors', 'duration-500');
+            delete row.dataset.reordered;
+        });
+        
+        showToast('Menu order saved successfully!', false);
         saveOrderBtn.classList.add('hidden');
     } catch (error) {
         console.error("Error saving order:", error);
-        alert("Failed to save order. Please check the console for details.");
+        showToast("Failed to save order.", true);
     } finally {
         saveOrderBtn.disabled = false;
         saveOrderBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Save New Order';
@@ -681,8 +733,12 @@ export function loadPanel(root, panelTitle) {
                     <button id="bulk-set-oot-btn" class="text-sm bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600">Set Out of Stock</button>
                 </div>
                  <div class="flex items-center gap-2">
-                    <input type="number" id="bulk-price-adjust" placeholder="e.g., 10 or -5" class="p-1 border rounded-md w-24 text-sm">
-                    <button id="bulk-adjust-price-btn" class="text-sm bg-indigo-500 text-white px-3 py-1 rounded-md hover:bg-indigo-600">Adjust Price %</button>
+                    <input type="number" id="bulk-price-adjust" placeholder="Value" class="p-1 border rounded-md w-24 text-sm">
+                    <select id="bulk-price-mode" class="p-1 border rounded-md text-sm bg-white">
+                        <option value="percent">%</option>
+                        <option value="fixed">MAD</option>
+                    </select>
+                    <button id="bulk-adjust-price-btn" class="text-sm bg-indigo-500 text-white px-3 py-1 rounded-md hover:bg-indigo-600">Apply</button>
                 </div>
                 <button id="bulk-delete-btn" class="text-sm bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700">Delete Selected</button>
             </div>
@@ -716,6 +772,10 @@ export function loadPanel(root, panelTitle) {
         <div id="recipe-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4">
             <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-2xl">
                 <h3 id="recipe-modal-title" class="text-2xl font-bold mb-4">Recipe Editor</h3>
+                
+                <!-- NEW: Warning Banner -->
+                <div id="recipe-broken-warning" class="hidden mb-4 rounded bg-red-100 px-3 py-2 text-sm text-red-700 border border-red-200"></div>
+
                 <div class="grid grid-cols-2 gap-6">
                     <div>
                         <h4 class="font-semibold mb-2">Available Ingredients</h4>
@@ -869,9 +929,19 @@ export function loadPanel(root, panelTitle) {
                 openRecipeModal(itemId, itemName);
             } else if (btn.classList.contains('delete-item-btn')) {
                 if (confirm(`Are you sure you want to delete ${itemName}?`)) {
-                    await logAction('delete', itemName, itemId);
-                    await db.ref(`menu/${categoryId}/items/${itemId}`).remove();
-                    alert('Item deleted!');
+                    // Prepare multi-path update
+                    const updates = {};
+                    updates[`menu/${categoryId}/items/${itemId}`] = null;
+                    updates[`recipes/${itemId}`] = null; // Delete associated recipe
+
+                    try {
+                        await db.ref().update(updates);
+                        await logAction('delete', itemName, itemId, { details: 'Deleted item and associated recipe' });
+                        showToast('Item and associated recipe deleted!', false);
+                    } catch (error) {
+                        console.error("Error deleting item:", error);
+                        showToast('Error deleting item: ' + error.message, true);
+                    }
                 }
             }
         }
@@ -925,6 +995,7 @@ export function loadPanel(root, panelTitle) {
         const updates = {};
         for (const [itemId, categoryId] of selectedItems.entries()) {
             updates[`/menu/${categoryId}/items/${itemId}`] = null;
+            updates[`/recipes/${itemId}`] = null; // Also delete the recipe
             // Log each deletion
             const row = panelRoot.querySelector(`tr[data-item-id="${itemId}"]`);
             if (row) {
@@ -987,9 +1058,14 @@ export function loadPanel(root, panelTitle) {
     });
 
     panelRoot.querySelector('#bulk-adjust-price-btn').addEventListener('click', async () => {
-        const percentage = parseFloat(panelRoot.querySelector('#bulk-price-adjust').value);
-        if (isNaN(percentage) || selectedItems.size === 0) {
-            alert('Please select items and enter a valid percentage.');
+        const valueInput = panelRoot.querySelector('#bulk-price-adjust');
+        const modeSelect = panelRoot.querySelector('#bulk-price-mode');
+        
+        const rawValue = parseFloat(valueInput.value);
+        const mode = modeSelect.value; // 'percent' or 'fixed'
+
+        if (isNaN(rawValue) || selectedItems.size === 0) {
+            alert('Please select items and enter a valid number.');
             return;
         }
 
@@ -1000,16 +1076,30 @@ export function loadPanel(root, panelTitle) {
                 const item = itemSnapshot.val();
                 const currentPrice = parseFloat(item.price);
                 if (!isNaN(currentPrice)) {
-                    const newPrice = currentPrice * (1 + percentage / 100);
-                    updates[`/menu/${categoryId}/items/${itemId}/price`] = parseFloat(newPrice.toFixed(2));
-                    logAction('update', item.name, itemId, { change: `Price adjusted by ${percentage}% from ${currentPrice.toFixed(2)} to ${newPrice.toFixed(2)}` });
+                    let newPrice;
+                    let changeDesc;
+                    
+                    if (mode === 'percent') {
+                        newPrice = currentPrice * (1 + rawValue / 100);
+                        changeDesc = `Price adjusted by ${rawValue}%`;
+                    } else {
+                        // Fixed amount mode
+                        newPrice = currentPrice + rawValue;
+                        changeDesc = `Price adjusted by ${rawValue} MAD`;
+                    }
+                    
+                    // Ensure price doesn't go below zero
+                    newPrice = Math.max(0, parseFloat(newPrice.toFixed(2)));
+                    
+                    updates[`/menu/${categoryId}/items/${itemId}/price`] = newPrice;
+                    logAction('update', item.name, itemId, { change: `${changeDesc} from ${currentPrice.toFixed(2)} to ${newPrice.toFixed(2)}` });
                 }
             }
         }
         
         try {
             await db.ref().update(updates);
-            alert(`Prices for ${selectedItems.size} items adjusted by ${percentage}%.`);
+            alert(`Prices for ${selectedItems.size} items adjusted.`);
             selectedItems.clear();
             updateBulkActionUI();
         } catch (error) {
