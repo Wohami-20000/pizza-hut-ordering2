@@ -83,8 +83,9 @@ function createMenuItemRow(categoryId, itemId, itemData) {
                     <span class="ml-3 text-sm font-medium ${stockTextColor}">${stockText}</span>
                 </label>
             </td>
-            <td class="px-4 py-3 text-center text-sm">
+            <td class="px-4 py-3 text-center text-sm whitespace-nowrap">
                 <button class="edit-item-btn bg-blue-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-blue-600 transition shadow-sm mr-2">Edit</button>
+                <button class="duplicate-item-btn bg-teal-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-teal-600 transition shadow-sm mr-2">Duplicate</button>
                 <button class="recipe-item-btn bg-purple-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-purple-600 transition shadow-sm mr-2">Recipe</button>
                 <button class="delete-item-btn bg-red-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-red-600 transition shadow-sm">Delete</button>
             </td>
@@ -809,6 +810,21 @@ export function loadPanel(root, panelTitle) {
                 const itemSnapshot = await db.ref(`menu/${categoryId}/items/${itemId}`).once('value');
                 if (itemSnapshot.exists()) {
                     openEditModal(itemId, { ...itemSnapshot.val(), category: categoryId });
+                }
+            } else if (btn.classList.contains('duplicate-item-btn')) {
+                const itemSnapshot = await db.ref(`menu/${categoryId}/items/${itemId}`).once('value');
+                if (itemSnapshot.exists()) {
+                    const originalItem = itemSnapshot.val();
+                    const newItem = { ...originalItem };
+                    newItem.name = `${originalItem.name} (Copy)`;
+                    delete newItem.id; // Ensure a new ID is generated
+                    
+                    if (confirm(`Duplicate "${originalItem.name}"?`)) {
+                        const newRef = await db.ref(`menu/${categoryId}/items`).push();
+                        await newRef.set({ ...newItem, id: newRef.key });
+                        logAction('create', newItem.name, newRef.key, { details: `Duplicated from ${originalItem.name} (${itemId})` });
+                        alert('Item duplicated successfully!');
+                    }
                 }
             } else if (btn.classList.contains('recipe-item-btn')) {
                 openRecipeModal(itemId, itemName);
