@@ -180,3 +180,31 @@ export function updateCartItemQuantity(itemId, change, categoryId, itemName, ite
         }
     }
 }
+
+/**
+ * Audit log helper for admin actions (used by promo-codes.js and other panels).
+ * Writes entries under /adminLogs in Realtime Database.
+ *
+ * @param {firebase.User|null} user - The current authenticated user, if any.
+ * @param {string} actionType - A short action label, e.g. 'CREATE_PROMO_CODE'.
+ * @param {object} [details={}] - Additional metadata to store with the log entry.
+ */
+export async function logAction(user, actionType, details = {}) {
+    try {
+        // Assumes firebase is already initialized globally on the page
+        const db = firebase.database();
+        const uid = user && !user.isAnonymous ? user.uid : 'anonymous';
+
+        const logEntry = {
+            uid,
+            actionType,
+            details,
+            timestamp: new Date().toISOString(),
+            source: 'dashboard'
+        };
+
+        await db.ref('adminLogs').push(logEntry);
+    } catch (error) {
+        console.error('logAction failed:', error);
+    }
+}
