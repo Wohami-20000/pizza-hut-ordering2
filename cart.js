@@ -195,8 +195,6 @@ function updateTotalsUI() {
     total = Math.max(0, total);
 
     summarySubtotalEl.textContent = `${subtotal.toFixed(2)} MAD`;
-    // Add this line to your HTML inside the summary section if you want to show taxes
-    // <div class="summary-row flex justify-between"><span data-translate="summary_taxes">Taxes</span><span id="summary-taxes">0.00 MAD</span></div>
     if (document.getElementById('summary-taxes')) {
         document.getElementById('summary-taxes').textContent = `${taxes.toFixed(2)} MAD`;
     }
@@ -520,6 +518,76 @@ async function renderOrderDetailsInput(user) {
     }
 }
 
+/* ---------- NEW: full promo validation ---------- */
+
+async function validatePromo(foundOffer, foundOfferId) {
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const orderType = localStorage.getItem('orderType') || 'dineIn';
+
+    if (foundOffer.minOrderValue && subtotal < foundOffer.minOrderValue) {
+        return {
+            ok: false,
+            errorMessage: `This code requires a minimum order of ${foundOffer.minOrderValue} MAD.`
+        };
+    }
+
+    if (foundOffer.discountType === 'free_delivery' && orderType !== 'delivery') {
+        return {
+            ok: false,
+            errorMessage: 'This code is only valid for delivery orders.'
+        };
+    }
+
+    const now = new Date();
+    if (foundOffer.expiryDate) {
+        const expiryDate = new Date(foundOffer.expiryDate);
+        if (expiryDate < now) {
+            return {
+                ok: false,
+                errorMessage: 'This promo code has expired.'
+            };
+        }
+    }
+
+    if (foundOffer.isActive === false) {
+        return {
+            ok: false,
+            errorMessage: 'This promo code is not currently active.'
+        };
+    }
+
+    const currentUsage = foundOffer.currentUsage || 0;
+    const totalLimit = foundOffer.totalUsageLimit || 0; // 0 = unlimited
+    if (totalLimit > 0 && currentUsage >= totalLimit) {
+        return {
+            ok: false,
+            errorMessage: 'This promo code has reached its usage limit.'
+        };
+    }
+
+    const user = auth.currentUser;
+    if (!user || user.isAnonymous) {
+        return {
+            ok: false,
+            errorMessage: 'Please sign in to use this promo code.'
+        };
+    }
+
+    const userPromoRef = db.ref(`users/${user.uid}/usedPromoCodes/${foundOfferId}`);
+    const userPromoSnapshot = await userPromoRef.once('value');
+    const userUsageCount = userPromoSnapshot.val() || 0;
+    const perUserLimit = foundOffer.perUserLimit || 0; // 0 = unlimited
+
+    if (perUserLimit > 0 && userUsageCount >= perUserLimit) {
+        return {
+            ok: false,
+            errorMessage: 'You have already used this promo code the maximum number of times.'
+        };
+    }
+
+    return { ok: true };
+}
+
 
 function handlePromoCode() {
     const promoInput = document.getElementById('promo-code-input');
@@ -563,47 +631,47 @@ function handlePromoCode() {
         const promoCodesData = snapshot.val();
 
         let foundOffer = null;
+        let foundOfferId = null;
+
         if (promoCodesData) {
             for (const offerId in promoCodesData) {
                 const offer = promoCodesData[offerId];
                 if (offer.code && offer.code.toUpperCase() === codeToApply) {
                     foundOffer = offer;
+                    foundOfferId = offerId;
                     break;
                 }
             }
         }
 
-        if (foundOffer) {
-            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            if (foundOffer.minOrderValue && subtotal < foundOffer.minOrderValue) {
-                promoMessageEl.textContent = `This code requires a minimum order of ${foundOffer.minOrderValue} MAD.`;
-                promoMessageEl.className = 'text-sm mt-2 font-semibold error';
-                return;
-            }
-
-            if (foundOffer.discountType === 'free_delivery' && localStorage.getItem('orderType') !== 'delivery') {
-                promoMessageEl.textContent = 'This code is only valid for delivery orders.';
-                promoMessageEl.className = 'text-sm mt-2 font-semibold error';
-                return;
-            }
-
-            appliedPromo = foundOffer;
-            localStorage.setItem('appliedPromo', JSON.stringify(appliedPromo));
-            updateTotalsUI();
-
-            promoInput.disabled = true;
-            applyBtn.textContent = 'Remove';
-            applyBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
-            applyBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
-            promoMessageEl.textContent = `Success! "${foundOffer.name}" applied.`;
-            promoMessageEl.className = 'text-sm mt-2 font-semibold success';
-        } else {
+        if (!foundOffer) {
             promoMessageEl.textContent = 'This promo code is not valid.';
             promoMessageEl.className = 'text-sm mt-2 font-semibold error';
             appliedPromo = null;
             localStorage.removeItem('appliedPromo');
             updateTotalsUI();
+            return;
         }
+
+        const validation = await validatePromo(foundOffer, foundOfferId);
+        if (!validation.ok) {
+            promoMessageEl.textContent = validation.errorMessage || 'This promo code cannot be used.';
+            promoMessageEl.className = 'text-sm mt-2 font-semibold error';
+            return;
+        }
+
+        foundOffer.id = foundOfferId;
+
+        appliedPromo = foundOffer;
+        localStorage.setItem('appliedPromo', JSON.stringify(appliedPromo));
+        updateTotalsUI();
+
+        promoInput.disabled = true;
+        applyBtn.textContent = 'Remove';
+        applyBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+        applyBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
+        promoMessageEl.textContent = `Success! "${foundOffer.name}" applied.`;
+        promoMessageEl.className = 'text-sm mt-2 font-semibold success';
     });
 }
 
@@ -756,6 +824,32 @@ Object.assign(window.cartFunctions, {
         updatePlaceOrderButtonState();
     }
 });
+
+/* --- NEW: track promo usage on successful order --- */
+async function trackPromoUsageOnOrder(orderId, orderData) {
+    if (!appliedPromo || !appliedPromo.id) return;
+
+    const promoId = appliedPromo.id;
+    const promoUsageRef = db.ref(`promoCodes/${promoId}/currentUsage`);
+    promoUsageRef.transaction(current => (current || 0) + 1);
+
+    const user = auth.currentUser;
+    if (user && !user.isAnonymous) {
+        const perUserRef = db.ref(`users/${user.uid}/usedPromoCodes/${promoId}`);
+        perUserRef.transaction(current => (current || 0) + 1);
+    }
+
+    const promoInfo = {
+        id: promoId,
+        code: appliedPromo.code || null,
+        discountType: appliedPromo.discountType || null,
+        discountValue: appliedPromo.discountValue || 0
+    };
+    await db.ref(`orders/${orderId}/promo`).set(promoInfo);
+
+    appliedPromo = null;
+    localStorage.removeItem('appliedPromo');
+}
 
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -969,9 +1063,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         await db.ref(`users/${customerInfo.userId}/orders/${orderId}`).set(true);
                     }
 
+                    await trackPromoUsageOnOrder(orderId, orderData);
+
                     localStorage.setItem("lastOrderId", orderId);
                     localStorage.removeItem("cart");
-                    localStorage.removeItem("appliedPromo");
 
                     window.location.href = `confirm.html?orderId=${orderId}`;
                 } catch (error) {
