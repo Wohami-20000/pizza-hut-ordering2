@@ -1,8 +1,21 @@
 // /js/panels/assign-deliveries.js
 
 const db = firebase.database();
-// If you already have a logging utility somewhere else, adjust this import path accordingly.
-import { logAction } from '../utils/logging.js';
+
+/**
+ * Safe wrapper to call logAction if it exists (global from logging.js).
+ * If logging.js is missing or fails, the app keeps working.
+ */
+function safeLogAction(actionType, targetLabel, targetId, metadata = {}) {
+    try {
+        if (typeof window !== 'undefined' && typeof window.logAction === 'function') {
+            return window.logAction(actionType, targetLabel, targetId, metadata);
+        }
+    } catch (err) {
+        console.warn('safeLogAction error:', err);
+    }
+    return Promise.resolve();
+}
 
 /**
  * Formats a timestamp (ms since epoch) into a human-readable age string.
@@ -38,7 +51,9 @@ function buildDriverOptions(deliveryStaff, selectedUid = '', disableUnavailable 
     return sorted
         .map(driver => {
             const status = driver.status || 'unknown';
-            const statusLabel = status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
+            const statusLabel = status
+                .charAt(0)
+                .toUpperCase() + status.slice(1).replace('_', ' ');
             const label = `${driver.name} - ${statusLabel}`;
             const selected = driver.uid === selectedUid ? 'selected' : '';
             const disabled =
@@ -144,8 +159,7 @@ function createAssignedOrderCard(orderId, orderData, deliveryStaff) {
 function initMapIfPresent() {
     const mapEl = document.getElementById('delivery-map');
     if (!mapEl) return;
-    // Place-holder: you can integrate Leaflet or Google Maps here later.
-    // Example visual placeholder:
+    // Placeholder: you can integrate Leaflet or Google Maps here later.
     mapEl.innerHTML = `
         <div class="w-full h-full flex items-center justify-center text-gray-400 text-sm">
             Map view coming soon...
@@ -291,13 +305,9 @@ export function loadPanel(panelRoot, panelTitle) {
                 .update(updates)
                 .then(() => {
                     console.log(`Order ${orderId} assigned to ${driverName}.`);
-                    try {
-                        logAction('update', `Order #${orderId}`, orderId, {
-                            change: `Assigned to driver ${driverName} (${driverUid})`
-                        });
-                    } catch (err) {
-                        console.warn('Failed to log action for assigning order:', err);
-                    }
+                    safeLogAction('update', `Order #${orderId}`, orderId, {
+                        change: `Assigned to driver ${driverName} (${driverUid})`
+                    });
                     // The real-time listener will automatically remove the card from the UI.
                 })
                 .catch(err => {
@@ -335,13 +345,9 @@ export function loadPanel(panelRoot, panelTitle) {
                 .update(updates)
                 .then(() => {
                     console.log(`Order ${orderId} re-assigned to ${driverName}.`);
-                    try {
-                        logAction('update', `Order #${orderId}`, orderId, {
-                            change: `Re-assigned to driver ${driverName} (${driverUid})`
-                        });
-                    } catch (err) {
-                        console.warn('Failed to log action for re-assigning order:', err);
-                    }
+                    safeLogAction('update', `Order #${orderId}`, orderId, {
+                        change: `Re-assigned to driver ${driverName} (${driverUid})`
+                    });
                 })
                 .catch(err => {
                     alert('Failed to re-assign order: ' + err.message);
@@ -361,13 +367,9 @@ export function loadPanel(panelRoot, panelTitle) {
                 .update(updates)
                 .then(() => {
                     console.log(`Order ${orderId} unassigned and moved back to Ready.`);
-                    try {
-                        logAction('update', `Order #${orderId}`, orderId, {
-                            change: 'Driver unassigned; order moved back to Ready.'
-                        });
-                    } catch (err) {
-                        console.warn('Failed to log action for unassigning order:', err);
-                    }
+                    safeLogAction('update', `Order #${orderId}`, orderId, {
+                        change: 'Driver unassigned; order moved back to Ready.'
+                    });
                 })
                 .catch(err => {
                     alert('Failed to unassign order: ' + err.message);
